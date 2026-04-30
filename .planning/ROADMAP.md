@@ -34,7 +34,11 @@
 8. Connection strings never stored in browser; credentials never logged or exposed to client
 9. All queries validated and parameterized by proxy (no SQL injection vectors)
 
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Backend proxy server (Hono, WebSocket, REST, mssql pool, encryption, auth)
+- [ ] 01-02-PLAN.md — Frontend integration (apiClient, connection dialog, live mode)
 
 ---
 
@@ -122,7 +126,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 1. Backend Proxy Foundation | 0/1 | Not started | - |
+| 1. Backend Proxy Foundation | 0/2 | Not started | - |
 | 2. Connected Query Execution | 0/1 | Not started | - |
 | 3. Object Explorer & Workspace | 0/1 | Not started | - |
 | 4. Professional Polish | 0/1 | Not started | - |
