@@ -29,7 +29,8 @@ export function defaultState() {
     snippets: [],
     history: [],
     mssqlDb: 'hospital',
-    mssqlScript: ''
+    mssqlScript: '',
+    liveScript: ''
   };
 }
 
@@ -65,6 +66,39 @@ function loadState() {
 
 export let state = loadState();
 export let solved = new Set(state.solved);
+
+// Live mode preferences
+let _livePrefs = null;
+const LIVE_PREFS_KEY = 'querylab:v1:livePrefs';
+
+function loadLivePreferences() {
+  try {
+    const raw = localStorage.getItem(LIVE_PREFS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { console.warn('loadLivePreferences failed', e); }
+  return { pageSize: 100, timeout: 30 };
+}
+
+export function getLivePreferences() {
+  if (!_livePrefs) _livePrefs = loadLivePreferences();
+  return _livePrefs;
+}
+
+export function setLivePreference(key, value) {
+  if (!_livePrefs) _livePrefs = loadLivePreferences();
+  if (key === 'pageSize') {
+    if (![100, 200, 500].includes(value)) return;
+    _livePrefs.pageSize = value;
+  } else if (key === 'timeout') {
+    if (value < 1 || value > 300) return;
+    _livePrefs.timeout = value;
+  }
+  try {
+    localStorage.setItem(LIVE_PREFS_KEY, JSON.stringify(_livePrefs));
+  } catch (e) {
+    console.warn('setLivePreference persist failed', e);
+  }
+}
 
 let _persistTimer = null;
 export function persist(immediate) {
