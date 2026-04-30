@@ -436,3 +436,157 @@ export async function fetchMissingIndexes(query, database) {
 
   return { missingIndexes, xml: data.xml };
 }
+
+// ============================================================
+// SQL Agent Jobs API
+// ============================================================
+
+function currentDb() {
+  return window.__runtime?.cursor?.currentDbName || 'master';
+}
+
+/**
+ * List all SQL Agent jobs with category hierarchy.
+ */
+export async function fetchSqlAgentJobs() {
+  const db = currentDb();
+  const res = await fetch(`${API_BASE}/sql-agent/jobs/${encodeURIComponent(db)}`, {
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  if (!res.ok) throw new Error('Failed to fetch jobs');
+  return res.json();
+}
+
+/**
+ * Get job details (overview, steps, schedules, alerts).
+ */
+export async function fetchJobDetails(jobName) {
+  const db = currentDb();
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}`, {
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  if (!res.ok) throw new Error('Failed to fetch job details');
+  return res.json();
+}
+
+/**
+ * Get paginated job history.
+ */
+export async function fetchJobHistory(jobName, page = 0) {
+  const db = currentDb();
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}/history?page=${page}&pageSize=50`, {
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  if (!res.ok) throw new Error('Failed to fetch job history');
+  return res.json();
+}
+
+/**
+ * Start a SQL Agent job.
+ */
+export async function startJob(jobName) {
+  const db = currentDb();
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}/start`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  return res.json();
+}
+
+/**
+ * Stop a SQL Agent job.
+ */
+export async function stopJob(jobName) {
+  const db = currentDb();
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}/stop`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  return res.json();
+}
+
+/**
+ * Enable a SQL Agent job.
+ */
+export async function enableJob(jobName) {
+  const db = currentDb();
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}/enable`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  return res.json();
+}
+
+/**
+ * Disable a SQL Agent job.
+ */
+export async function disableJob(jobName) {
+  const db = currentDb();
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}/disable`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  return res.json();
+}
+
+// ============================================================
+// Backup/Restore API
+// ============================================================
+
+/**
+ * Execute a database backup.
+ */
+export async function executeBackup(options) {
+  const res = await fetch(`${API_BASE}/backup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    credentials: 'include',
+    body: JSON.stringify(options)
+  });
+  return res.json();
+}
+
+/**
+ * List backup history for a database.
+ */
+export async function fetchBackupHistory(dbName) {
+  const res = await fetch(`${API_BASE}/backup/history/${encodeURIComponent(dbName)}`, {
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  if (!res.ok) throw new Error('Failed to fetch backup history');
+  return res.json();
+}
+
+/**
+ * Execute a database restore.
+ */
+export async function executeRestore(options) {
+  const res = await fetch(`${API_BASE}/restore`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    credentials: 'include',
+    body: JSON.stringify(options)
+  });
+  return res.json();
+}
+
+/**
+ * Verify backup file integrity.
+ */
+export async function verifyBackup(backupPath) {
+  const res = await fetch(`${API_BASE}/restore/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    credentials: 'include',
+    body: JSON.stringify({ backupPath })
+  });
+  return res.json();
+}

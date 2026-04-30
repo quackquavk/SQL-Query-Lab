@@ -39,6 +39,13 @@ import {
 setDbHooks({ showFeedback, switchTab, renderSchema });
 setUiHooks({ loadQuestion, loadHistoryItem });
 
+// Wire admin module hooks
+const { setJobBrowserHooks } = await import('./jobBrowser.js');
+setJobBrowserHooks({ showFeedback, switchTab });
+
+const { setBackupRestoreHooks } = await import('./backupRestore.js');
+setBackupRestoreHooks({ showFeedback, toast });
+
 function runQuery() {
   const sql = runtime.editor.getValue().trim();
   if (!sql) {
@@ -218,6 +225,48 @@ function wireUI() {
       loadQuestion(QUESTIONS[0].id);
     }
     toast('Progress wiped. Fresh start.', 'Reset');
+  });
+
+  // Backup Database menu item
+  document.getElementById('menuBackupDb')?.addEventListener('click', async () => {
+    menuDrop.classList.remove('open');
+    if (runtime.cursor.currentMode !== 'live') {
+      toast('Connect to a live SQL Server first', 'Live mode required');
+      return;
+    }
+    const { openBackupModal } = await import('./backupRestore.js');
+    openBackupModal();
+  });
+
+  // Restore Database menu item
+  document.getElementById('menuRestoreDb')?.addEventListener('click', async () => {
+    menuDrop.classList.remove('open');
+    if (runtime.cursor.currentMode !== 'live') {
+      toast('Connect to a live SQL Server first', 'Live mode required');
+      return;
+    }
+    const { openRestoreWizard } = await import('./backupRestore.js');
+    openRestoreWizard();
+  });
+
+  // Global keyboard shortcuts for backup/restore (live mode only)
+  document.addEventListener('keydown', (e) => {
+    if (!runtime.editor) return;
+    const editorInput = runtime.editor?.getInputField();
+    if (!editorInput || document.activeElement !== editorInput) return;
+    if (!(e.metaKey || e.ctrlKey)) return;
+
+    if (e.shiftKey && e.key === 'B') {
+      e.preventDefault();
+      if (runtime.cursor.currentMode === 'live') {
+        import('./backupRestore.js').then(m => m.openBackupModal());
+      }
+    } else if (e.shiftKey && e.key === 'R') {
+      e.preventDefault();
+      if (runtime.cursor.currentMode === 'live') {
+        import('./backupRestore.js').then(m => m.openRestoreWizard());
+      }
+    }
   });
 
   // Mode toggle

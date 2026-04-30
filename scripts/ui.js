@@ -261,12 +261,13 @@ export function renderObjectTree(treeData, container) {
     dbNode.innerHTML = `🗄️ ${db.name}`;
     container.appendChild(dbNode);
 
-    // Child folders: Tables, Views, Stored Procedures, Functions
+    // Child folders: Tables, Views, Stored Procedures, Functions, SQL Agent Jobs
     const childFolders = [
       { name: 'Tables', type: 'table', items: db.tables || [] },
       { name: 'Views', type: 'view', items: db.views || [] },
       { name: 'Stored Procedures', type: 'procedure', items: db.procedures || [] },
       { name: 'Functions', type: 'function', items: db.functions || [] },
+      { name: 'SQL Agent Jobs', type: 'sql-agent', items: [{ name: 'Jobs' }] },
     ];
 
     childFolders.forEach(folder => {
@@ -319,9 +320,11 @@ function wireTreeEvents(container) {
       return;
     }
 
-    // Object click (table, view, procedure, function) → show schema or definition
+    // Object click (table, view, procedure, function, sql-agent) → show schema or job browser
     if (['table', 'view', 'procedure', 'function'].includes(type)) {
       handleObjectClick(node, type, name);
+    } else if (type === 'sql-agent') {
+      import('./jobBrowser.js').then(m => m.initJobBrowser());
     }
   });
 
@@ -402,6 +405,7 @@ function renderDatabaseChildren(dbNode, dbData) {
     { name: 'Views', type: 'view', items: dbData.views || [] },
     { name: 'Stored Procedures', type: 'procedure', items: dbData.procedures || [] },
     { name: 'Functions', type: 'function', items: dbData.functions || [] },
+    { name: 'SQL Agent Jobs', type: 'sql-agent', items: [{ name: 'Jobs' }] },
   ];
 
   childFolders.forEach(folder => {
@@ -426,6 +430,10 @@ function renderDatabaseChildren(dbNode, dbData) {
  */
 function handleObjectClick(node, type, name) {
   const database = node.dataset.database;
+  if (type === 'sql-agent') {
+    import('./jobBrowser.js').then(m => m.initJobBrowser());
+    return;
+  }
   if (type === 'table' || type === 'view') {
     // Show schema in right sidebar
     if (typeof renderSchema === 'function') {
