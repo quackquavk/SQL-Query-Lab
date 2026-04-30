@@ -19,7 +19,7 @@ import { initEditor, injectCodemirrorFontFix } from './editor.js';
 import { loadQuestion, runPracticeQuery, navQuestion } from './practice.js';
 import {
   setMode, enterSandbox, runSandboxQuery, resetSandboxDb, runMssqlTranslation,
-  saveCurrentAsSnippet, loadHistoryItem, runLiveQuery
+  saveCurrentAsSnippet, loadHistoryItem, runLiveQuery, cancelLiveQuery
 } from './sandbox.js';
 
 // Wire cross-module hooks before any handler can fire
@@ -27,28 +27,44 @@ setDbHooks({ showFeedback, switchTab, renderSchema });
 setUiHooks({ loadQuestion, loadHistoryItem });
 
 function runQuery() {
-  if (runtime.cursor.currentMode === 'live') return runLiveQueryFromMain();
-  if (runtime.cursor.currentMode === 'sandbox') return runSandboxQuery();
-  return runPracticeQuery();
-}
-
-async function runLiveQueryFromMain() {
   const sql = runtime.editor.getValue().trim();
   if (!sql) {
     showFeedback('error', 'Empty', 'Write some SQL before running.');
     switchTab('message');
     return;
   }
+  if (runtime.cursor.currentMode === 'live') {
+    return runLiveQueryFromMain();
+  }
+  if (runtime.cursor.currentMode === 'sandbox') return runSandboxQuery();
+  return runPracticeQuery();
+}
+
+async function runLiveQueryFromMain() {
+  const sql = runtime.editor.getValue().trim();
   try {
-    const result = await runLiveQuery(sql);
-    runtime.cursor.lastUserResult = { columns: result.columns?.map(c => c.name) || [], values: result.rows || [] };
-    document.getElementById('outCount').textContent = result.rows?.length || 0;
-    showFeedback('success', 'OK', `${result.rows?.length || 0} rows, ${result.executionTime || 0}ms`);
-    switchTab('output');
+    // Disable run button, enable cancel button
+    document.getElementById('runBtn').disabled = true;
+    const cancelBtn = document.getElementById('btn-cancel');
+    if (cancelBtn) cancelBtn.disabled = false;
+    // Show loading state
+    const loadingEl = document.getElementById('results-loading');
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    const statusEl = document.getElementById('results-status');
+    if (statusEl) statusEl.className = 'results-status';
+
+    const result = await runLiveQuery(sql, {
+      connectionId: runtime.cursor.connectionId,
+      timeout: (runtime.cursor.queryTimeout || 30) * 1000
+    });
   } catch (err) {
     runtime.cursor.lastError = err.message;
-    showFeedback('error', 'Query error', err.message);
-    switchTab('message');
+  } finally {
+    document.getElementById('runBtn').disabled = false;
+    const cancelBtn = document.getElementById('btn-cancel');
+    if (cancelBtn) cancelBtn.disabled = true;
+    const loadingEl = document.getElementById('results-loading');
+    if (loadingEl) loadingEl.classList.add('hidden');
   }
 }
 
@@ -199,6 +215,24 @@ function wireUI() {
       renderResultsTab(btn.dataset.tab);
     });
   });
+
+  // Cancel button for live query
+  document.getElementById('btn-cancel')?.addEventListener('click', () => {
+    cancelLiveQuery();
+  });
+
+  // Timeout input for live query
+  const timeoutInput = document.getElementById('query-timeout');
+  if (timeoutInput) {
+    timeoutInput.value = runtime.cursor.queryTimeout || 30;
+    timeoutInput.addEventListener('change', () => {
+      const val = parseInt(timeoutInput.value);
+      if (val >= 1 && val <= 300) {
+        runtime.cursor.queryTimeout = val;
+        if (state.setLivePreference) state.setLivePreference('timeout', val);
+      }
+    });
+  }
 }
 
 async function boot() {
@@ -221,10 +255,13 @@ async function boot() {
     runtime.liveDb['blank'] = blankDb;
   }
 
-  initEditor({ runQuery, runMssqlTranslation });
+  initEditor({ runQuery, runMssqlTranslation, runLiveQuery: runLiveQueryFromMain });
 
   runtime.cursor.activeCategoryFilter = state.lastCategoryFilter || 'ALL';
   runtime.cursor.activeDifficultyFilter = state.lastDifficultyFilter || 'ALL';
+
+  // Wire editor query executor for F5 / Cmd+Enter
+  runtime.editorQueryExecutor = runQuery;
 
   wireUI();
 
