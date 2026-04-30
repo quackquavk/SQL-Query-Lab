@@ -8,7 +8,7 @@
 
 - [x] **Phase 1: Backend Proxy Foundation** - Secure connection management infrastructure
 - [ ] **Phase 2: Connected Query Execution** - Query editor and live SQL Server execution
-- [ ] **Phase 3: Object Explorer & Workspace** - Navigation tree and multi-tab workspace
+- [x] **Phase 3: Object Explorer & Workspace** - Navigation tree and multi-tab workspace (completed 2026-04-30)
 - [ ] **Phase 4: Professional Polish** - Theming, shortcuts, formatting, visual tools
 
 ---
@@ -92,10 +92,10 @@ Plans:
 12. Built-in starter snippets available (SELECT TOP 100, INSERT, UPDATE, DELETE patterns)
 13. Query history persists across sessions
 
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 03-01-PLAN.md — Multi-tab workspace, object explorer tree, snippet management
+- [x] 03-01-PLAN.md — Multi-tab workspace, object explorer tree, snippet management
 
 **UI hint:** yes
 
@@ -134,7 +134,7 @@ Plans:
 |-------|---------------|--------|-----------|
 | 1. Backend Proxy Foundation | 2/2 | Complete | 2026-04-30 |
 | 2. Connected Query Execution | 1/1 | Planned | - |
-| 3. Object Explorer & Workspace | 1/1 | Planned | - |
+| 3. Object Explorer & Workspace | 1/1 | Complete   | 2026-04-30 |
 | 4. Professional Polish | 0/1 | Not started | - |
 
 ---
