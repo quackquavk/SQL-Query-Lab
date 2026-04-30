@@ -9,11 +9,12 @@ import {
 } from './db.js';
 import {
   showFeedback, switchTab, toast, renderSchema, renderResultsTab,
-  renderHistory, updateDirtyMark
+  renderHistory, updateDirtyMark, renderResultsStreaming,
+  storeResultSet, getResultSet
 } from './ui.js';
 import { escapeHtml, splitSqlStatements, previewStatement } from './utils.js';
 import { enterPractice } from './practice.js';
-import { connectQuerySocket, executeQuery, cancelQuery, disconnectQuerySocket } from './apiClient.js';
+import { connectQuerySocket, executeQuery, cancelQuery, disconnectQuerySocket, createQueryStreamer } from './apiClient.js';
 
 export function setMode(mode) {
   runtime.cursor.currentMode = mode;
@@ -108,59 +109,89 @@ export async function enterLive() {
   showFeedback('info', 'Live Mode', `Connected to ${runtime.cursor.connectionName || 'SQL Server'}. Run queries against your live database.`);
 }
 
-export async function runLiveQuery(sql) {
-  const connectionId = runtime.cursor.connectionId;
-  if (!connectionId) {
+export async function runLiveQuery(sql, options = {}) {
+  const { connectionId, timeout = 30000 } = options;
+  const connId = connectionId || runtime.cursor.connectionId;
+  if (!connId) {
     throw new Error('Not connected to a server');
   }
 
-  let results = null;
-  let error = null;
+  runtime.cursor.queryState = 'running';
+  runtime.cursor.currentResultsView = null;
 
-  await connectQuerySocket({
-    onColumns: (columns) => {
-      results = { columns, rows: [], rowsAffected: 0, executionTime: 0 };
-    },
-    onRows: (rows, total) => {
-      if (results) results.rows.push(...rows);
-    },
-    onDone: (rowsAffected, executionTime) => {
-      if (results) {
-        results.rowsAffected = rowsAffected;
-        results.executionTime = executionTime;
-      }
-    },
-    onError: (message, code, queryId) => {
-      error = { message, code };
-    }
-  });
-
-  const queryId = executeQuery(connectionId, sql, []);
+  const { createQueryStreamer } = await import('./apiClient.js');
 
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      cancelQuery(queryId);
-      disconnectQuerySocket();
-      reject(new Error('Query timeout (30s)'));
-    }, 30000);
+    const streamer = createQueryStreamer(connId, sql, { timeout });
 
-    const check = () => {
-      if (error) {
-        clearTimeout(timeout);
-        disconnectQuerySocket();
-        reject(new Error(error.message));
-        return;
-      }
-      if (results && results.executionTime > 0) {
-        clearTimeout(timeout);
-        disconnectQuerySocket();
-        resolve(results);
-        return;
-      }
-      setTimeout(check, 50);
-    };
-    check();
+    streamer.addEventListener('columns', ({ columns }) => {
+      const resultsView = renderResultsStreaming(columns, {
+        pageSize: runtime.cursor.livePageSize || 100,
+        onPageChange: (page) => { runtime.cursor.livePage = page; },
+        onSort: (col, dir) => { runtime.cursor.liveSort = { col, dir }; }
+      });
+      runtime.cursor.currentResultsView = resultsView;
+      storeResultSet(columns, []);
+      runtime.cursor.currentResultSetIndex = 0;
+    });
+
+    streamer.addEventListener('rows', ({ rows, total }) => {
+      const rv = runtime.cursor.currentResultsView;
+      if (rv) rv.addRows(rows);
+      const idx = runtime.cursor.currentResultSetIndex ?? 0;
+      const rs = getResultSet(idx);
+      if (rs) rs.rows.push(...rows);
+    });
+
+    streamer.addEventListener('done', ({ rowsAffected, executionTime }) => {
+      const rv = runtime.cursor.currentResultsView;
+      if (rv) rv.complete(executionTime, rowsAffected);
+      runtime.cursor.queryState = 'done';
+      runtime.cursor.lastExecutionTime = executionTime;
+      runtime.cursor.lastRowCount = rowsAffected;
+      showFeedback('success', 'OK', `${rowsAffected} rows, ${executionTime}ms`);
+      switchTab('output');
+      streamer.destroy();
+      resolve({ executionTime, rowCount: rowsAffected });
+    });
+
+    streamer.addEventListener('error', ({ message }) => {
+      const rv = runtime.cursor.currentResultsView;
+      if (rv) rv.error(message);
+      runtime.cursor.queryState = 'error';
+      runtime.cursor.lastError = message;
+      showFeedback('error', 'Query error', message);
+      switchTab('message');
+      streamer.destroy();
+      reject(new Error(message));
+    });
+
+    streamer.connect().then(() => {
+      streamer.setTimeout(timeout, () => {
+        runtime.cursor.queryState = 'timeout';
+        runtime.cursor.lastError = 'Query timeout';
+        showFeedback('error', 'Timeout', `Query timed out after ${timeout / 1000}s`);
+        switchTab('message');
+        streamer.destroy();
+        reject(new Error('Query timeout'));
+      });
+    }).catch(err => {
+      runtime.cursor.queryState = 'error';
+      runtime.cursor.lastError = err.message;
+      showFeedback('error', 'Connection error', err.message);
+      switchTab('message');
+      reject(err);
+    });
   });
+}
+
+export function cancelLiveQuery() {
+  if (runtime.cursor.queryState !== 'running') return;
+  runtime.cursor.queryState = 'cancelled';
+  const rv = runtime.cursor.currentResultsView;
+  if (rv) rv.error('Query cancelled');
+  showFeedback('warn', 'Cancelled', 'Query was cancelled');
+  switchTab('message');
 }
 
 export function translateToMssql(sql) {
