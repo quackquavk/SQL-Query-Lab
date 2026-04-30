@@ -2,7 +2,7 @@
 // snippet management, MS SQL T-SQL translation.
 
 import * as runtime from './runtime.js';
-import { state, persist, addToHistory } from './state.js';
+import { state, persist, addToHistory, BUILTIN_SNIPPETS } from './state.js';
 import {
   cloneFromPristine, loadOrCreateSandboxDb, persistSandboxDbDebounced,
   updateDbStatus, updateHintTables
@@ -581,7 +581,12 @@ export function renderSnippetList() {
   const list = document.getElementById('snippetList');
   const count = document.getElementById('snippetCount');
   if (!list) return;
-  const snippets = state.snippets || [];
+
+  const builtin = BUILTIN_SNIPPETS || [];
+  const userSnippets = state.snippets || [];
+  const allSnippets = [...builtin, ...userSnippets];
+  const snippets = allSnippets;
+
   count.textContent = snippets.length;
   if (snippets.length === 0) {
     list.innerHTML = '<div class="snippet-empty">No saved snippets yet</div>';
@@ -592,13 +597,21 @@ export function renderSnippetList() {
     <div class="snippet-row" data-id="${s.id}">
       <div class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
       <div class="preview" title="${escapeHtml(s.sql.slice(0, 200))}">${escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 60))}</div>
-      <button class="del" data-del="${s.id}" title="Delete snippet">×</button>
+      ${s.builtin ? '<span class="builtin-tag">built-in</span>' : ''}
+      <button class="ins-btn" data-ins="${s.id}" title="Insert at cursor">→</button>
+      ${!s.builtin ? `<button class="del" data-del="${s.id}" title="Delete snippet">×</button>` : ''}
     </div>
   `).join('');
   list.querySelectorAll('.snippet-row').forEach(r => {
     r.addEventListener('click', (e) => {
-      if (e.target.classList.contains('del')) return;
+      if (e.target.classList.contains('del') || e.target.classList.contains('ins-btn')) return;
       loadSnippet(r.dataset.id);
+    });
+  });
+  list.querySelectorAll('.ins-btn').forEach(b => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      insertSnippetAtCursor(b.dataset.ins);
     });
   });
   list.querySelectorAll('.del').forEach(b => {
@@ -634,6 +647,16 @@ export function saveCurrentAsSnippet() {
 
 export function loadSnippet(id) {
   const editor = runtime.editor;
+  // Check built-ins first
+  const builtin = BUILTIN_SNIPPETS.find(x => x.id === id);
+  if (builtin) {
+    runtime.cursor.editorLoading = true;
+    editor.setValue(builtin.sql);
+    editor.setCursor({ line: editor.lineCount(), ch: 0 });
+    runtime.cursor.editorLoading = false;
+    toast('Loaded "' + builtin.name + '"', 'Snippet');
+    return;
+  }
   const s = (state.snippets || []).find(x => x.id === id);
   if (!s) return;
   if (s.db !== runtime.cursor.currentDbName) {
@@ -659,6 +682,89 @@ export function deleteSnippet(id) {
   state.snippets = (state.snippets || []).filter(s => s.id !== id);
   persist(true);
   renderSnippetList();
+}
+
+// ─── Snippet CRUD ─────────────────────────────────────────
+// SNIP-01: save with name/category, SNIP-03: delete by id, SNIP-03: edit snippet
+export function saveSnippet({ id, name, category, sql }) {
+  if (!name || !sql) return;
+  if (id) {
+    const idx = (state.snippets || []).findIndex(s => s.id === id);
+    if (idx !== -1) {
+      state.snippets[idx] = { ...state.snippets[idx], name, category, sql, updatedAt: Date.now() };
+    }
+  } else {
+    state.snippets = state.snippets || [];
+    state.snippets.push({
+      id: 'snip_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      name,
+      category: category || 'General',
+      sql,
+      db: runtime.cursor.currentDbName,
+      createdAt: Date.now(),
+      builtin: false
+    });
+  }
+  persist(true);
+  renderSnippetList();
+}
+
+export function updateSnippet(id, updates) {
+  const idx = (state.snippets || []).findIndex(s => s.id === id);
+  if (idx === -1) return;
+  state.snippets[idx] = { ...state.snippets[idx], ...updates, updatedAt: Date.now() };
+  persist(true);
+  renderSnippetList();
+}
+
+// SNIP-02: insert snippet SQL at current cursor position
+export function insertSnippetAtCursor(id) {
+  const editor = runtime.editor;
+  const s = (state.snippets || []).find(x => x.id === id);
+  if (!s) return;
+  const from = editor.listSelections()[0];
+  editor.replaceRange(s.sql, from.from, from.to);
+}
+
+// Get all snippets including built-ins
+export function getAllSnippets() {
+  const builtin = BUILTIN_SNIPPETS || [];
+  return [...builtin, ...(state.snippets || [])];
+}
+
+// Save snippet at cursor (for "New Snippet" workflow)
+export function saveSnippetAtCursor(name, category) {
+  const editor = runtime.editor;
+  const sql = editor.getSelection() || editor.getValue();
+  if (!sql.trim()) {
+    toast('Nothing to save — write some SQL first.', 'Empty');
+    return;
+  }
+  if (!name) {
+    name = prompt('Name this snippet:', `Snippet ${(state.snippets || []).length + 1}`);
+    if (!name) return;
+  }
+  saveSnippet({ name, category: category || 'General', sql });
+  toast('Saved as "' + name + '"', 'Snippet saved');
+}
+
+// Add/remove snippet categories (SNIP-04)
+export function addSnippetCategory(name) {
+  if (!name || state.snippetCategories.includes(name)) return;
+  state.snippetCategories.push(name);
+  persist(true);
+}
+
+export function deleteSnippetCategory(name) {
+  if (!name || name === 'General') return;
+  const idx = state.snippetCategories.indexOf(name);
+  if (idx === -1) return;
+  state.snippetCategories.splice(idx, 1);
+  // Move snippets in this category to General
+  (state.snippets || []).forEach(s => {
+    if (s.category === name) s.category = 'General';
+  });
+  persist(true);
 }
 
 export function loadHistoryItem(id) {

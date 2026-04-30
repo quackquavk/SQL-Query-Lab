@@ -322,6 +322,142 @@ export function renderHistory() {
   });
 }
 
+// ─── Snippets Panel ─────────────────────────────────────────────
+
+let _snippetSearch = '';
+let _snippetCategory = 'All';
+let _snippetModule = null;
+async function getSandboxModule() {
+  if (!_snippetModule) _snippetModule = await import('./sandbox.js');
+  return _snippetModule;
+}
+
+export function renderSnippets() {
+  const el = document.getElementById('leftContent');
+  const categories = state.snippetCategories || ['General', 'SELECT', 'INSERT', 'UPDATE', 'DELETE'];
+
+  const builtinSnippets = [
+    { id: 'builtin-select-top', name: 'SELECT TOP 100', category: 'SELECT', sql: 'SELECT TOP 100 * FROM table_name\nWHERE condition;', builtin: true },
+    { id: 'builtin-insert', name: 'INSERT Statement', category: 'INSERT', sql: 'INSERT INTO table_name (column1, column2, column3)\nVALUES (value1, value2, value3);', builtin: true },
+    { id: 'builtin-update', name: 'UPDATE Statement', category: 'UPDATE', sql: 'UPDATE table_name\nSET column1 = value1, column2 = value2\nWHERE condition;', builtin: true },
+    { id: 'builtin-delete', name: 'DELETE Statement', category: 'DELETE', sql: 'DELETE FROM table_name\nWHERE condition;', builtin: true },
+  ];
+  const userSnippets = state.snippets || [];
+  const allSnippets = [...builtinSnippets, ...userSnippets];
+
+  let html = `
+    <h3>Snippets</h3>
+    <div class="snippet-search-wrap">
+      <input type="text" id="snippetSearchInput" placeholder="Search snippets..." />
+    </div>
+    <div class="snippet-cats">
+      <button class="cat-chip ${_snippetCategory === 'All' ? 'active' : ''}" data-cat="All">All</button>
+  `;
+  for (const cat of categories) {
+    html += `<button class="cat-chip ${_snippetCategory === cat ? 'active' : ''}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`;
+  }
+  html += `</div>`;
+
+  let filtered = allSnippets;
+  if (_snippetCategory !== 'All') {
+    filtered = filtered.filter(s => s.category === _snippetCategory);
+  }
+  if (_snippetSearch) {
+    const q = _snippetSearch.toLowerCase();
+    filtered = filtered.filter(s =>
+      s.name.toLowerCase().includes(q) ||
+      s.sql.toLowerCase().includes(q)
+    );
+  }
+
+  html += `<div class="snippet-panel-list">`;
+  if (filtered.length === 0) {
+    html += `<div class="snippet-empty">No snippets match.</div>`;
+  } else {
+    for (const s of filtered) {
+      html += `
+        <div class="snippet-row" data-id="${s.id}">
+          <div class="s-row-head">
+            <span class="name">${escapeHtml(s.name)}</span>
+            ${s.builtin ? '<span class="builtin-tag">built-in</span>' : `<button class="del" data-del="${s.id}">×</button>`}
+          </div>
+          <div class="preview">${escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 80))}</div>
+          <div class="s-row-actions">
+            <button class="ins-btn" data-ins="${s.id}">Insert</button>
+            ${!s.builtin ? `<button class="edit-btn" data-edit="${s.id}">Edit</button>` : ''}
+          </div>
+        </div>
+      `;
+    }
+  }
+  html += `</div>`;
+
+  html += `
+    <div class="snippet-new-btn-wrap">
+      <button class="btn btn-primary" id="newSnippetBtn">+ New Snippet</button>
+    </div>
+  `;
+
+  el.innerHTML = html;
+
+  // Search
+  el.querySelector('#snippetSearchInput')?.addEventListener('input', (e) => {
+    _snippetSearch = e.target.value;
+    renderSnippets();
+  });
+
+  // Category filter
+  el.querySelectorAll('.cat-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _snippetCategory = btn.dataset.cat;
+      renderSnippets();
+    });
+  });
+
+  // Insert button
+  el.querySelectorAll('.ins-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      getSandboxModule().then(mod => mod.insertSnippetAtCursor(b.dataset.ins));
+    });
+  });
+
+  // Edit button
+  el.querySelectorAll('.edit-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const s = (state.snippets || []).find(x => x.id === b.dataset.edit);
+      if (!s) return;
+      const name = prompt('Snippet name:', s.name);
+      if (!name) return;
+      const sql = prompt('SQL:', s.sql);
+      if (sql === null) return;
+      getSandboxModule().then(mod => mod.updateSnippet(b.dataset.edit, { name, sql, category: s.category }));
+    });
+  });
+
+  // Delete button
+  el.querySelectorAll('.del').forEach(b => {
+    b.addEventListener('click', () => {
+      getSandboxModule().then(mod => {
+        mod.deleteSnippet(b.dataset.del);
+        renderSnippets();
+      });
+    });
+  });
+
+  // New snippet
+  el.querySelector('#newSnippetBtn')?.addEventListener('click', () => {
+    const name = prompt('Snippet name:');
+    if (!name) return;
+    const category = prompt('Category (e.g. General, SELECT, INSERT):', 'General') || 'General';
+    const sql = prompt('SQL content:');
+    if (!sql) return;
+    getSandboxModule().then(mod => {
+      mod.saveSnippet({ name, category, sql });
+      renderSnippets();
+    });
+  });
+}
+
 export function renderFilters() {
   const cats = ['ALL', 'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'DDL'];
   const diffs = ['ALL', 'easy', 'medium', 'hard'];

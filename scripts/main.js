@@ -13,7 +13,7 @@ import {
   showFeedback, switchTab, toast, renderSchema, renderResources, renderHistory,
   renderResultsTab, renderFilters, renderQuestionList, updateDirtyMark,
   setUiHooks, renderResultsStreaming, handleExportCsv, handleExportJson,
-  clearResultSets, storeResultSet
+  clearResultSets, storeResultSet, renderSnippets
 } from './ui.js';
 import { formatEditorSql } from './format.js';
 import { initEditor, injectCodemirrorFontFix } from './editor.js';
@@ -205,6 +205,7 @@ function wireUI() {
       const which = btn.dataset.left;
       if (which === 'schema') renderSchema();
       else if (which === 'history') renderHistory();
+      else if (which === 'snippets') renderSnippets();
       else renderResources();
     });
   });

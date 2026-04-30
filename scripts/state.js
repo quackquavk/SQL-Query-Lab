@@ -14,7 +14,7 @@ import { cursor, sandboxDb } from './runtime.js';
 
 const STORAGE_KEY = 'querylab:v1';
 const LEGACY_SOLVED_KEY = 'qlab_solved';
-export const MAX_HISTORY = 20;
+export const MAX_HISTORY = 50;
 
 export function defaultState() {
   return {
@@ -37,6 +37,45 @@ export function defaultState() {
   };
 }
 
+// Built-in starter snippets (SNIP-05, D-15)
+export const BUILTIN_SNIPPETS = [
+  {
+    id: 'builtin-select-top',
+    name: 'SELECT TOP 100',
+    category: 'SELECT',
+    sql: 'SELECT TOP 100 * FROM table_name\nWHERE condition;',
+    builtin: true
+  },
+  {
+    id: 'builtin-insert',
+    name: 'INSERT Statement',
+    category: 'INSERT',
+    sql: 'INSERT INTO table_name (column1, column2, column3)\nVALUES (value1, value2, value3);',
+    builtin: true
+  },
+  {
+    id: 'builtin-update',
+    name: 'UPDATE Statement',
+    category: 'UPDATE',
+    sql: 'UPDATE table_name\nSET column1 = value1, column2 = value2\nWHERE condition;',
+    builtin: true
+  },
+  {
+    id: 'builtin-delete',
+    name: 'DELETE Statement',
+    category: 'DELETE',
+    sql: 'DELETE FROM table_name\nWHERE condition;',
+    builtin: true
+  }
+];
+
+function ensureBuiltinSnippets() {
+  if (state.snippets && state.snippets.length > 0) return;
+  // No user snippets yet — seed built-ins
+  state.snippets = BUILTIN_SNIPPETS.map(s => ({ ...s }));
+  state.snippetCategories = ['General', 'SELECT', 'INSERT', 'UPDATE', 'DELETE'];
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -54,17 +93,27 @@ function loadState() {
       }
       if (parsed && parsed.version === 2) {
         const d = defaultState();
-        return Object.assign(d, parsed);
+        const s = Object.assign(d, parsed);
+        ensureBuiltinSnippets();
+        return s;
+      }
+      if (parsed && parsed.version === 3) {
+        const s = Object.assign(defaultState(), parsed);
+        ensureBuiltinSnippets();
+        return s;
       }
     }
     const legacy = localStorage.getItem(LEGACY_SOLVED_KEY);
     if (legacy) {
       const s = defaultState();
       s.solved = JSON.parse(legacy) || [];
+      ensureBuiltinSnippets();
       return s;
     }
   } catch (e) { console.warn('loadState failed', e); }
-  return defaultState();
+  const s = defaultState();
+  ensureBuiltinSnippets();
+  return s;
 }
 
 export let state = loadState();

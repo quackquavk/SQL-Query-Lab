@@ -104,6 +104,27 @@
   line-height: 1;
 }
 .snippet-row .del:hover { color: var(--error); }
+.snippet-row .ins-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--info);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 1px 6px;
+  border-radius: 2px;
+  line-height: 1.2;
+}
+.snippet-row .ins-btn:hover { background: var(--info); color: #0a1620; }
+.snippet-row .builtin-tag {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  padding: 0 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
 .snippet-empty {
   padding: 16px 12px;
   text-align: center;
