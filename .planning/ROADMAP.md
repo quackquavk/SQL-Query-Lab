@@ -92,10 +92,11 @@ Plans:
 12. Built-in starter snippets available (SELECT TOP 100, INSERT, UPDATE, DELETE patterns)
 13. Query history persists across sessions
 
-**Plans:** 1/1 plans complete
+**Plans:** 2/2 plans
 
 Plans:
 - [x] 03-01-PLAN.md — Multi-tab workspace, object explorer tree, snippet management
+- [x] 03-02-PLAN.md — Object explorer tree gap closure (OBJE-01, OBJE-02, OBJE-05, OBJE-06, CONN-06)
 
 **UI hint:** yes
 
