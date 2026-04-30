@@ -1,7 +1,7 @@
 # State: SQL Query Lab v1.1
 
 **Milestone:** v1.1 Professional Feature Suite
-**Current Phase:** 6 (Query Tools)
+**Current Phase:** 7 (Administration)
 
 **Next action:** `/gsd-plan-phase 7`
 ---
@@ -10,7 +10,7 @@
 
 **Core Value:** Professionals can manage SQL Server infrastructure from any browser, with zero setup and full feature parity with desktop SSMS.
 
-**Current Focus:** Phase 6 — Query Tools (Query history, Favorites, Export, Charting)
+**Current Focus:** Phase 7 — Administration (SQL Agent Jobs, Backup/Restore GUI)
 
 ---
 
@@ -21,7 +21,7 @@
 | 1-4 | v1.0 milestone | Complete | - | ✓ |
 | 5 | Visual Design Tools | Complete | 4/4 | ✓ |
 | 6 | Query Tools | Complete | 4/4 | ✓ |
-| 7 | Administration | Not started | 0/2 | - |
+| 7 | Administration | In progress | 0/2 | - |
 
 ---
 
@@ -44,6 +44,8 @@
 - Query Builder extends D3+dagre pattern from ER diagram
 - Wavy amber underline for optimization highlights
 - Backend optimization via SET SHOWPLAN_XML ON + regex parsing
+- SQL Agent Jobs: Tree + List hybrid layout, all job controls (start/stop/enable/disable), status indicators (green/yellow/red/gray)
+- Backup/Restore: Modal with tabbed sections for backup, multi-step wizard for restore, WebSocket progress streaming, RESTORE VERIFYONLY post-check
 
 ### Dependencies
 - All v1.1 phases depend on backend proxy being operational (Phase 4 of v1.0)
@@ -67,6 +69,7 @@
 **Next action:** `/gsd-plan-phase 7`
 **Phase 5 completed:** All 4 plans (05-01 ER diagram, 05-02 exec plan viewer, 05-03 SP editor, 05-04 backend endpoints)
 **Phase 6 completed:** All 4 plans (06-01 Query Builder, 06-02 Charting, 06-03 Optimization Highlights, 06-04 Backend + Missing Index)
+**Phase 7 context gathered:** Administration decisions captured in 07-CONTEXT.md (job browser tree+list, all controls, backup modal+wizard, WebSocket progress)
 
 ---
 
