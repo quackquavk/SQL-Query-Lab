@@ -6,7 +6,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Backend Proxy Foundation** - Secure connection management infrastructure
+- [x] **Phase 1: Backend Proxy Foundation** - Secure connection management infrastructure
 - [ ] **Phase 2: Connected Query Execution** - Query editor and live SQL Server execution
 - [ ] **Phase 3: Object Explorer & Workspace** - Navigation tree and multi-tab workspace
 - [ ] **Phase 4: Professional Polish** - Theming, shortcuts, formatting, visual tools
@@ -37,8 +37,8 @@
 **Plans:** 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Backend proxy server (Hono, WebSocket, REST, mssql pool, encryption, auth)
-- [ ] 01-02-PLAN.md — Frontend integration (apiClient, connection dialog, live mode)
+- [x] 01-01-PLAN.md — Backend proxy server (Hono, WebSocket, REST, mssql pool, encryption, auth)
+- [x] 01-02-PLAN.md — Frontend integration (apiClient, connection dialog, live mode)
 
 ---
 
@@ -62,7 +62,10 @@ Plans:
 9. Execution time shown for each query; row count shown for SELECT/INSERT/UPDATE/DELETE
 10. Large result sets paginated (100-500 rows per page) with virtual scrolling for 100K+ rows
 
-**Plans:** TBD
+**Plans:** 1 plan
+
+Plans:
+- [x] 02-01-PLAN.md — Frontend query editor, live WebSocket execution, streaming results, virtual scroll, CSV/JSON export
 
 ---
 
@@ -126,8 +129,8 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 1. Backend Proxy Foundation | 0/2 | Not started | - |
-| 2. Connected Query Execution | 0/1 | Not started | - |
+| 1. Backend Proxy Foundation | 2/2 | Complete | 2026-04-30 |
+| 2. Connected Query Execution | 1/1 | Planned | - |
 | 3. Object Explorer & Workspace | 0/1 | Not started | - |
 | 4. Professional Polish | 0/1 | Not started | - |
 
