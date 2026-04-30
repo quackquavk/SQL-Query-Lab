@@ -1,3 +1,75 @@
+/* ─── Tab Bar ─────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  min-height: 40px;
+}
+.tab-bar::-webkit-scrollbar { height: 4px; }
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 8px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: all 0.12s;
+  position: relative;
+}
+.tab:hover { background: var(--surface-2); color: var(--text); }
+.tab.active {
+  background: var(--surface-2);
+  border-color: var(--border-bright);
+  color: var(--text);
+  font-weight: 500;
+}
+.tab.dirty::before {
+  content: '*';
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 2px;
+}
+.tab-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  opacity: 0.6;
+}
+.tab-close:hover { color: var(--error); opacity: 1; }
+.tab-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 16px;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+.tab-new:hover { border-color: var(--accent); color: var(--accent); }
+.tab.dragging { opacity: 0.4; }
+.tab.drag-over { border-color: var(--accent); background: var(--accent-soft); }
+
 /* ─── Main grid ─────────────────────────────────────── */
 .main {
   display: grid;

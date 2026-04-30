@@ -20,7 +20,8 @@ import { initEditor, injectCodemirrorFontFix } from './editor.js';
 import { loadQuestion, runPracticeQuery, navQuestion } from './practice.js';
 import {
   setMode, enterSandbox, runSandboxQuery, resetSandboxDb, runMssqlTranslation,
-  saveCurrentAsSnippet, loadHistoryItem, runLiveQuery, cancelLiveQuery
+  saveCurrentAsSnippet, loadHistoryItem, runLiveQuery, cancelLiveQuery,
+  createTab, closeTab, switchTabById, restoreTabs, markTabDirty, reorderTabs
 } from './sandbox.js';
 
 // Wire cross-module hooks before any handler can fire
@@ -279,9 +280,20 @@ async function boot() {
   const startMode = state.mode === 'sandbox' ? 'sandbox' : 'practice';
   setMode(startMode);
 
+  // Restore tabs after mode is set so UI is ready
+  if (state.openTabs && state.openTabs.length > 0) {
+    restoreTabs();
+  } else {
+    // Create default tab if no saved tabs
+    const defaultId = createTab(runtime.cursor.currentDbName, runtime.cursor.connectionId);
+    runtime.activeTabId = defaultId;
+    if (typeof switchTabById === 'function') switchTabById(defaultId);
+  }
+
   renderResources();
   renderFilters();
   updateProgressUI();
+  if (typeof renderTabBar === 'function') renderTabBar();
 
   setTimeout(() => {
     document.getElementById('splash').classList.add('hide');

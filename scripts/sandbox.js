@@ -441,6 +441,140 @@ export function resetSandboxDb() {
   toast(`${name}.db restored to seed.`, 'Reset');
 }
 
+// ─── Tab Management ─────────────────────────────────
+
+runtime._tabApi = {
+  createTab, closeTab, switchTabById, persistTabs, markTabDirty, reorderTabs, restoreTabs
+};
+
+export function createTab(database, connectionId) {
+  const id = 'tab_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+  const tabCount = runtime.openTabs.length + 1;
+  const title = database ? `${database}.db` : `Query ${tabCount}`;
+  runtime.openTabs.push({
+    id,
+    title,
+    sql: '',
+    database: database || runtime.cursor.currentDbName,
+    connectionId: connectionId || runtime.cursor.connectionId,
+    dirty: false
+  });
+  runtime.tabCounter++;
+  persistTabs();
+  return id;
+}
+
+export function closeTab(tabId) {
+  const idx = runtime.openTabs.findIndex(t => t.id === tabId);
+  if (idx === -1) return;
+  const tab = runtime.openTabs[idx];
+  if (tab.dirty) {
+    const save = confirm('Close without saving changes to "' + tab.title + '"?');
+    if (!save) return;
+  }
+  runtime.openTabs.splice(idx, 1);
+  if (runtime.activeTabId === tabId) {
+    if (runtime.openTabs.length > 0) {
+      const nextIdx = Math.min(idx, runtime.openTabs.length - 1);
+      switchTabById(runtime.openTabs[nextIdx].id);
+    } else {
+      runtime.activeTabId = null;
+    }
+  }
+  persistTabs();
+}
+
+export function switchTabById(tabId) {
+  const tab = runtime.openTabs.find(t => t.id === tabId);
+  if (!tab) return;
+
+  // Save current tab SQL to state before switching
+  if (runtime.activeTabId && runtime.editor) {
+    const currentTab = runtime.openTabs.find(t => t.id === runtime.activeTabId);
+    if (currentTab) {
+      currentTab.sql = runtime.editor.getValue();
+    }
+  }
+
+  runtime.activeTabId = tabId;
+  state.activeTabId = tabId;
+
+  if (runtime.editor) {
+    runtime.cursor.editorLoading = true;
+    runtime.editor.setValue(tab.sql || '');
+    runtime.editor.setCursor({ line: 0, ch: 0 });
+    runtime.cursor.editorLoading = false;
+  }
+
+  if (tab.database) {
+    runtime.cursor.currentDbName = tab.database;
+    if (runtime.cursor.currentMode === 'sandbox') {
+      state.sandboxDb = tab.database;
+      document.getElementById('dbSelect').value = tab.database;
+      loadOrCreateSandboxDb(tab.database);
+      updateDbStatus();
+      renderSchema();
+    }
+  }
+
+  persistTabs();
+  if (typeof renderTabBar === 'function') renderTabBar();
+}
+
+export function persistTabs() {
+  state.openTabs = runtime.openTabs;
+  state.activeTabId = runtime.activeTabId;
+  persist(true);
+}
+
+export function markTabDirty(tabId, dirty) {
+  const tab = runtime.openTabs.find(t => t.id === tabId);
+  if (tab) {
+    tab.dirty = dirty;
+    persistTabs();
+  }
+  if (typeof renderTabBar === 'function') renderTabBar();
+}
+
+export function reorderTabs(fromIndex, toIndex) {
+  if (fromIndex === toIndex) return;
+  const tabs = runtime.openTabs;
+  const [moved] = tabs.splice(fromIndex, 1);
+  tabs.splice(toIndex, 0, moved);
+  persistTabs();
+  if (typeof renderTabBar === 'function') renderTabBar();
+}
+
+export function restoreTabs() {
+  if (state.openTabs && state.openTabs.length > 0) {
+    runtime.openTabs = state.openTabs;
+    runtime.activeTabId = state.activeTabId;
+    if (runtime.openTabs.length > 0 && runtime.activeTabId) {
+      const tab = runtime.openTabs.find(t => t.id === runtime.activeTabId);
+      if (tab) {
+        if (runtime.editor) {
+          runtime.cursor.editorLoading = true;
+          runtime.editor.setValue(tab.sql || '');
+          runtime.editor.setCursor({ line: 0, ch: 0 });
+          runtime.cursor.editorLoading = false;
+        }
+        if (tab.database) {
+          runtime.cursor.currentDbName = tab.database;
+          if (runtime.cursor.currentMode === 'sandbox') {
+            state.sandboxDb = tab.database;
+            document.getElementById('dbSelect').value = tab.database;
+          }
+        }
+      }
+    }
+  } else {
+    // Create default tab
+    const defaultId = createTab(runtime.cursor.currentDbName, runtime.cursor.connectionId);
+    runtime.activeTabId = defaultId;
+  }
+  if (typeof renderTabBar === 'function') renderTabBar();
+}
+
 // ─── Snippets ─────────────────────────────────────────
 
 export function renderSnippetList() {

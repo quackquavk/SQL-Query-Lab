@@ -18,7 +18,7 @@ export const MAX_HISTORY = 20;
 
 export function defaultState() {
   return {
-    version: 2,
+    version: 3,
     solved: [], drafts: {},
     lastQuestionId: null,
     lastCategoryFilter: 'ALL', lastDifficultyFilter: 'ALL',
@@ -27,6 +27,9 @@ export function defaultState() {
     sandboxScript: '',
     sandboxStates: {},
     snippets: [],
+    snippetCategories: ['General', 'SELECT', 'INSERT', 'UPDATE', 'DELETE'],
+    openTabs: [],
+    activeTabId: null,
     history: [],
     mssqlDb: 'hospital',
     mssqlScript: '',

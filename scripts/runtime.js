@@ -7,6 +7,11 @@ export const liveDb = {};
 export const pristineDb = {};
 export const sandboxDb = {};
 
+// Multi-tab workspace state
+export let openTabs = [];      // Array of { id, title, sql, database, connectionId, dirty }
+export let activeTabId = null; // Currently active tab ID
+export let tabCounter = 0;      // Auto-increment tab ID counter
+
 export const cursor = {
   currentDbName: 'hospital',
   currentQuestionId: 1,

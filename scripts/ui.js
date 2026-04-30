@@ -24,6 +24,92 @@ export function flashResumedNote() {
   window._rnT = setTimeout(() => n.classList.remove('show'), 2400);
 }
 
+// ─── Tab Bar ─────────────────────────────────────────
+
+export function renderTabBar() {
+  const bar = document.getElementById('tabBar');
+  if (!bar) return;
+  const tabs = runtime.openTabs || [];
+  const activeId = runtime.activeTabId;
+
+  let html = '';
+  for (const tab of tabs) {
+    const isActive = tab.id === activeId;
+    const dirtyMark = tab.dirty ? '<span style="color:var(--accent);margin-right:2px">*</span>' : '';
+    html += `
+      <div class="tab ${isActive ? 'active' : ''}" data-tab-id="${tab.id}" draggable="true">
+        ${dirtyMark}${escapeHtml(tab.title)}
+        <button class="tab-close" data-close="${tab.id}">×</button>
+      </div>
+    `;
+  }
+  html += `<button class="tab-new" id="tabNewBtn" title="New tab">+</button>`;
+  bar.innerHTML = html;
+
+  // Tab click → switch
+  bar.querySelectorAll('.tab').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.classList.contains('tab-close')) return;
+      const { switchTabById } = runtime._tabApi || {};
+      if (switchTabById) switchTabById(el.dataset.tabId);
+    });
+  });
+
+  // Close button
+  bar.querySelectorAll('.tab-close').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const { closeTab } = runtime._tabApi || {};
+      if (closeTab) closeTab(btn.dataset.close);
+    });
+  });
+
+  // New tab button
+  const newBtn = document.getElementById('tabNewBtn');
+  if (newBtn) {
+    newBtn.addEventListener('click', () => {
+      const { createTab, switchTabById } = runtime._tabApi || {};
+      if (createTab) {
+        const id = createTab(runtime.cursor.currentDbName, runtime.cursor.connectionId);
+        if (switchTabById) switchTabById(id);
+      }
+    });
+  }
+
+  // Drag-and-drop reorder
+  let dragTabId = null;
+  bar.querySelectorAll('.tab').forEach(el => {
+    el.addEventListener('dragstart', (e) => {
+      dragTabId = el.dataset.tabId;
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      bar.querySelectorAll('.tab').forEach(t => t.classList.remove('drag-over'));
+    });
+    el.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      el.classList.add('drag-over');
+    });
+    el.addEventListener('dragleave', () => {
+      el.classList.remove('drag-over');
+    });
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      if (!dragTabId || dragTabId === el.dataset.tabId) return;
+      const tabs = runtime.openTabs;
+      const fromIdx = tabs.findIndex(t => t.id === dragTabId);
+      const toIdx = tabs.findIndex(t => t.id === el.dataset.tabId);
+      const { reorderTabs } = runtime._tabApi || {};
+      if (reorderTabs && fromIdx !== -1 && toIdx !== -1) {
+        reorderTabs(fromIdx, toIdx);
+      }
+    });
+  });
+}
+
 export function updateBadges() {
   document.getElementById('outCount').textContent =
     runtime.cursor.lastUserResult ? (runtime.cursor.lastUserResult.values || []).length : 0;

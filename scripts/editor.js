@@ -100,6 +100,7 @@ export function initEditor({ runQuery, runMssqlTranslation, runLiveQuery }) {
   });
 
   // Persist drafts (practice) or sandbox script as the user types
+  // Also mark active tab dirty if tab workspace is active
   editor.on('change', () => {
     if (runtime.cursor.editorLoading) return;
     if (runtime.cursor.currentMode === 'sandbox') {
@@ -107,6 +108,13 @@ export function initEditor({ runQuery, runMssqlTranslation, runLiveQuery }) {
       persist();
     } else {
       saveDraft(runtime.cursor.currentQuestionId, editor.getValue());
+    }
+    // Mark tab dirty when content changes
+    if (runtime.activeTabId && runtime.openTabs && runtime.openTabs.length > 0) {
+      runtime.openTabs.forEach(t => {
+        if (t.id === runtime.activeTabId) t.dirty = true;
+      });
+      if (typeof markTabDirty === 'function') markTabDirty(runtime.activeTabId, true);
     }
   });
 
