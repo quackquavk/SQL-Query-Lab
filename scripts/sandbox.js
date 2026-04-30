@@ -11,8 +11,11 @@ import {
   showFeedback, switchTab, toast, renderSchema, renderResultsTab,
   renderHistory, updateDirtyMark, renderResultsStreaming,
   storeResultSet, getResultSet, handleExportCsv, handleExportJson,
-  clearResultSets, initObjectExplorer
+  clearResultSets, initObjectExplorer, updateChartColumnOptions
 } from './ui.js';
+import { renderBarChart, renderLineChart, renderPieChart, destroyChart, getChartConfig } from './chartRenderer.js';
+import { enableOptimizationHints, clearOptimizationDecorations, isOptimizationEnabled } from './optimizationHighlights.js';
+import { fetchOptimizationSuggestions } from './apiClient.js';
 import { escapeHtml, splitSqlStatements, previewStatement } from './utils.js';
 import { enterPractice } from './practice.js';
 import { connectQuerySocket, executeQuery, cancelQuery, disconnectQuerySocket, createQueryStreamer } from './apiClient.js';
@@ -128,6 +131,8 @@ export function showLiveResultsUI() {
   const status = document.getElementById('results-status');
   const loading = document.getElementById('results-loading');
   const empty = document.getElementById('results-empty');
+  const chartToolbar = document.getElementById('chartToolbar');
+  const chartContainer = document.getElementById('chartContainer');
   if (body) body.style.display = 'none';
   if (gridWrap) gridWrap.classList.remove('hidden');
   if (exportDiv) exportDiv.classList.remove('hidden');
@@ -135,6 +140,8 @@ export function showLiveResultsUI() {
   if (status) status.classList.remove('hidden');
   if (loading) loading.classList.add('hidden');
   if (empty) empty.classList.add('hidden');
+  if (chartToolbar) chartToolbar.style.display = '';
+  if (chartContainer) chartContainer.style.display = '';
 
   // Update live status indicator
   const liveStatus = document.getElementById('live-status');
@@ -164,6 +171,8 @@ export function hideLiveResultsUI() {
   const status = document.getElementById('results-status');
   const loading = document.getElementById('results-loading');
   const empty = document.getElementById('results-empty');
+  const chartToolbar = document.getElementById('chartToolbar');
+  const chartContainer = document.getElementById('chartContainer');
   if (body) body.style.display = '';
   if (gridWrap) gridWrap.classList.add('hidden');
   if (exportDiv) exportDiv.classList.add('hidden');
@@ -171,6 +180,8 @@ export function hideLiveResultsUI() {
   if (status) { status.className = 'results-status hidden'; status.textContent = ''; }
   if (loading) loading.classList.add('hidden');
   if (empty) empty.classList.add('hidden');
+  if (chartToolbar) chartToolbar.style.display = 'none';
+  if (chartContainer) { chartContainer.style.display = 'none'; destroyChart(); }
 
   const liveStatus = document.getElementById('live-status');
   if (liveStatus) liveStatus.classList.add('hidden');
@@ -178,6 +189,31 @@ export function hideLiveResultsUI() {
   if (liveConnName) liveConnName.textContent = 'Not connected';
 
   clearResultSets();
+}
+
+export async function fetchAndShowOptimizations(sql) {
+  if (!runtime.cursor.connectionId || !sql.trim()) return;
+  try {
+    const data = await fetchOptimizationSuggestions(sql, runtime.cursor.currentDbName);
+    if (data.suggestions && data.suggestions.length > 0) {
+      enableOptimizationHints(runtime.editor, data.suggestions);
+      showFeedback('info', 'Optimization', `${data.suggestions.length} suggestion(s) found — look for the wavy underlines`);
+    }
+  } catch (e) {
+    console.warn('Optimization fetch failed:', e.message);
+  }
+}
+
+export function toggleOptimizationHints() {
+  if (isOptimizationEnabled()) {
+    disableOptimizationHints();
+    showFeedback('info', 'Optimization', 'Optimization hints disabled');
+  } else {
+    const sql = runtime.editor.getValue();
+    if (sql.trim()) {
+      fetchAndShowOptimizations(sql);
+    }
+  }
 }
 
 export async function runLiveQuery(sql, options = {}) {
@@ -204,6 +240,8 @@ export async function runLiveQuery(sql, options = {}) {
       runtime.cursor.currentResultsView = resultsView;
       storeResultSet(columns, []);
       runtime.cursor.currentResultSetIndex = 0;
+      runtime.cursor.lastUserResult = { columns, values: [] };
+      updateChartColumnOptions(columns.map(c => c.name));
     });
 
     streamer.addEventListener('rows', ({ rows, total }) => {
@@ -212,6 +250,9 @@ export async function runLiveQuery(sql, options = {}) {
       const idx = runtime.cursor.currentResultSetIndex ?? 0;
       const rs = getResultSet(idx);
       if (rs) rs.rows.push(...rows);
+      if (runtime.cursor.lastUserResult) {
+        runtime.cursor.lastUserResult.values.push(...rows);
+      }
     });
 
     streamer.addEventListener('done', ({ rowsAffected, executionTime }) => {
@@ -222,6 +263,11 @@ export async function runLiveQuery(sql, options = {}) {
       runtime.cursor.lastRowCount = rowsAffected;
       showFeedback('success', 'OK', `${rowsAffected} rows, ${executionTime}ms`);
       switchTab('output');
+
+      if (isOptimizationEnabled()) {
+        fetchAndShowOptimizations(sql);
+      }
+
       streamer.destroy();
       resolve({ executionTime, rowCount: rowsAffected });
     });

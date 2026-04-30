@@ -1,9 +1,9 @@
 # State: SQL Query Lab v1.1
 
 **Milestone:** v1.1 Professional Feature Suite
-**Current Phase:** 5 (Visual Design Tools)
-**Started:** 2026-04-30
+**Current Phase:** 6 (Query Tools)
 
+**Next action:** `/gsd-plan-phase 7`
 ---
 
 ## Project Reference
@@ -20,7 +20,7 @@
 |-------|------|--------|-------|-----------|
 | 1-4 | v1.0 milestone | Complete | - | ✓ |
 | 5 | Visual Design Tools | Complete | 4/4 | ✓ |
-| 6 | Query Tools | Not started | 0/4 | - |
+| 6 | Query Tools | Complete | 4/4 | ✓ |
 | 7 | Administration | Not started | 0/2 | - |
 
 ---
@@ -29,8 +29,8 @@
 
 - **Requirements:** 10 total for v1.1
 - **Mapped to phases:** 10/10 (100%)
-- **Phases started:** 1
-- **Phases complete:** 1
+- **Phases started:** 3
+- **Phases complete:** 3
 
 ---
 
@@ -39,8 +39,11 @@
 ### Key Decisions
 - Backend proxy must precede professional features (research finding)
 - D3.js + dagre for ER diagrams and execution plan rendering
-- Chart.js for query result charting
+- Chart.js for query result charting (D3.js per D-05)
 - node-sql-parser for T-SQL parsing in table designer and SP editor
+- Query Builder extends D3+dagre pattern from ER diagram
+- Wavy amber underline for optimization highlights
+- Backend optimization via SET SHOWPLAN_XML ON + regex parsing
 
 ### Dependencies
 - All v1.1 phases depend on backend proxy being operational (Phase 4 of v1.0)
@@ -61,8 +64,9 @@
 
 **Last updated:** 2026-04-30
 **Roadmap version:** 1.0
-**Next action:** `/gsd-plan-phase 6`
+**Next action:** `/gsd-plan-phase 7`
 **Phase 5 completed:** All 4 plans (05-01 ER diagram, 05-02 exec plan viewer, 05-03 SP editor, 05-04 backend endpoints)
+**Phase 6 completed:** All 4 plans (06-01 Query Builder, 06-02 Charting, 06-03 Optimization Highlights, 06-04 Backend + Missing Index)
 
 ---
 

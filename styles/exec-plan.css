@@ -252,3 +252,118 @@
   font-size: 13px;
   color: var(--text-dim);
 }
+
+/* Missing Index Styles */
+.missing-index-list {
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.missing-index-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.missing-index-item:hover {
+  background: var(--accent-soft);
+}
+
+.missing-index-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.missing-index-badge-small {
+  background: #e8a030;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.missing-index-name {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  flex: 1;
+}
+
+.missing-index-impact {
+  font-size: 10px;
+  color: var(--error);
+  font-weight: 500;
+}
+
+.missing-index-table {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-dim);
+  margin-left: 26px;
+}
+
+.missing-index-columns {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: 26px;
+  margin-top: 2px;
+}
+
+.missing-index-copy-btn {
+  margin-top: 6px;
+  margin-left: 26px;
+  padding: 3px 10px;
+  background: #e8a030;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.missing-index-copy-btn:hover {
+  background: #c08020;
+}
+
+.exec-plan-tooltip.missing-index-tooltip {
+  max-width: 380px;
+  padding: 0;
+}
+
+.exec-plan-tooltip .missing-index-title {
+  font-weight: 600;
+  color: #e8a030;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.exec-plan-tooltip .missing-index-impact {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.exec-plan-tooltip .missing-index-table,
+.exec-plan-tooltip .missing-index-columns {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.exec-plan-tooltip .missing-index-columns {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.exec-plan-tooltip .missing-index-sql {
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--surface-1);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+}

@@ -70,6 +70,41 @@ Professionals can manage SQL Server infrastructure from any browser, with zero s
 | VS Code-inspired UI | Professional standard, familiar to target users | — Pending |
 | Connection string storage | Encrypted at rest, never logged | — Pending |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
 
-*Last updated: 2026-04-30 after vision reorientation*
+## Current Milestone: v1.1 Professional Feature Suite
+
+**Goal:** Transform the browser-based SQL tool into a full-featured professional SQL Server management studio by adding the most requested visual tools and administration features.
+
+**Target features:**
+- Visual Table Designer — Create/alter tables via GUI, define columns/constraints/indexes
+- Database Diagram / ER Viewer — Browse relationships, foreign keys, visual schema
+- Execution Plan Viewer — Visual flowchart of query execution with XML parsing
+- Stored Procedure Editor — Edit SP source with syntax checking and parameter parsing
+- Query Optimization Advisor — Analyze queries and suggest improvements
+- Missing Index Detection — From execution plans, recommend missing indexes
+- SQL Agent Job Viewer — View jobs, schedules, history, alerts via GUI
+- Backup / Restore GUI — Visual backup/restore with point-in-time recovery
+- Visual Query Builder — Drag-and-drop query construction for non-technical users
+- Query Result Charting — Chart results as bar/line/pie charts inline
+
+---
+
+*Last updated: 2026-04-30 after v1.1 milestone start*

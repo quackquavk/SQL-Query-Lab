@@ -28,6 +28,9 @@
 <link rel="stylesheet" href="styles/table-designer.css" />
 <link rel="stylesheet" href="styles/exec-plan.css" />
 <link rel="stylesheet" href="styles/sp-editor.css" />
+<link rel="stylesheet" href="styles/query-builder.css" />
+<link rel="stylesheet" href="styles/chart.css" />
+<link rel="stylesheet" href="styles/optimization.css" />
 </head>
 <body>
 
@@ -105,6 +108,7 @@
         <button class="left-tab" data-left="resources">Resources</button>
         <button class="left-tab sandbox-only" data-left="history">History</button>
         <button class="left-tab sandbox-only" data-left="snippets">Snippets</button>
+        <button class="left-tab" data-left="query-builder">Query Builder</button>
       </div>
       <div class="left-content" id="leftContent"></div>
       <div id="erDiagramPanel" class="er-diagram-panel" style="display:none">
@@ -115,6 +119,30 @@
       </div>
       <div id="objExplorer" class="obj-explorer">
         <div class="obj-tree"></div>
+      </div>
+      <div id="queryBuilderPanel" class="query-builder-panel" style="display:none">
+        <svg id="queryBuilderSvg" class="query-builder-svg"></svg>
+        <div class="query-builder-toolbar">
+          <button class="query-builder-gen-btn" id="queryBuilderGenBtn">Generate SQL</button>
+          <button class="query-builder-clear-btn" id="queryBuilderClearBtn">Clear</button>
+        </div>
+        <div id="queryBuilderEmpty" class="query-empty-state">
+          <h3>Query Builder</h3>
+          <p>Drag tables from the Object Explorer to build queries visually.</p>
+        </div>
+      </div>
+      <div id="queryOutputPanel" class="query-output-panel">
+        <div class="query-output-header">
+          <h4>Generated SQL</h4>
+          <button class="query-output-close" id="queryOutputClose">×</button>
+        </div>
+        <pre class="query-output-sql" id="queryOutputSql"></pre>
+        <button class="query-output-apply" id="queryOutputApply">Apply to Editor</button>
+      </div>
+      <div class="query-zoom-controls">
+        <button class="query-zoom-btn" id="queryBuilderZoomIn">+</button>
+        <button class="query-zoom-btn" id="queryBuilderZoomOut">−</button>
+        <button class="query-zoom-btn" id="queryBuilderZoomReset">⊙</button>
       </div>
     </aside>
 
@@ -152,6 +180,19 @@
         <div class="results-toolbar" id="resultsToolbar" style="display:none">
           <button class="btn" id="showExecPlanBtn">Show Execution Plan</button>
         </div>
+        <div class="chart-toolbar" id="chartToolbar" style="display:none">
+          <label>Type:</label>
+          <select id="chartTypeSelect">
+            <option value="bar">Bar</option>
+            <option value="line">Line</option>
+            <option value="pie">Pie</option>
+          </select>
+          <label>X:</label>
+          <select id="chartXCol"></select>
+          <label>Y:</label>
+          <select id="chartYCol"></select>
+          <button class="chart-render-btn" id="chartRenderBtn">Chart</button>
+        </div>
         <div class="results-body" id="resultsBody">
           <div class="results-empty">Run a query to see results</div>
         </div>
@@ -173,6 +214,9 @@
             <thead id="results-header"></thead>
             <tbody id="results-body-live"></tbody>
           </table>
+        </div>
+        <div id="chartContainer" class="chart-container" style="display:none">
+          <div class="chart-empty" id="chartEmpty">Run a query with numeric data to see a chart</div>
         </div>
         <div id="results-loading" class="results-loading hidden">Streaming results…</div>
         <div id="results-empty" class="results-empty hidden">No results returned.</div>

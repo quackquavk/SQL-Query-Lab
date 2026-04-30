@@ -10,6 +10,7 @@ import executionPlanRoute from './routes/executionPlan.js';
 import ddlRoute from './routes/ddl.js';
 import spRoute from './routes/storedProcedures.js';
 import validateRoute from './routes/validateTsql.js';
+import optimizeRoute from './routes/optimize.js';
 import { serve } from '@hono/node-server';
 
 const app = new Hono();
@@ -31,6 +32,7 @@ app.route('/api/execution-plan', executionPlanRoute);
 app.route('/api/execute-ddl', ddlRoute);
 app.route('/api/stored-procedure', spRoute);
 app.route('/api/validate-tsql', validateRoute);
+app.route('/api/optimize', optimizeRoute);
 
 const port = process.env.PORT || 3000;
 

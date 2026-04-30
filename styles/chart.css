@@ -1,0 +1,133 @@
+/* Chart Renderer Styles */
+
+.chart-container {
+  min-height: 200px;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.chart-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.chart-toolbar label {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.chart-toolbar select {
+  padding: 4px 8px;
+  font-family: var(--sans);
+  font-size: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.chart-toolbar select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.chart-render-btn {
+  padding: 5px 14px;
+  font-family: var(--sans);
+  font-size: 12px;
+  background: #e8a030;
+  color: white;
+  border: 1px solid #c08020;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.chart-render-btn:hover {
+  background: #c08020;
+}
+
+.chart-svg {
+  display: block;
+  width: 100%;
+}
+
+.chart-bar {
+  cursor: pointer;
+  transition: fill 0.15s;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 2;
+}
+
+.chart-dot {
+  cursor: pointer;
+  transition: r 0.15s;
+}
+
+.chart-slice {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.chart-slice-label {
+  font-family: var(--sans);
+  font-size: 10px;
+  fill: white;
+  pointer-events: none;
+}
+
+.chart-axis-label {
+  font-family: var(--sans);
+  font-size: 10px;
+  fill: var(--text-dim);
+}
+
+.chart-axis-title {
+  font-family: var(--sans);
+  font-size: 11px;
+  fill: var(--text);
+}
+
+.chart-tooltip {
+  position: fixed;
+  background: var(--surface-2);
+  border: 1px solid var(--border-bright);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--text);
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  white-space: pre-line;
+}
+
+.chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 150px;
+  color: var(--text-dim);
+  font-family: var(--sans);
+  font-size: 13px;
+}
+
+.chart-empty::before {
+  content: '📊';
+  font-size: 28px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}

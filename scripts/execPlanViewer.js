@@ -17,12 +17,45 @@ export async function fetchExecutionPlan(query) {
   return data.xml;
 }
 
-// Parse XML Showplan into operator tree
+// Parse XML Showplan into operator tree and extract missing indexes
 export function parseShowplanXml(xmlString) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlString, 'text/xml');
 
   const operators = [];
+  const missingIndexes = [];
+
+  const missingIndexGroups = doc.querySelectorAll('MissingIndexGroup');
+  missingIndexGroups.forEach(group => {
+    const index = group.querySelector('MissingIndex');
+    if (!index) return;
+
+    const table = index.getAttribute('Object') || index.getAttribute('Table') || '';
+    const impact = parseFloat(group.getAttribute('Impact') || '0');
+    const columns = [];
+    index.querySelectorAll('Column').forEach(col => {
+      const name = col.getAttribute('Name');
+      if (name) columns.push(name);
+    });
+
+    if (columns.length > 0) {
+      const parts = table.split('.');
+      const schema = parts.length > 2 ? parts[1] : 'dbo';
+      const db = parts.length > 3 ? parts[0] : runtime?.cursor?.currentDbName || 'master';
+      const tbl = parts[parts.length - 1];
+      const indexName = `IX_${tbl.replace(/[^a-zA-Z0-9]/g, '_')}_${columns.slice(0, 2).join('_')}`;
+
+      missingIndexes.push({
+        name: indexName,
+        table: tbl,
+        schema,
+        database: db,
+        columns,
+        impact,
+        createStatement: `CREATE INDEX [${indexName}] ON [${db}].[${schema}].[${tbl}] ([${columns.map(c => `[${c}]`).join(', ')}]);`
+      });
+    }
+  });
 
   function parseRelOp(element, parentId = null) {
     const nodeId = element.getAttribute('NodeId');
@@ -71,7 +104,7 @@ export function parseShowplanXml(xmlString) {
     parseRelOp(relOp);
   }
 
-  return operators;
+  return { operators, missingIndexes };
 }
 
 // Build parent-child relationships
@@ -113,13 +146,23 @@ export function computeCostPercentages(operators) {
 }
 
 // Initialize execution plan viewer with parsed operators
-export function initExecPlanViewer(svgElement, operators) {
+export function initExecPlanViewer(svgElement, data) {
   const d3 = window.d3;
   const dagre = window.dagre;
 
   if (!d3 || !dagre) {
     console.error('D3 or dagre not loaded');
     return;
+  }
+
+  // Support both old format (operators array) and new format ({ operators, missingIndexes })
+  let operators, missingIndexes;
+  if (Array.isArray(data)) {
+    operators = data;
+    missingIndexes = [];
+  } else {
+    operators = data.operators || data;
+    missingIndexes = data.missingIndexes || [];
   }
 
   _currentPlan = svgElement;
@@ -244,6 +287,14 @@ export function initExecPlanViewer(svgElement, operators) {
       .attr('marker-end', 'url(#exec-plan-arrow)');
   });
 
+  // Render missing index callouts if any
+  if (missingIndexes && missingIndexes.length > 0) {
+    const execPlanPanel = document.getElementById('execPlanPanel');
+    if (execPlanPanel) {
+      renderMissingIndexBadges(execPlanPanel, missingIndexes);
+    }
+  }
+
   // Add arrow marker definition
   const defs = svg.append('defs');
   defs.append('marker')
@@ -312,6 +363,77 @@ function hideOperatorTooltip() {
   if (_tooltip) {
     _tooltip.style.display = 'none';
   }
+}
+
+// Render missing index badges in the execution plan panel
+function renderMissingIndexBadges(panel, missingIndexes) {
+  const existing = panel.querySelector('.missing-index-list');
+  if (existing) existing.remove();
+
+  const list = document.createElement('div');
+  list.className = 'missing-index-list';
+  list.innerHTML = `<h4 style="margin:12px 12px 4px;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Missing Indexes (${missingIndexes.length})</h4>`;
+
+  missingIndexes.forEach((idx, i) => {
+    const item = document.createElement('div');
+    item.className = 'missing-index-item';
+    item.innerHTML = `
+      <div class="missing-index-header">
+        <span class="missing-index-badge-small">IX</span>
+        <span class="missing-index-name">${idx.name || 'Index' + (i + 1)}</span>
+        <span class="missing-index-impact">${idx.impact.toFixed(0)}% impact</span>
+      </div>
+      <div class="missing-index-table">${idx.table || 'Table'}</div>
+      <div class="missing-index-columns">${idx.columns?.slice(0, 4).join(', ')}${idx.columns?.length > 4 ? '...' : ''}</div>
+      <button class="missing-index-copy-btn" data-statement="${escapeHtml(idx.createStatement || '')}">Copy CREATE INDEX</button>
+    `;
+
+    item.querySelector('.missing-index-copy-btn')?.addEventListener('click', (e) => {
+      const stmt = e.target.dataset.statement;
+      if (stmt) {
+        navigator.clipboard.writeText(stmt).then(() => {
+          showFeedback('info', 'Copied', 'CREATE INDEX statement copied to clipboard');
+        });
+      }
+    });
+
+    list.appendChild(item);
+  });
+
+  panel.appendChild(list);
+}
+
+let _missingIndexTooltip = null;
+
+function showMissingIndexTooltip(event, indexInfo) {
+  if (!_missingIndexTooltip) {
+    _missingIndexTooltip = document.createElement('div');
+    _missingIndexTooltip.className = 'exec-plan-tooltip missing-index-tooltip';
+    document.body.appendChild(_missingIndexTooltip);
+  }
+
+  _missingIndexTooltip.innerHTML = `
+    <div class="missing-index-title">Missing Index</div>
+    <div class="missing-index-impact">Impact: ${indexInfo.impact}%</div>
+    <div class="missing-index-table">Table: ${indexInfo.table}</div>
+    <div class="missing-index-columns">Columns: ${(indexInfo.columns || []).join(', ')}</div>
+    <div class="missing-index-sql">${indexInfo.createStatement || ''}</div>
+  `;
+
+  _missingIndexTooltip.style.display = 'block';
+  _missingIndexTooltip.style.left = (event.pageX + 15) + 'px';
+  _missingIndexTooltip.style.top = (event.pageY + 15) + 'px';
+}
+
+function hideMissingIndexTooltip() {
+  if (_missingIndexTooltip) {
+    _missingIndexTooltip.style.display = 'none';
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // Zoom controls

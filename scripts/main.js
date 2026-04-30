@@ -1,6 +1,7 @@
 // Entry point: boot the SQL engine, wire UI, kick off initial mode.
 
 import * as runtime from './runtime.js';
+import * as apiClient from './apiClient.js';
 import { SEEDS } from './seeds.js';
 import { QUESTIONS } from './questions.js';
 import {
@@ -23,6 +24,16 @@ import {
   saveCurrentAsSnippet, loadHistoryItem, runLiveQuery, cancelLiveQuery,
   createTab, closeTab, switchTabById, restoreTabs, markTabDirty, reorderTabs
 } from './sandbox.js';
+import {
+  initQueryBuilder, addTableToCanvas, removeTableFromCanvas,
+  generateSelectSql, clearCanvas, setQueryBuilderHooks,
+  zoomIn as qbZoomIn, zoomOut as qbZoomOut, zoomReset as qbZoomReset,
+  getCanvasState
+} from './queryBuilder.js';
+import {
+  initChart, renderBarChart, renderLineChart, renderPieChart,
+  destroyChart, updateChartColumnOptions, getChartConfig
+} from './chartRenderer.js';
 
 // Wire cross-module hooks before any handler can fire
 setDbHooks({ showFeedback, switchTab, renderSchema });
@@ -73,6 +84,62 @@ async function runLiveQueryFromMain() {
 function resetDb() {
   if (runtime.cursor.currentMode === 'sandbox') return resetSandboxDb();
   return resetPracticeDb();
+}
+
+function showPanel(which) {
+  document.getElementById('leftContent').style.display = (which === 'left-content') ? '' : 'none';
+  document.getElementById('erDiagramPanel').style.display = (which === 'er-diagram') ? '' : 'none';
+  document.getElementById('queryBuilderPanel').style.display = (which === 'query-builder') ? '' : 'none';
+}
+
+async function initErDiagramPanel() {
+  showPanel('er-diagram');
+  const panel = document.getElementById('erDiagramPanel');
+  const svg = panel?.querySelector('svg');
+  if (!svg) return;
+  if (runtime.cursor.currentMode !== 'live') return;
+  const connId = runtime.cursor.connectionId;
+  if (!connId) return;
+  try {
+    const { fetchErSchema } = await import('./erDiagram.js');
+    const schema = await fetchErSchema(runtime.cursor.currentDbName);
+    const { initErDiagram } = await import('./erDiagram.js');
+    initErDiagram(svg, schema);
+  } catch (err) {
+    console.warn('ER diagram init failed:', err);
+  }
+}
+
+async function initQueryBuilderPanel() {
+  showPanel('query-builder');
+  const panel = document.getElementById('queryBuilderPanel');
+  if (!panel) return;
+  const svg = panel.querySelector('svg') || createQueryBuilderSvg(panel);
+  if (runtime.cursor.currentMode !== 'live') return;
+  const connId = runtime.cursor.connectionId;
+  if (!connId) return;
+  try {
+    const schema = await apiClient.fetchErSchema(runtime.cursor.currentDbName);
+    initQueryBuilder(svg, schema);
+    setQueryBuilderHooks({
+      onQueryGenerated: (sql) => {
+        runtime.editor.setValue(sql);
+        runtime.editor.focus();
+      },
+      onCanvasClear: () => {
+        runtime.cursor.queryBuilder = { isOpen: true, tables: [], selectedColumns: {}, joins: [], whereConditions: [] };
+      }
+    });
+  } catch (err) {
+    console.warn('Query builder init failed:', err);
+  }
+}
+
+function createQueryBuilderSvg(panel) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'query-builder-svg');
+  panel.insertBefore(svg, panel.firstChild);
+  return svg;
 }
 
 function wireUI() {
@@ -223,10 +290,12 @@ function wireUI() {
       document.querySelectorAll('.left-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const which = btn.dataset.left;
-      if (which === 'schema') renderSchema();
-      else if (which === 'history') renderHistory();
-      else if (which === 'snippets') renderSnippets();
-      else renderResources();
+      if (which === 'schema') { showPanel('schema'); renderSchema(); }
+      else if (which === 'er-diagram') { showPanel('er-diagram'); initErDiagramPanel(); }
+      else if (which === 'history') { showPanel('left-content'); renderHistory(); }
+      else if (which === 'snippets') { showPanel('left-content'); renderSnippets(); }
+      else if (which === 'query-builder') { showPanel('query-builder'); initQueryBuilderPanel(); }
+      else { showPanel('left-content'); renderResources(); }
     });
   });
 
@@ -267,6 +336,79 @@ function wireUI() {
       e.preventDefault();
       formatEditorSql();
     }
+  });
+
+  // Query builder toolbar buttons
+  document.getElementById('queryBuilderGenBtn')?.addEventListener('click', () => {
+    const { sql, errors } = generateSelectSql();
+    if (errors.length > 0) {
+      showFeedback('error', 'Query Builder', errors.join('. '));
+      return;
+    }
+    const outputPanel = document.getElementById('queryOutputPanel');
+    const sqlEl = document.getElementById('queryOutputSql');
+    if (outputPanel && sqlEl) {
+      sqlEl.textContent = sql;
+      outputPanel.classList.add('visible');
+    }
+  });
+
+  document.getElementById('queryBuilderClearBtn')?.addEventListener('click', () => {
+    clearCanvas();
+    document.getElementById('queryOutputPanel')?.classList.remove('visible');
+  });
+
+  document.getElementById('queryOutputClose')?.addEventListener('click', () => {
+    document.getElementById('queryOutputPanel')?.classList.remove('visible');
+  });
+
+  document.getElementById('queryOutputApply')?.addEventListener('click', () => {
+    const sql = document.getElementById('queryOutputSql')?.textContent;
+    if (sql) {
+      runtime.editor.setValue(sql);
+      runtime.editor.focus();
+      document.getElementById('queryOutputPanel')?.classList.remove('visible');
+      showFeedback('info', 'SQL Applied', 'Query copied to editor');
+    }
+  });
+
+  // Query builder zoom controls
+  document.getElementById('queryBuilderZoomIn')?.addEventListener('click', () => {
+    const panel = document.getElementById('queryBuilderPanel');
+    const svg = panel?.querySelector('svg');
+    if (svg) qbZoomIn(svg);
+  });
+
+  document.getElementById('queryBuilderZoomOut')?.addEventListener('click', () => {
+    const panel = document.getElementById('queryBuilderPanel');
+    const svg = panel?.querySelector('svg');
+    if (svg) qbZoomOut(svg);
+  });
+
+  document.getElementById('queryBuilderZoomReset')?.addEventListener('click', () => {
+    const panel = document.getElementById('queryBuilderPanel');
+    const svg = panel?.querySelector('svg');
+    if (svg) qbZoomReset(svg);
+  });
+
+  // Chart toolbar events
+  document.getElementById('chartRenderBtn')?.addEventListener('click', () => {
+    const data = runtime.cursor.lastUserResult;
+    if (!data || !data.columns || data.columns.length === 0) {
+      showFeedback('error', 'Chart', 'Run a query first to get data for charting');
+      return;
+    }
+
+    const { type, xCol, yCol } = getChartConfig();
+    if (!xCol || !yCol) {
+      showFeedback('error', 'Chart', 'Select X and Y columns');
+      return;
+    }
+
+    destroyChart();
+    if (type === 'bar') renderBarChart(data, xCol, yCol);
+    else if (type === 'line') renderLineChart(data, xCol, yCol);
+    else if (type === 'pie') renderPieChart(data, xCol, yCol);
   });
 }
 
@@ -309,6 +451,8 @@ async function boot() {
   runtime.cursor.queryTimeout = livePrefs.timeout;
 
   initEditor({ runQuery, runMssqlTranslation, runLiveQuery: runLiveQueryFromMain });
+
+  initChart(document.getElementById('chartContainer'));
 
   runtime.cursor.activeCategoryFilter = state.lastCategoryFilter || 'ALL';
   runtime.cursor.activeDifficultyFilter = state.lastDifficultyFilter || 'ALL';

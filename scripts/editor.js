@@ -78,7 +78,31 @@ export function initEditor({ runQuery, runMssqlTranslation, runLiveQuery }) {
       'Ctrl-H': 'replace',
       'Cmd-H': 'replace',
       'Escape': function(cm) { cm.focus(); },
-      'Ctrl-Space': 'autocomplete'
+      'Ctrl-Space': 'autocomplete',
+      'Ctrl-Shift-O': function(cm) {
+        if (runtime.cursor.currentMode === 'live') {
+          import('./sandbox.js').then(m => {
+            if (m.isOptimizationEnabled()) {
+              m.disableOptimizationHints();
+            } else {
+              const sql = cm.getValue();
+              if (sql.trim()) m.fetchAndShowOptimizations(sql);
+            }
+          });
+        }
+      },
+      'Cmd-Shift-O': function(cm) {
+        if (runtime.cursor.currentMode === 'live') {
+          import('./sandbox.js').then(m => {
+            if (m.isOptimizationEnabled()) {
+              m.disableOptimizationHints();
+            } else {
+              const sql = cm.getValue();
+              if (sql.trim()) m.fetchAndShowOptimizations(sql);
+            }
+          });
+        }
+      }
     },
     hintOptions: {
       tables: {},

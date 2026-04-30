@@ -370,3 +370,69 @@ export async function validateTsql(spText) {
   });
   return res.json();
 }
+
+/**
+ * Fetch optimization suggestions for SQL.
+ * POST /api/optimize
+ */
+export async function fetchOptimizationSuggestions(sql, database) {
+  const res = await fetch(`${API_BASE}/optimize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user', 'X-database': database || 'master' },
+    credentials: 'include',
+    body: JSON.stringify({ sql })
+  });
+  return res.json();
+}
+
+/**
+ * Fetch missing indexes from execution plan XML.
+ * Returns { missingIndexes: [], xml: string }
+ */
+export async function fetchMissingIndexes(query, database) {
+  const res = await fetch(`${API_BASE}/execution-plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user', 'X-database': database || 'master' },
+    credentials: 'include',
+    body: JSON.stringify({ query })
+  });
+  const data = await res.json();
+
+  if (!data.xml) return { missingIndexes: [], xml: null };
+
+  const missingIndexes = [];
+
+  const cleanXml = data.xml.includes('<?xml') ? data.xml : `<?xml version="1.0"?>${data.xml}`;
+  const missingIndexGroups = cleanXml.matchAll(/<MissingIndexGroup[^>]*Impact="([^"]*)"[^>]*>([\s\S]*?)<\/MissingIndexGroup>/gi);
+
+  for (const match of missingIndexGroups) {
+    const impact = parseFloat(match[1]) || 0;
+    const groupContent = match[2];
+
+    const tableMatch = groupContent.match(/<MissingIndex[^>]*Object="([^"]*)"[^>]*>/i) ||
+                       groupContent.match(/<MissingIndex[^>]*Table="([^"]*)"[^>]*>/i);
+    const table = tableMatch ? tableMatch[1] : 'unknown_table';
+
+    const colMatches = [...groupContent.matchAll(/<Column Name="([^"]*)"[^>]*>/gi)];
+    const columns = colMatches.map(m => m[1]);
+
+    if (columns.length > 0) {
+      const indexName = `IX_${table.replace(/[^a-zA-Z0-9]/g, '_')}_${columns.slice(0, 2).join('_')}`;
+      const parts = table.split('.');
+      const schema = parts.length > 2 ? parts[1] : 'dbo';
+      const db = parts.length > 3 ? parts[0] : (database || 'master');
+
+      missingIndexes.push({
+        name: indexName,
+        table,
+        schema,
+        database: db,
+        columns,
+        impact,
+        createStatement: `CREATE INDEX [${indexName}] ON [${db}].[${schema}].[${parts[parts.length - 1]}] ([${columns.map(c => `[${c}]`).join(', ')}]);`
+      });
+    }
+  }
+
+  return { missingIndexes, xml: data.xml };
+}
