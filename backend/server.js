@@ -5,6 +5,11 @@ import { upgradeWebSocket } from '@hono/node-server';
 import 'dotenv/config';
 import { handleQueryWebSocket } from './routes/query.ws.js';
 import connections from './routes/connections.js';
+import schemaRoute from './routes/schema.js';
+import executionPlanRoute from './routes/executionPlan.js';
+import ddlRoute from './routes/ddl.js';
+import spRoute from './routes/storedProcedures.js';
+import validateRoute from './routes/validateTsql.js';
 import { serve } from '@hono/node-server';
 
 const app = new Hono();
@@ -21,6 +26,11 @@ app.use('*', logger());
 app.get('/health', (ctx) => ctx.json({ status: 'ok' }));
 
 app.route('/api/connections', connections);
+app.route('/api/schema', schemaRoute);
+app.route('/api/execution-plan', executionPlanRoute);
+app.route('/api/execute-ddl', ddlRoute);
+app.route('/api/stored-procedure', spRoute);
+app.route('/api/validate-tsql', validateRoute);
 
 const port = process.env.PORT || 3000;
 
