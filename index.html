@@ -26,6 +26,7 @@
 <link rel="stylesheet" href="styles/modal.css" />
 <link rel="stylesheet" href="styles/er-diagram.css" />
 <link rel="stylesheet" href="styles/table-designer.css" />
+<link rel="stylesheet" href="styles/exec-plan.css" />
 </head>
 <body>
 
@@ -145,9 +146,19 @@
           <button class="results-tab active" data-tab="output">Your Output<span class="badge" id="outCount">0</span></button>
           <button class="results-tab practice-only-tab" data-tab="expected">Expected<span class="badge" id="expCount">0</span></button>
           <button class="results-tab" data-tab="message">Message</button>
+          <button class="results-tab live-only-tab" data-tab="exec-plan">Execution Plan</button>
+        </div>
+        <div class="results-toolbar" id="resultsToolbar" style="display:none">
+          <button class="btn" id="showExecPlanBtn">Show Execution Plan</button>
         </div>
         <div class="results-body" id="resultsBody">
           <div class="results-empty">Run a query to see results</div>
+        </div>
+        <div id="execPlanPanel" class="exec-plan-panel" style="display:none">
+          <div class="exec-plan-empty">
+            <h3>No execution plan</h3>
+            <p>Run a query with <code>SET SHOWPLAN_XML ON</code> to view the execution plan.</p>
+          </div>
         </div>
         <!-- Live mode streaming results -->
         <div id="results-status" class="results-status hidden"></div>
