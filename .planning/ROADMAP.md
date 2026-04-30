@@ -96,7 +96,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Multi-tab workspace, object explorer tree, snippet management
-- [x] 03-02-PLAN.md — Object explorer tree gap closure (OBJE-01, OBJE-02, OBJE-05, OBJE-06, CONN-06)
+- [x] 03-02-PLAN.md — Object explorer gap closure (OBJE-01, OBJE-02, OBJE-05, OBJE-06, CONN-06)
 
 **UI hint:** yes
 
@@ -138,9 +138,9 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 1. Backend Proxy Foundation | 2/2 | Complete | 2026-04-30 |
-| 2. Connected Query Execution | 1/1 | Planned | - |
-| 3. Object Explorer & Workspace | 1/1 | Complete   | 2026-04-30 |
-| 4. Professional Polish | 2/2 | Complete    | 2026-04-30 |
+| 2. Connected Query Execution | 1/1 | Complete | 2026-04-30 |
+| 3. Object Explorer & Workspace | 2/2 | Complete | 2026-04-30 |
+| 4. Professional Polish | 2/2 | Complete | 2026-04-30 |
 
 ---
 
