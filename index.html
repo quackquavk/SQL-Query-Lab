@@ -40,8 +40,8 @@
     <div class="controls">
       <div class="live-indicator" id="liveIndicator">
         <span id="liveConnectionName">Not connected</span>
+        <span id="live-status" class="hidden">● <span id="conn-name"></span></span>
       </div>
-      <button class="btn live-only" id="connectBtn">Connect...</button>
       <div class="mode-toggle" role="tablist" aria-label="Mode">
         <button id="modePractice" class="active" data-mode="practice"><span class="ico">●</span>Practice</button>
         <button id="modeSandbox" data-mode="sandbox"><span class="ico">◆</span>Sandbox</button>
@@ -58,6 +58,8 @@
         <option value="school">school.db</option>
       </select>
       <button class="btn" id="resetDbBtn" title="Restore the database to its original seed state">Reset DB</button>
+      <input type="number" id="query-timeout" value="30" min="1" max="300" title="Query timeout (seconds)" style="width:60px;background:var(--surface-2);border:1px solid var(--border-bright);color:var(--text);padding:3px 6px;border-radius:3px;font-family:var(--mono);font-size:11px" />
+      <button class="btn btn-primary" id="btn-cancel" disabled>Cancel</button>
       <button class="btn" id="formatBtn" title="Format SQL — ⌘/Ctrl + Q">Format</button>
       <button class="btn btn-ghost practice-only" id="browseBtn">All Questions</button>
       <button class="btn btn-primary mssql-only" id="translateBtn">Translate to MS SQL<span class="kbd">⌘ ⏎</span></button>
@@ -117,6 +119,21 @@
         <div class="results-body" id="resultsBody">
           <div class="results-empty">Run a query to see results</div>
         </div>
+        <!-- Live mode streaming results -->
+        <div id="results-status" class="results-status hidden"></div>
+        <div id="results-export" class="results-export hidden">
+          <button class="btn-export" id="btn-export-csv">CSV</button>
+          <button class="btn-export" id="btn-export-json">JSON</button>
+        </div>
+        <div id="results-pagination" class="results-pagination"></div>
+        <div id="results-grid-wrap" class="results-scroll-container hidden">
+          <table id="results-grid" class="results-grid">
+            <thead id="results-header"></thead>
+            <tbody id="results-body-live"></tbody>
+          </table>
+        </div>
+        <div id="results-loading" class="results-loading hidden">Streaming results…</div>
+        <div id="results-empty" class="results-empty hidden">No results returned.</div>
       </div>
     </section>
 
