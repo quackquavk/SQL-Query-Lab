@@ -31,9 +31,9 @@
 - [x] **EDIT-02**: User gets T-SQL IntelliSense autocomplete for keywords, tables, columns
 - [x] **EDIT-03**: User can execute query (F5 or Cmd+Enter)
 - [x] **EDIT-04**: User can cancel running query
-- [ ] **EDIT-05**: User can format SQL (prettify/beautify)
-- [ ] **EDIT-06**: User can comment/uncomment selected lines
-- [ ] **EDIT-07**: User can find and replace within editor
+- [x] **EDIT-05**: User can format SQL (prettify/beautify)
+- [x] **EDIT-06**: User can comment/uncomment selected lines
+- [x] **EDIT-07**: User can find and replace within editor
 
 ### Query Execution
 
@@ -66,11 +66,11 @@
 
 ### Theming & UI
 
-- [ ] **THEM-01**: Dark theme (VS Code-style) as default
-- [ ] **THEM-02**: Light theme available
-- [ ] **THEM-03**: Theme respects system preference (auto)
-- [ ] **THEM-04**: Keyboard shortcuts follow VS Code conventions
-- [ ] **THEM-05**: Focus indicators visible for accessibility
+- [x] **THEM-01**: Dark theme (VS Code-style) as default
+- [x] **THEM-02**: Light theme available
+- [x] **THEM-03**: Theme respects system preference (auto)
+- [x] **THEM-04**: Keyboard shortcuts follow VS Code conventions
+- [x] **THEM-05**: Focus indicators visible for accessibility
 
 ### Professional Features
 
@@ -84,9 +84,9 @@
 
 ### Visual Tools
 
-- [ ] **VISU-01**: Visual table designer (CREATE/ALTER tables via GUI)
-- [ ] **VISU-02**: Database diagram visualization (ER diagrams)
-- [ ] **VISU-03**: Execution plan viewer (XML plan parsing, visual flowchart)
+- [x] **VISU-01**: Visual table designer (CREATE/ALTER tables via GUI)
+- [x] **VISU-02**: Database diagram visualization (ER diagrams)
+- [x] **VISU-03**: Execution plan viewer (XML plan parsing, visual flowchart)
 
 ### Advanced
 
@@ -175,14 +175,14 @@
 
 | Requirement | Description | Status |
 |-------------|-------------|--------|
-| THEM-01 | Dark theme (VS Code-style) | Pending |
-| THEM-02 | Light theme | Pending |
-| THEM-03 | System preference (auto) | Pending |
-| THEM-04 | VS Code keyboard shortcuts | Pending |
-| THEM-05 | Focus indicators (accessibility) | Pending |
-| EDIT-05 | Format SQL (prettify/beautify) | Pending |
-| EDIT-06 | Comment/uncomment lines | Pending |
-| EDIT-07 | Find and replace | Pending |
+| THEM-01 | Dark theme (VS Code-style) | Complete |
+| THEM-02 | Light theme | Complete |
+| THEM-03 | System preference (auto) | Complete |
+| THEM-04 | VS Code keyboard shortcuts | Complete |
+| THEM-05 | Focus indicators (accessibility) | Complete |
+| EDIT-05 | Format SQL (prettify/beautify) | Complete |
+| EDIT-06 | Comment/uncomment lines | Complete |
+| EDIT-07 | Find and replace | Complete |
 
 ### v2 Requirements (Future)
 
