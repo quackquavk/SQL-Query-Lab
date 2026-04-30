@@ -30,7 +30,11 @@
 3. User can view execution plans as a visual flowchart parsed from XML Showplan output, with operator details, row counts, and cost breakdown per operator
 4. User can view, edit, and create stored procedures with T-SQL syntax checking, parameter extraction, and GO batch separator support
 
-**Plans:** TBD
+**Plans:** 4 plans
+- [ ] 05-01-PLAN.md — ER diagram + table designer (frontend)
+- [ ] 05-02-PLAN.md — Execution plan viewer (frontend)
+- [ ] 05-03-PLAN.md — Stored procedure editor (frontend)
+- [ ] 05-04-PLAN.md — Backend endpoints for visual tools
 
 ---
 
