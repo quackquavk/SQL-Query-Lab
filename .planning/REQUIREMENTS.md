@@ -113,74 +113,101 @@
 
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| CONN-01 | Phase 1 | Pending |
-| CONN-02 | Phase 1 | Pending |
-| CONN-03 | Phase 1 | Pending |
-| CONN-04 | Phase 1 | Pending |
-| CONN-05 | Phase 1 | Pending |
-| CONN-06 | Phase 3 | Pending |
-| CONN-07 | Phase 1 | Pending |
-| CONN-08 | Phase 1 | Pending |
-| OBJE-01 | Phase 3 | Pending |
-| OBJE-02 | Phase 3 | Pending |
-| OBJE-03 | Phase 3 | Pending |
-| OBJE-04 | Phase 3 | Pending |
-| OBJE-05 | Phase 3 | Pending |
-| OBJE-06 | Phase 3 | Pending |
-| EDIT-01 | Phase 2 | Pending |
-| EDIT-02 | Phase 2 | Pending |
-| EDIT-03 | Phase 2 | Pending |
-| EDIT-04 | Phase 2 | Pending |
-| EDIT-05 | Phase 5 | Pending |
-| EDIT-06 | Phase 5 | Pending |
-| EDIT-07 | Phase 5 | Pending |
-| EXEC-01 | Phase 2 | Pending |
-| EXEC-02 | Phase 2 | Pending |
-| EXEC-03 | Phase 2 | Pending |
-| EXEC-04 | Phase 2 | Pending |
-| EXEC-05 | Phase 2 | Pending |
-| EXEC-06 | Phase 2 | Pending |
-| EXEC-07 | Phase 2 | Pending |
-| EXEC-08 | Phase 2 | Pending |
-| TAB-01 | Phase 4 | Pending |
-| TAB-02 | Phase 4 | Pending |
-| TAB-03 | Phase 4 | Pending |
-| TAB-04 | Phase 4 | Pending |
-| TAB-05 | Phase 4 | Pending |
-| TAB-06 | Phase 4 | Pending |
-| TAB-07 | Phase 4 | Pending |
-| SNIP-01 | Phase 4 | Pending |
-| SNIP-02 | Phase 4 | Pending |
-| SNIP-03 | Phase 4 | Pending |
-| SNIP-04 | Phase 4 | Pending |
-| SNIP-05 | Phase 4 | Pending |
-| THEM-01 | Phase 5 | Pending |
-| THEM-02 | Phase 5 | Pending |
-| THEM-03 | Phase 5 | Pending |
-| THEM-04 | Phase 5 | Pending |
-| THEM-05 | Phase 5 | Pending |
-| PROF-01 | Phase 1 | Pending |
-| PROF-02 | Phase 1 | Pending |
-| PROF-03 | Phase 2 | Pending |
-| PROF-04 | Phase 2 | Pending |
-| PROF-05 | Phase 4 | Pending |
-| VISU-01 | Phase 6 | Pending |
-| VISU-02 | Phase 6 | Pending |
-| VISU-03 | Phase 6 | Pending |
-| ADV-01 | Phase 6 | Pending |
-| ADV-02 | Phase 6 | Pending |
-| ADV-03 | Phase 6 | Pending |
-| ADV-04 | Phase 6 | Pending |
-| ADV-05 | Phase 6 | Pending |
-| COLL-01 | Future | Pending |
-| COLL-02 | Future | Pending |
+### Phase 1: Backend Proxy Foundation
+
+| Requirement | Description | Status |
+|-------------|-------------|--------|
+| CONN-01 | Connection dialog (server, auth type) | Pending |
+| CONN-02 | SQL Server authentication | Pending |
+| CONN-03 | Windows integrated authentication | Pending |
+| CONN-04 | Azure Active Directory / Entra ID | Pending |
+| CONN-05 | Save connections (encrypted, backend) | Pending |
+| CONN-07 | Test connection before saving | Pending |
+| CONN-08 | Disconnect from active connection | Pending |
+| PROF-01 | Credentials never in browser storage | Pending |
+| PROF-02 | Proxy validates/parameterizes queries | Pending |
+
+### Phase 2: Connected Query Execution
+
+| Requirement | Description | Status |
+|-------------|-------------|--------|
+| EDIT-01 | Monaco editor with T-SQL highlighting | Pending |
+| EDIT-02 | T-SQL IntelliSense autocomplete | Pending |
+| EDIT-03 | Execute query (F5 or Cmd+Enter) | Pending |
+| EDIT-04 | Cancel running query | Pending |
+| EXEC-01 | Row-by-row result streaming | Pending |
+| EXEC-02 | Sortable results grid | Pending |
+| EXEC-03 | Export results to CSV | Pending |
+| EXEC-04 | Export results to JSON | Pending |
+| EXEC-05 | Decoded SQL Server error messages | Pending |
+| EXEC-06 | Execution time per query | Pending |
+| EXEC-07 | Row count for DML operations | Pending |
+| EXEC-08 | Configurable query timeout (default 30s) | Pending |
+| PROF-03 | Large result set pagination (100-500 rows) | Pending |
+| PROF-04 | Virtual scrolling (100K+ rows) | Pending |
+
+### Phase 3: Object Explorer & Workspace
+
+| Requirement | Description | Status |
+|-------------|-------------|--------|
+| OBJE-01 | Server hierarchy tree view | Pending |
+| OBJE-02 | Lazy loading tree nodes | Pending |
+| OBJE-03 | Table schema view | Pending |
+| OBJE-04 | Stored procedure definition view | Pending |
+| OBJE-05 | Refresh object tree | Pending |
+| OBJE-06 | Context menu actions | Pending |
+| CONN-06 | Connection groups/favorites | Pending |
+| TAB-01 | Multiple query tabs | Pending |
+| TAB-02 | Independent tab state | Pending |
+| TAB-03 | Autosave to localStorage | Pending |
+| TAB-04 | Restore previous session tabs | Pending |
+| TAB-05 | Dirty indicator on unsaved tabs | Pending |
+| TAB-06 | Close with unsaved warning | Pending |
+| TAB-07 | Drag-and-drop tab reordering | Pending |
+| SNIP-01 | Save SQL snippets | Pending |
+| SNIP-02 | Insert snippet at cursor | Pending |
+| SNIP-03 | Edit/delete saved snippets | Pending |
+| SNIP-04 | Snippet categories | Pending |
+| SNIP-05 | Built-in starter snippets | Pending |
+| PROF-05 | Query history across sessions | Pending |
+
+### Phase 4: Professional Polish
+
+| Requirement | Description | Status |
+|-------------|-------------|--------|
+| THEM-01 | Dark theme (VS Code-style) | Pending |
+| THEM-02 | Light theme | Pending |
+| THEM-03 | System preference (auto) | Pending |
+| THEM-04 | VS Code keyboard shortcuts | Pending |
+| THEM-05 | Focus indicators (accessibility) | Pending |
+| EDIT-05 | Format SQL (prettify/beautify) | Pending |
+| EDIT-06 | Comment/uncomment lines | Pending |
+| EDIT-07 | Find and replace | Pending |
+
+### v2 Requirements (Future)
+
+| Requirement | Description |
+|-------------|-------------|
+| VISU-01 | Visual table designer |
+| VISU-02 | Database diagram visualization |
+| VISU-03 | Execution plan viewer |
+| ADV-01 | Query optimization suggestions |
+| ADV-02 | Missing index detection |
+| ADV-03 | Stored procedure debugger |
+| ADV-04 | SQL Agent job viewer |
+| ADV-05 | Backup/restore GUI |
+| COLL-01 | Share query tabs (read-only) |
+| COLL-02 | Share query results |
 
 **Coverage:**
 - v1 requirements: 43 total
 - Mapped to phases: 43
 - Unmapped: 0
+
+---
+
+*Requirements defined: 2026-04-30*
+*Last updated: 2026-04-30 after roadmap creation*
 
 ---
 *Requirements defined: 2026-04-30*
