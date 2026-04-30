@@ -10,7 +10,7 @@
 
 **Core Value:** Professionals can manage SQL Server infrastructure from any browser, with zero setup and full feature parity with desktop SSMS.
 
-**Current Focus:** Phase 5 — Visual Design Tools (ER diagrams, Table Designer, Execution Plan Viewer)
+**Current Focus:** Phase 6 — Query Tools (Query history, Favorites, Export, Charting)
 
 ---
 
@@ -19,7 +19,7 @@
 | Phase | Goal | Status | Plans | Completed |
 |-------|------|--------|-------|-----------|
 | 1-4 | v1.0 milestone | Complete | - | ✓ |
-| 5 | Visual Design Tools | Not started | 0/4 | - |
+| 5 | Visual Design Tools | Complete | 4/4 | ✓ |
 | 6 | Query Tools | Not started | 0/4 | - |
 | 7 | Administration | Not started | 0/2 | - |
 
@@ -29,8 +29,8 @@
 
 - **Requirements:** 10 total for v1.1
 - **Mapped to phases:** 10/10 (100%)
-- **Phases started:** 0
-- **Phases complete:** 0
+- **Phases started:** 1
+- **Phases complete:** 1
 
 ---
 
@@ -61,7 +61,8 @@
 
 **Last updated:** 2026-04-30
 **Roadmap version:** 1.0
-**Next action:** `/gsd-plan-phase 5`
+**Next action:** `/gsd-plan-phase 6`
+**Phase 5 completed:** All 4 plans (05-01 ER diagram, 05-02 exec plan viewer, 05-03 SP editor, 05-04 backend endpoints)
 
 ---
 
