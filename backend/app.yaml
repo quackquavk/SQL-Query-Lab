@@ -1,0 +1,15 @@
+name: sqlquerylab-backend
+region: nyc
+services:
+  - name: web
+    github:
+      repo: quackquavk/SQL-Query-Lab
+      branch: main
+      root: backend
+    run:
+      command: node server.js
+      envs:
+        - key: ALLOWED_ORIGIN
+          value: https://sql.chessdream.app
+        - key: PORT
+          value: 3000
