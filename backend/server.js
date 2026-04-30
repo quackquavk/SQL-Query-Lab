@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { upgradeWebSocket } from '@hono/node-ws';
-import connections from './routes/connections.js';
+import { upgradeWebSocket } from '@hono/node-server';
 import { handleQueryWebSocket } from './routes/query.ws.js';
+import connections from './routes/connections.js';
+import { serve } from '@hono/node-server';
 
 const app = new Hono();
 
@@ -20,24 +21,33 @@ app.get('/health', (ctx) => ctx.json({ status: 'ok' }));
 
 app.route('/api/connections', connections);
 
-app.ws('/api/query', async (ctx) => {
-  const { socket } = ctx;
-  const userId = ctx.req.header('X-User-Id') || 'anonymous';
+const port = process.env.PORT || 3000;
 
-  socket.on('message', async (msg) => {
-    try {
-      const data = JSON.parse(msg);
-      await handleQueryWebSocket(socket, data, userId);
-    } catch (err) {
-      socket.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
-    }
-  });
+const server = serve({
+  fetch: app.fetch,
+  port,
+  websocket: {
+    upgradeWebSocket,
+  }
 });
 
-const port = process.env.PORT || 3000;
-console.log(`Backend server starting on port ${port}`);
+server.on('upgrade', (request, socket, head) => {
+  const url = new URL(request.url, `http://${request.headers.host}`);
 
-export default {
-  port,
-  fetch: app.fetch
-};
+  if (url.pathname === '/api/query') {
+    const userId = request.headers['x-user-id'] || 'anonymous';
+
+    socket.on('message', async (msg) => {
+      try {
+        const data = JSON.parse(msg);
+        await handleQueryWebSocket(socket, data, userId);
+      } catch (err) {
+        socket.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+      }
+    });
+  }
+});
+
+console.log(`Backend server running on port ${port}`);
+
+export default { port };

@@ -64,9 +64,9 @@ export function initEditor({ runQuery, runMssqlTranslation, runLiveQuery }) {
     indentUnit: 2,
     smartIndent: true,
     extraKeys: {
-      'F5': () => { if (runtime.editorQueryExecutor) runtime.editorQueryExecutor(); },
-      'Ctrl-Enter': () => { if (runtime.cursor.currentMode === 'mssql') runMssqlTranslation(); else if (runtime.editorQueryExecutor) runtime.editorQueryExecutor(); },
-      'Cmd-Enter':  () => { if (runtime.cursor.currentMode === 'mssql') runMssqlTranslation(); else if (runtime.editorQueryExecutor) runtime.editorQueryExecutor(); },
+      'F5': () => { const fn = runtime.getEditorQueryExecutor?.(); if (fn) fn(); },
+      'Ctrl-Enter': () => { if (runtime.cursor.currentMode === 'mssql') runMssqlTranslation(); else { const fn = runtime.getEditorQueryExecutor?.(); if (fn) fn(); } },
+      'Cmd-Enter':  () => { if (runtime.cursor.currentMode === 'mssql') runMssqlTranslation(); else { const fn = runtime.getEditorQueryExecutor?.(); if (fn) fn(); } },
       'Ctrl-Q': formatEditorSql,
       'Cmd-Q':  formatEditorSql,
       'Ctrl-S': formatEditorSql,

@@ -12,6 +12,12 @@ export let openTabs = [];      // Array of { id, title, sql, database, connectio
 export let activeTabId = null; // Currently active tab ID
 export let tabCounter = 0;      // Auto-increment tab ID counter
 
+// Object explorer tree state
+export const objectTree = {};  // { connectionId: { databases: [...] } }
+
+// Tab management API (initialized in sandbox.js)
+let _tabApi = null;
+
 export const cursor = {
   currentDbName: 'hospital',
   currentQuestionId: 1,
@@ -34,3 +40,15 @@ export const sandboxDirty = {
 
 export function setSQL(v) { SQL = v; }
 export function setEditor(v) { editor = v; }
+export function getTabApi() { return _tabApi; }
+export function setTabApi(api) { _tabApi = api; }
+let _editorQueryExecutor = null;
+export function setEditorQueryExecutor(fn) { _editorQueryExecutor = fn; }
+export function getEditorQueryExecutor() { return _editorQueryExecutor; }
+
+// Setters for primitives / reassignable exports (ES module bindings are read-only externally)
+export function setOpenTabs(v) { openTabs = v; }
+export function setActiveTabId(v) { activeTabId = v; }
+export function setTabCounter(v) { tabCounter = v; }
+export function incTabCounter() { return ++tabCounter; }
+export function assignObjectTree(data) { Object.keys(objectTree).forEach(k => delete objectTree[k]); Object.assign(objectTree, data); }

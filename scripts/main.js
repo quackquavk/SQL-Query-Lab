@@ -314,7 +314,7 @@ async function boot() {
   runtime.cursor.activeDifficultyFilter = state.lastDifficultyFilter || 'ALL';
 
   // Wire editor query executor for F5 / Cmd+Enter
-  runtime.editorQueryExecutor = runQuery;
+  runtime.setEditorQueryExecutor(runQuery);
 
   wireUI();
 
@@ -331,7 +331,7 @@ async function boot() {
   } else {
     // Create default tab if no saved tabs
     const defaultId = createTab(runtime.cursor.currentDbName, runtime.cursor.connectionId);
-    runtime.activeTabId = defaultId;
+    runtime.setActiveTabId(defaultId);
     if (typeof switchTabById === 'function') switchTabById(defaultId);
   }
 

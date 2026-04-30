@@ -101,8 +101,7 @@ table.result-table {
   border-color: rgba(163, 201, 104, 0.35);
   color: #c8dd9e;
 }
-.feedback.success .label {
-  color: var(--success);
+.feedback .label {
   font-family: var(--serif);
   font-style: italic;
   font-size: 19px;
@@ -110,6 +109,10 @@ table.result-table {
   display: block;
   margin-bottom: 4px;
 }
+.feedback.success .label {
+  color: var(--success);
+}
+
 .feedback.error {
   background: var(--error-soft);
   border-color: rgba(229, 107, 90, 0.35);
@@ -117,12 +120,6 @@ table.result-table {
 }
 .feedback.error .label {
   color: var(--error);
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 19px;
-  font-weight: 400;
-  display: block;
-  margin-bottom: 4px;
 }
 .feedback code {
   font-family: var(--mono);

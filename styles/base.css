@@ -24,6 +24,7 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+.hidden { display: none !important; }
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; -webkit-font-smoothing: antialiased; }
 
 /* Subtle grain + vignette */
@@ -222,13 +223,15 @@ html[data-theme="auto"],
 }
 
 /* Interactive elements focus */
-button, .btn, input, select, textarea, [role="button"], [tabindex] {
+button:focus-visible, .btn:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible,
+[role="button"]:focus-visible, [tabindex]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 /* Links focus */
-a {
+a:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

@@ -173,3 +173,108 @@ export async function decryptConnection(id, masterPassword) {
   });
   return res.json();
 }
+
+/**
+ * Fetch full object tree for a connection.
+ * Returns { databases: [{ name, tables, views, procedures, functions }] }
+ */
+export async function fetchObjectTree(connectionId) {
+  const res = await fetch(`${API_BASE}/schema?connectionId=${connectionId}`);
+  if (!res.ok) throw new Error('Failed to fetch object tree');
+  return res.json();
+}
+
+/**
+ * Fetch column info for a table (lazy-loaded on table expand).
+ * Returns { columns: [{ name, dataType, isNullable, isPrimaryKey }] }
+ */
+export async function fetchTableColumns(connectionId, database, table) {
+  const res = await fetch(`${API_BASE}/schema/${database}/${table}/columns?connectionId=${connectionId}`);
+  if (!res.ok) throw new Error('Failed to fetch columns');
+  return res.json();
+}
+
+/**
+ * Fetch stored procedure definition text.
+ * Returns SQL definition string.
+ */
+export async function fetchProcedureDefinition(connectionId, database, procedure) {
+  const res = await fetch(`${API_BASE}/schema/${database}/${procedure}/definition?connectionId=${connectionId}`);
+  if (!res.ok) throw new Error('Failed to fetch procedure definition');
+  return res.text();
+}
+
+/**
+ * Refresh a specific node in the object tree.
+ * nodeType: 'database' | 'table' | 'view' | 'procedure' | 'function'
+ */
+export async function refreshObjectNode(connectionId, database, nodeType, nodeName) {
+  if (nodeType === 'database') {
+    return fetchObjectTree(connectionId);
+  } else if (nodeType === 'table' || nodeType === 'view') {
+    return fetchTableColumns(connectionId, database, nodeName);
+  } else if (nodeType === 'procedure' || nodeType === 'function') {
+    return fetchProcedureDefinition(connectionId, database, nodeName);
+  }
+}
+
+/**
+ * Fetch connection groups (for favorites/grouping support).
+ */
+export async function fetchConnectionGroups() {
+  const res = await fetch(`${API_BASE}/connections`, {
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  return res.json();
+}
+
+/**
+ * Create a new connection group.
+ */
+export async function createConnectionGroup(name) {
+  const res = await fetch(`${API_BASE}/connections/groups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    credentials: 'include',
+    body: JSON.stringify({ name })
+  });
+  return res.json();
+}
+
+/**
+ * Update a connection group (rename, reorder).
+ */
+export async function updateConnectionGroup(groupId, updates) {
+  const res = await fetch(`${API_BASE}/connections/groups/${groupId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    credentials: 'include',
+    body: JSON.stringify(updates)
+  });
+  return res.json();
+}
+
+/**
+ * Delete a connection group.
+ */
+export async function deleteConnectionGroup(groupId) {
+  const res = await fetch(`${API_BASE}/connections/groups/${groupId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  return res.json();
+}
+
+/**
+ * Toggle favorite status for a connection.
+ */
+export async function toggleConnectionFavorite(connectionId) {
+  const res = await fetch(`${API_BASE}/connections/${connectionId}/favorite`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  return res.json();
+}

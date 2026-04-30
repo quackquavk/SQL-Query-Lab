@@ -69,11 +69,10 @@ export const BUILTIN_SNIPPETS = [
   }
 ];
 
-function ensureBuiltinSnippets() {
-  if (state.snippets && state.snippets.length > 0) return;
-  // No user snippets yet — seed built-ins
-  state.snippets = BUILTIN_SNIPPETS.map(s => ({ ...s }));
-  state.snippetCategories = ['General', 'SELECT', 'INSERT', 'UPDATE', 'DELETE'];
+function ensureBuiltinSnippets(s) {
+  if (s.snippets && s.snippets.length > 0) return;
+  s.snippets = BUILTIN_SNIPPETS.map(sn => ({ ...sn }));
+  s.snippetCategories = ['General', 'SELECT', 'INSERT', 'UPDATE', 'DELETE'];
 }
 
 function loadState() {
@@ -94,12 +93,12 @@ function loadState() {
       if (parsed && parsed.version === 2) {
         const d = defaultState();
         const s = Object.assign(d, parsed);
-        ensureBuiltinSnippets();
+        ensureBuiltinSnippets(s);
         return s;
       }
       if (parsed && parsed.version === 3) {
         const s = Object.assign(defaultState(), parsed);
-        ensureBuiltinSnippets();
+        ensureBuiltinSnippets(s);
         return s;
       }
     }
@@ -107,12 +106,12 @@ function loadState() {
     if (legacy) {
       const s = defaultState();
       s.solved = JSON.parse(legacy) || [];
-      ensureBuiltinSnippets();
+      ensureBuiltinSnippets(s);
       return s;
     }
   } catch (e) { console.warn('loadState failed', e); }
   const s = defaultState();
-  ensureBuiltinSnippets();
+  ensureBuiltinSnippets(s);
   return s;
 }
 

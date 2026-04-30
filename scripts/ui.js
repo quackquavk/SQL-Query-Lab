@@ -6,6 +6,7 @@ import { state, solved, persist, MAX_HISTORY, formatHistoryTime, clearHistory } 
 import { QUESTIONS } from './questions.js';
 import { activeDb } from './db.js';
 import { escapeHtml, previewStatement, exportToCsv, exportToJson, downloadBlob } from './utils.js';
+import * as apiClient from './apiClient.js';
 
 const ROW_HEIGHT = 28; // pixels per row for virtual scrolling
 
@@ -50,7 +51,8 @@ export function renderTabBar() {
   bar.querySelectorAll('.tab').forEach(el => {
     el.addEventListener('click', (e) => {
       if (e.target.classList.contains('tab-close')) return;
-      const { switchTabById } = runtime._tabApi || {};
+      const tabApi = runtime.getTabApi?.() || {};
+      const { switchTabById } = tabApi;
       if (switchTabById) switchTabById(el.dataset.tabId);
     });
   });
@@ -59,7 +61,7 @@ export function renderTabBar() {
   bar.querySelectorAll('.tab-close').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const { closeTab } = runtime._tabApi || {};
+      const { closeTab } = tabApi;
       if (closeTab) closeTab(btn.dataset.close);
     });
   });
@@ -68,7 +70,8 @@ export function renderTabBar() {
   const newBtn = document.getElementById('tabNewBtn');
   if (newBtn) {
     newBtn.addEventListener('click', () => {
-      const { createTab, switchTabById } = runtime._tabApi || {};
+      const tabApi = runtime.getTabApi?.() || {};
+      const { createTab, switchTabById } = tabApi;
       if (createTab) {
         const id = createTab(runtime.cursor.currentDbName, runtime.cursor.connectionId);
         if (switchTabById) switchTabById(id);
@@ -102,7 +105,7 @@ export function renderTabBar() {
       const tabs = runtime.openTabs;
       const fromIdx = tabs.findIndex(t => t.id === dragTabId);
       const toIdx = tabs.findIndex(t => t.id === el.dataset.tabId);
-      const { reorderTabs } = runtime._tabApi || {};
+      const { reorderTabs } = tabApi;
       if (reorderTabs && fromIdx !== -1 && toIdx !== -1) {
         reorderTabs(fromIdx, toIdx);
       }
@@ -220,6 +223,336 @@ export function renderSchema() {
   });
   const first = el.querySelector('.schema-table');
   if (first) first.classList.add('open');
+}
+
+// ─── Object Explorer Tree ───────────────────────────────────────────────────
+
+/**
+ * Render the object explorer tree.
+ * @param {Object} treeData - { databases: [...], groups: [...] } from fetchObjectTree
+ * @param {HTMLElement} container - defaults to document.querySelector('.obj-tree')
+ */
+export function renderObjectTree(treeData, container) {
+  container = container || document.querySelector('.obj-tree');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  // Render connection groups/favorites at top (CONN-06)
+  const groups = treeData.groups || [];
+  if (groups.length > 0) {
+    const groupsSection = document.createElement('div');
+    groupsSection.className = 'obj-section';
+    groupsSection.innerHTML = '<div class="obj-section-header">★ Favorites</div>';
+    groups.forEach(group => {
+      const node = createTreeNode(group.name, 'group', 0, true);
+      node.dataset.groupId = group.id;
+      node.innerHTML = `★ ${group.name}`;
+      groupsSection.appendChild(node);
+    });
+    container.appendChild(groupsSection);
+  }
+
+  // Render databases and their children
+  const databases = treeData.databases || [];
+  databases.forEach(db => {
+    // Database node (expandable folder)
+    const dbNode = createTreeNode(db.name, 'database', 0, true);
+    dbNode.innerHTML = `🗄️ ${db.name}`;
+    container.appendChild(dbNode);
+
+    // Child folders: Tables, Views, Stored Procedures, Functions
+    const childFolders = [
+      { name: 'Tables', type: 'table', items: db.tables || [] },
+      { name: 'Views', type: 'view', items: db.views || [] },
+      { name: 'Stored Procedures', type: 'procedure', items: db.procedures || [] },
+      { name: 'Functions', type: 'function', items: db.functions || [] },
+    ];
+
+    childFolders.forEach(folder => {
+      if (folder.items.length === 0) return;
+
+      const folderNode = createTreeNode(folder.name, folder.type + '_folder', 1, true);
+      folderNode.innerHTML = folder.name;
+      dbNode.appendChild(folderNode);
+
+      folder.items.forEach(item => {
+        const itemNode = createTreeNode(item.name, folder.type, 2, false);
+        itemNode.innerHTML = item.name;
+        itemNode.dataset.database = db.name;
+        itemNode.dataset.type = folder.type;
+        folderNode.appendChild(itemNode);
+      });
+    });
+  });
+
+  wireTreeEvents(container);
+}
+
+/**
+ * Create a tree node element.
+ */
+function createTreeNode(name, type, level, expandable) {
+  const node = document.createElement('div');
+  node.className = 'obj-node' + (expandable ? ' obj-expandable' : '');
+  node.dataset.name = name;
+  node.dataset.type = type;
+  node.dataset.level = level;
+  return node;
+}
+
+/**
+ * Wire click-to-expand and context menu events on tree container.
+ */
+function wireTreeEvents(container) {
+  container.addEventListener('click', (e) => {
+    const node = e.target.closest('.obj-node');
+    if (!node) return;
+
+    const type = node.dataset.type;
+    const name = node.dataset.name;
+
+    // Expandable folder click → lazy load children
+    if (node.classList.contains('obj-expandable') && !node.classList.contains('expanded')) {
+      node.classList.add('expanded');
+      handleNodeExpand(node);
+      return;
+    }
+
+    // Object click (table, view, procedure, function) → show schema or definition
+    if (['table', 'view', 'procedure', 'function'].includes(type)) {
+      handleObjectClick(node, type, name);
+    }
+  });
+
+  // Right-click context menu (OBJE-06)
+  container.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const node = e.target.closest('.obj-node');
+    if (!node) return;
+
+    const nodeType = node.dataset.type;
+    const nodeName = node.dataset.name;
+    const database = node.dataset.database || '';
+    showContextMenu(e.clientX, e.clientY, nodeType, nodeName, database);
+  });
+}
+
+/**
+ * Handle tree node expansion with lazy loading (OBJE-02, D-05).
+ * Fetches children on first expand.
+ */
+async function handleNodeExpand(node) {
+  const type = node.dataset.type;
+  const name = node.dataset.name;
+  const database = node.dataset.database || '';
+  const connectionId = runtime.cursor.connectionId;
+
+  // Already loaded
+  if (node.dataset.loaded === 'true') return;
+  node.dataset.loaded = 'true';
+
+  // Show loading state
+  const loading = document.createElement('div');
+  loading.className = 'obj-loading';
+  loading.textContent = 'Loading...';
+  node.appendChild(loading);
+
+  try {
+    if (type === 'database') {
+      // Lazy load database children (tables/views/procedures/functions)
+      const data = await apiClient.fetchObjectTree(connectionId);
+      // Find this database in response and update children
+      const dbData = data.databases.find(d => d.name === name);
+      if (dbData) {
+        node.innerHTML = `🗄️ ${name}`;
+        // Re-add child folders with real data
+        renderDatabaseChildren(node, dbData);
+      }
+    } else if (['table', 'view', 'procedure', 'function'].includes(type)) {
+      // Lazy load column info or procedure definition
+      if (type === 'table' || type === 'view') {
+        const data = await apiClient.fetchTableColumns(connectionId, database, name);
+        node.innerHTML = name;
+        data.columns.forEach(col => {
+          const colNode = createTreeNode(`${col.name} (${col.dataType})`, 'column', 3, false);
+          if (col.isPrimaryKey) colNode.innerHTML += ' 🔑';
+          node.appendChild(colNode);
+        });
+      } else {
+        const def = await apiClient.fetchProcedureDefinition(connectionId, database, name);
+        node.innerHTML = name;
+        const defNode = createTreeNode('Definition', 'definition', 3, false);
+        defNode.textContent = def.substring(0, 100) + '...';
+        node.appendChild(defNode);
+      }
+    }
+  } catch (err) {
+    showFeedback('error', 'Failed to load: ' + err.message);
+    node.innerHTML = name;
+  }
+}
+
+/**
+ * Render child folders under a database node after lazy load.
+ */
+function renderDatabaseChildren(dbNode, dbData) {
+  const childFolders = [
+    { name: 'Tables', type: 'table', items: dbData.tables || [] },
+    { name: 'Views', type: 'view', items: dbData.views || [] },
+    { name: 'Stored Procedures', type: 'procedure', items: dbData.procedures || [] },
+    { name: 'Functions', type: 'function', items: dbData.functions || [] },
+  ];
+
+  childFolders.forEach(folder => {
+    if (folder.items.length === 0) return;
+
+    const folderNode = createTreeNode(folder.name, folder.type + '_folder', 1, true);
+    folderNode.innerHTML = folder.name;
+    dbNode.appendChild(folderNode);
+
+    folder.items.forEach(item => {
+      const itemNode = createTreeNode(item.name, folder.type, 2, false);
+      itemNode.innerHTML = item.name;
+      itemNode.dataset.database = dbData.name;
+      itemNode.dataset.type = folder.type;
+      folderNode.appendChild(itemNode);
+    });
+  });
+}
+
+/**
+ * Handle object node click → show schema panel or open definition in new tab.
+ */
+function handleObjectClick(node, type, name) {
+  const database = node.dataset.database;
+  if (type === 'table' || type === 'view') {
+    // Show schema in right sidebar
+    if (typeof renderSchema === 'function') {
+      renderSchema(activeDb(), name);
+    }
+  } else if (type === 'procedure' || type === 'function') {
+    // Open definition in new tab (D-21)
+    apiClient.fetchProcedureDefinition(runtime.cursor.connectionId, database, name)
+      .then(def => {
+        if (typeof window.openNewTab === 'function') {
+          window.openNewTab(database, runtime.cursor.connectionId, def);
+        }
+        showFeedback('info', 'Opened ' + name + ' definition');
+      });
+  }
+}
+
+/**
+ * Show context menu at x, y for given node (OBJE-06, D-19).
+ */
+function showContextMenu(x, y, nodeType, nodeName, database) {
+  // Remove existing menu
+  const existing = document.querySelector('.obj-context-menu');
+  if (existing) existing.remove();
+
+  const menu = document.createElement('div');
+  menu.className = 'obj-context-menu';
+  menu.style.position = 'fixed';
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.style.zIndex = 1000;
+
+  const items = getContextMenuItems(nodeType, nodeName, database);
+  items.forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'obj-menu-item';
+    btn.textContent = item.label;
+    btn.onclick = () => { item.action(); menu.remove(); };
+    menu.appendChild(btn);
+  });
+
+  document.body.appendChild(menu);
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function closeMenu() {
+      menu.remove();
+      document.removeEventListener('click', closeMenu);
+    });
+  }, 0);
+}
+
+function getContextMenuItems(nodeType, nodeName, database) {
+  const items = [];
+  const connId = runtime.cursor.connectionId;
+
+  if (nodeType === 'table') {
+    items.push(
+      { label: 'Select Top 100', action: () => { runtime.editor?.setValue(`SELECT TOP 100 * FROM ${nodeName};`); } },
+      { label: 'New Query', action: () => { /* sandbox.createTab(database, connId); */ } },
+      { label: 'Refresh', action: () => { /* refresh logic */ } }
+    );
+  } else if (nodeType === 'view') {
+    items.push(
+      { label: 'Select Top 100', action: () => { runtime.editor?.setValue(`SELECT TOP 100 * FROM ${nodeName};`); } },
+      { label: 'Script As CREATE', action: () => { /* future feature */ } },
+      { label: 'Refresh', action: () => { /* refresh logic */ } }
+    );
+  } else if (nodeType === 'procedure') {
+    items.push(
+      { label: 'Execute', action: () => { runtime.editor?.setValue(`EXEC ${nodeName};`); } },
+      { label: 'Script As CREATE', action: () => { /* future feature */ } },
+      { label: 'Open in New Tab', action: () => {
+        apiClient.fetchProcedureDefinition(connId, database, nodeName).then(def => {
+          if (typeof window.openNewTab === 'function') {
+            window.openNewTab(database, connId, def);
+          }
+        });
+      }}
+    );
+  } else if (nodeType === 'function') {
+    items.push(
+      { label: 'Script As CREATE', action: () => { /* future feature */ } },
+      { label: 'Open in New Tab', action: () => {
+        apiClient.fetchProcedureDefinition(connId, database, nodeName).then(def => {
+          if (typeof window.openNewTab === 'function') {
+            window.openNewTab(database, connId, def);
+          }
+        });
+      }}
+    );
+  } else if (nodeType === 'database') {
+    items.push(
+      { label: 'New Query', action: () => { /* sandbox.createTab(database, connId); */ } },
+      { label: 'Refresh', action: () => { /* refresh logic */ } }
+    );
+  } else if (nodeType === 'group') {
+    const groupId = node.dataset.groupId;
+    items.push(
+      { label: 'Connect', action: () => { /* connect logic */ } },
+      { label: 'Rename', action: () => { /* rename inline */ } },
+      { label: 'Delete', action: () => { apiClient.deleteConnectionGroup(groupId); } },
+      { label: '★ Add Favorite', action: () => { apiClient.toggleConnectionFavorite(groupId); } }
+    );
+  }
+
+  return items;
+}
+
+/**
+ * Initialize the object explorer after connection is established.
+ */
+export async function initObjectExplorer() {
+  const connId = runtime.cursor.connectionId;
+  if (!connId) return;
+
+  try {
+    const treeData = await apiClient.fetchObjectTree(connId);
+    runtime.assignObjectTree(treeData);
+    renderObjectTree(treeData);
+
+    // Show object explorer panel
+    const panel = document.getElementById('objExplorer');
+    if (panel) panel.classList.add('visible');
+  } catch (err) {
+    console.warn('Object explorer initialization failed:', err.message);
+  }
 }
 
 export function renderResources() {

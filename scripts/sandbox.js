@@ -11,7 +11,7 @@ import {
   showFeedback, switchTab, toast, renderSchema, renderResultsTab,
   renderHistory, updateDirtyMark, renderResultsStreaming,
   storeResultSet, getResultSet, handleExportCsv, handleExportJson,
-  clearResultSets
+  clearResultSets, initObjectExplorer
 } from './ui.js';
 import { escapeHtml, splitSqlStatements, previewStatement } from './utils.js';
 import { enterPractice } from './practice.js';
@@ -113,6 +113,11 @@ export async function enterLive() {
 
   // Show live-specific results UI
   showLiveResultsUI();
+
+  // Initialize object explorer if connected
+  if (runtime.cursor.connectionId) {
+    initObjectExplorer();
+  }
 }
 
 export function showLiveResultsUI() {
@@ -443,9 +448,9 @@ export function resetSandboxDb() {
 
 // ─── Tab Management ─────────────────────────────────
 
-runtime._tabApi = {
+runtime.setTabApi({
   createTab, closeTab, switchTabById, persistTabs, markTabDirty, reorderTabs, restoreTabs
-};
+});
 
 export function createTab(database, connectionId) {
   const id = 'tab_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -459,7 +464,7 @@ export function createTab(database, connectionId) {
     connectionId: connectionId || runtime.cursor.connectionId,
     dirty: false
   });
-  runtime.tabCounter++;
+  runtime.incTabCounter();
   persistTabs();
   return id;
 }
@@ -478,7 +483,7 @@ export function closeTab(tabId) {
       const nextIdx = Math.min(idx, runtime.openTabs.length - 1);
       switchTabById(runtime.openTabs[nextIdx].id);
     } else {
-      runtime.activeTabId = null;
+      runtime.setActiveTabId(null);
     }
   }
   persistTabs();
@@ -496,7 +501,7 @@ export function switchTabById(tabId) {
     }
   }
 
-  runtime.activeTabId = tabId;
+  runtime.setActiveTabId(tabId);
   state.activeTabId = tabId;
 
   if (runtime.editor) {
@@ -547,8 +552,8 @@ export function reorderTabs(fromIndex, toIndex) {
 
 export function restoreTabs() {
   if (state.openTabs && state.openTabs.length > 0) {
-    runtime.openTabs = state.openTabs;
-    runtime.activeTabId = state.activeTabId;
+    runtime.setOpenTabs(state.openTabs);
+    runtime.setActiveTabId(state.activeTabId);
     if (runtime.openTabs.length > 0 && runtime.activeTabId) {
       const tab = runtime.openTabs.find(t => t.id === runtime.activeTabId);
       if (tab) {
@@ -570,7 +575,7 @@ export function restoreTabs() {
   } else {
     // Create default tab
     const defaultId = createTab(runtime.cursor.currentDbName, runtime.cursor.connectionId);
-    runtime.activeTabId = defaultId;
+    runtime.setActiveTabId(defaultId);
   }
   if (typeof renderTabBar === 'function') renderTabBar();
 }
