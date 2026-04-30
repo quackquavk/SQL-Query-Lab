@@ -66,7 +66,9 @@
 1. User can view SQL Agent jobs, job steps, schedules, run history, and alerts in a browsable GUI with status indicators (enabled/disabled, success/failure)
 2. User can perform backup and restore operations via GUI with options for full/differential backups, point-in-time recovery, and backup verification with confirmation dialogs
 
-**Plans:** TBD
+**Plans:** 2 plans
+- [ ] 07-01-PLAN.md — SQL Agent Jobs + Backup/Restore modules (frontend + backend)
+- [ ] 07-02-PLAN.md — Integration and wiring (object explorer, API client, route registration)
 
 ---
 
