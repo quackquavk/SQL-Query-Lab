@@ -1,216 +1,167 @@
 # Project Research Summary
 
-**Project:** SQL Query Lab — Browser-Based SQL Server Management Studio
-**Domain:** Professional database management tools
+**Project:** SQL Query Lab v1.1 Professional Feature Suite
+**Domain:** Browser-based SQL Server Management Studio
 **Researched:** 2026-04-30
 **Confidence:** MEDIUM
 
 ## Executive Summary
 
-SQL Query Lab targets a clear market gap: cross-platform, professional-grade SQL Server management in a browser. Azure Data Studio was retired February 2026, SSMS remains Windows-only, and existing browser-based tools are "learning toys" not production tools. This project must deliver SSMS-level functionality while running entirely in the browser—a constraint that fundamentally requires a backend proxy since browsers cannot speak the TDS protocol SQL Server uses.
+SQL Query Lab targets the market gap left by Azure Data Studio's retirement (Feb 2026) — a true cross-platform, browser-based, professional-grade SQL Server management tool. No current product fills this gap: SSMS is Windows-only, VS Code requires extensions, and third-party tools are expensive. The constraint is not that browser tools can't be professional — it's that no one has built one yet.
 
-Research converges on a Node.js/Express backend proxy connecting to SQL Server via tedious (pure JavaScript TDS implementation), with a React frontend using Monaco Editor for the VS Code-style editing experience professionals expect. The critical architectural shift: **credentials never touch the browser**. The proxy acts as a secure vault, managing connection pools and query execution. This isn't optional—it's the only way to safely bridge browser sandbox limitations with SQL Server's connection-oriented protocol.
+The critical architectural insight: **the browser cannot directly connect to SQL Server**. sql.js is SQLite in WebAssembly — it cannot establish TDS protocol connections. A backend proxy is mandatory for all live SQL Server features, and it must be built first. Attempting to build features against sql.js with a "we'll add the proxy later" approach guarantees a full rewrite.
 
-Key risks are mitigable: SQL injection requires strict parameterization enforcement; credential exposure requires backend-only storage with encryption; unbounded result sets require streaming pagination with virtual scrolling. The MVP scope should focus on table-stakes features (connection dialog, object explorer, query editor, results grid) before adding differentiators (visual designers, execution plans).
+The recommended approach sequences work as: (1) backend proxy with state management architecture, (2) core query UI with live connections, (3) visual design tools, (4) administration features. This avoids the top pitfalls: proxy underestimation, state management collapse, and visual component proliferation. Key technologies include D3.js + dagre for diagram/execution-plan rendering, Chart.js for result charting, and node-sql-parser + alasql for the visual query builder — all available via CDN with no build step.
 
 ## Key Findings
 
 ### Recommended Stack
 
-**Architecture:** Browser (React + Monaco) → Node.js Backend Proxy (Express + tedious) → SQL Server (TDS 1433)
+The professional feature suite requires new libraries beyond the current sql.js + CodeMirror foundation. D3.js v7 and @dagrejs/dagre v2 handle ER diagrams and execution plan graph rendering via directed graph layout. Chart.js v4 provides query result charting with canvas rendering. node-sql-parser (latest) parses T-SQL for the visual query builder and table designer. alasql enables client-side SQL construction without backend. The backend proxy uses Express.js + mssql (Tedious) for SQL Server communication via TDS protocol. DOMPurify sanitizes dynamic content; file-saver handles exports.
 
-The backend proxy is architecturally mandatory—not a performance optimization but a security and protocol necessity. Browser WebSocket cannot establish TDS handshake, and SQL Server doesn't speak HTTP CORS. Every query and connection must flow through the proxy.
+**Critical constraint:** No build step. All libraries must load via CDN or IIFE modules. Avoid webpack/vite/rollup (conflicts with constraint), ANTLR-based parsers (complexity), and full diagramming libraries like JointJS/GoJS (over-engineered).
 
 **Core technologies:**
-- **React 18.x** — UI framework; Azure Data Studio proven React viable for SQL tools
-- **Monaco Editor 0.50+** — VS Code's editor, powers official MSSQL extension; T-SQL IntelliSense via language server extensibility
-- **Node.js 22.x LTS** — Backend runtime; async I/O for concurrent connections, cross-platform
-- **tedious 19.x** — Pure JavaScript TDS protocol; supports SQL Server 2012-2022, all auth methods (SQL, Windows, Entra MFA)
-- **mssql** — Connection pooling wrapper around tedious; module-level singleton pool pattern critical
-- **Express 4.x** — HTTP API server; vast middleware ecosystem
-- **WebSocket (ws) 9.x** — Real-time query streaming; row-by-row results without buffering entire set
-- **Zustand 5.x** — Connection/query state; lightweight TypeScript-first alternative to Redux
-- **Tailwind CSS 3.x + Vite 6.x** — Styling and bundling; VS Code-style dark themes achievable
-
-**Key constraint:** Existing codebase uses vanilla JS with 13 modules. Architecture recommends Option A: maintain vanilla JS for initial backend proxy launch, refactor to React once proxy is stable. The query execution path changes for live connections; sandbox/practice modes remain using sql.js.
+- **D3.js v7:** ER diagrams, execution plan rendering — standard for directed graph visualization
+- **@dagrejs/dagre v2:** Graph layout algorithm — renders execution plans and database relationships
+- **Chart.js v4:** Query result charting — 60k stars, 2.4M weekly downloads, canvas-based performance
+- **node-sql-parser:** T-SQL parsing — supports ALTER/CREATE for table designer, AST-based for stored procedures
+- **alasql:** Client-side SQL engine — visual query builder construction without backend
+- **Express.js + mssql:** Backend proxy — pure JS, cross-platform, connection pooling built-in
 
 ### Expected Features
 
-**Must have (table stakes):**
-- Connection dialog with multi-auth support (SQL, Windows, Entra MFA for Azure SQL)
-- Object Explorer with tree navigation (databases → tables → views → SPs → functions)
-- Query editor with T-SQL syntax highlighting and IntelliSense
-- Results grid with CSV/JSON export
-- Multiple query tabs with history persistence across sessions
-- Dark/light themes (VS Code-style, not afterthought CSS swaps)
+**Must have (table stakes):** Connection dialog with Entra MFA support (critical for Azure SQL), Object Explorer with tree navigation, Query editor with T-SQL syntax highlighting and IntelliSense, Results grid with CSV/JSON export, Multiple query tabs with history persistence, Dark/light themes. Missing these = product feels incomplete.
 
-**Should have (competitive differentiators):**
-- Visual table designer (CREATE/ALTER without DDL)
-- Execution plan viewer (XML parsing + visual flowchart)
-- Database diagram visualization (ER diagrams, foreign key relationships)
-- Code snippets with categories
-- Connection groups/favorites for environment organization
+**Should have (differentiators):** Visual table designer (CREATE/ALTER without DDL), Execution plan viewer (diagnose query performance), Database diagram visualization (ER diagrams, foreign key visualization), Code snippets with categories, Connection groups/favorites. Azure Data Studio never had visual diagrams and is now retired — this creates differentiation opportunity.
 
-**Defer (v2+):**
-- SQL Agent job management (complex, niche audience)
-- Full security administration (permission management UI)
-- Backup/restore GUI (low frequency operation)
-- Multi-database transactions (explicitly out of scope)
-
-**Market context:** Azure Data Studio retirement (Feb 2026) creates immediate gap. Microsoft directs users to VS Code SQL extensions, but VS Code is Electron desktop, not browser. No true cross-platform browser SQL tool exists—this project fills that gap.
+**Defer (v2+):** SQL Agent job management (complex, niche), Full security administration (permission management), Backup/restore GUI (low frequency), Multi-database transactions (explicitly out of scope). These are deep DBA features beyond MVP scope.
 
 ### Architecture Approach
 
-**Pattern:** Backend Proxy (REST API + WebSocket) — all professional SQL tools use this architecture regardless of UI form factor.
+Professional SQL management tools split UI layer (query editing, results display) from execution layer (connection management, credential storage). Azure Data Studio's Electron architecture used Node.js main process as SQL Server gateway — renderer never spoke directly to SQL Server. This project follows the same pattern: thin browser client sends queries through backend proxy which holds credentials, manages connection pools, and executes via TDS protocol.
 
-```
-Browser (UI Layer) → Backend Proxy (Query Execution) → Tedious/mssql (TDS) → SQL Server
-```
+The architecture splits into browser modules (main.js, apiClient.js, runtime.js, state.js, sandbox.js, practice.js, ui.js, editor.js) and backend proxy modules (Express server, connection/routes, query executor, credential store). Existing 13 JS modules remain largely intact for practice/sandbox modes (which still use sql.js); only the query execution path changes for live SQL Server connections.
 
 **Major components:**
-1. **Frontend (Browser)** — Thin client: React UI, Monaco editor, local state (tabs, preferences). Never holds credentials. Sends queries via fetch/WebSocket, renders results.
-2. **Backend Proxy (Node.js)** — Gateway: Express routes for connection CRUD, WebSocket for streaming query execution, mssql connection pool per user per server, encrypted credential storage.
-3. **Credential Store** — Server-side only: AES-256 encrypted connection blobs, master key derived from user's session. Never returned to browser (only safe identifiers).
-4. **SQL Server Driver Layer** — tedious TDS implementation: handles protocol handshake, authentication, parameterized queries, result streaming.
-
-**Communication:**
-- REST: `POST/GET/DELETE /api/connections` for connection management
-- WebSocket: Send `{connectionId, sql, params}`, receive streaming `{columns, rows, done, error}`
-- Session affinity: Queries from same browser session route to same SQL Server connection via sticky sessions
-
-**Critical decisions:**
-- Connection pooling: Module-level singleton, not per-query creation
-- Result streaming: Row-by-row for large sets (>1000 rows), virtual scrolling in browser
-- Query timeout: AbortController client-side (30s default), proxy-enforced server-side maximum
-- Least privilege: Proxy connections use minimum permissions required, often read-only
+1. **Backend Proxy (Express + mssql):** Connection pooling, query execution, credential encryption, REST API for connections, WebSocket for streaming query results
+2. **API Client (apiClient.js):** fetch/WebSocket communication between browser and proxy, connection session management
+3. **State Architecture:** Formal state container replacing current runtime.cursor + state.js + localStorage spread, feature-specific state slices with clear ownership
+4. **Visual Rendering (D3/dagre, Chart.js):** ER diagrams, execution plan trees, query result charts — isolated modules to avoid DOM manipulation conflicts
 
 ### Critical Pitfalls
 
-1. **Connection String Exposure** — Never store credentials in localStorage/IndexedDB. Browser memory exposure via XSS, DevTools, or logs. Prevention: Backend proxy as credential vault; credentials enter via dialog, used to establish session, discarded from client.
+1. **Backend Proxy Architecture Underestimation** — sql.js cannot connect to external SQL Server. The proxy must handle connection pooling, authentication, query cancellation, and multiple simultaneous connections. Make this Phase 1 — not parallel with feature work. Warning: "Features working in sql.js sandbox but not with real SQL Server."
 
-2. **SQL Injection via Query Forwarding** — Raw SQL passed through proxy becomes injection vector. Prevention: Parameterization-first API; query validation layer rejecting dangerous patterns; connection-level isolation.
+2. **State Management Collapse** — Current state spread across runtime.cursor, state.js, and localStorage with no clear boundaries. Adding 10 features multiplies state variables exponentially. Introduce formal state container before feature work. Define clear state ownership boundaries per feature.
 
-3. **Unbounded Result Set Rendering** — Large result sets crash browser tab (OOM). Prevention: Server-side pagination (OFFSET/FETCH, 100-500 rows default), virtual scrolling, "Download full CSV" bypass, proxy-enforced row limits (10K max with warning).
+3. **Visual Component Proliferation Without Architecture** — Visual Table Designer, ER Viewer, Visual Query Builder, Chart Viewer all need complex DOM/canvas/SVG rendering. Building these ad-hoc creates memory leaks, z-index conflicts, and editor breakage. Establish rendering strategy before building visual features. Plan for disposal/cleanup of visual component state.
 
-4. **Backend Proxy as Direct SQL Access Point** — Proxy becomes attack surface if it just tunnels arbitrary SQL. Prevention: Query permission enforcement, not raw SQL tunnel; least-privilege pooling; audit logging with user attribution.
+4. **Execution Plan XML Complexity** — SQL Server execution plans are complex XML with nested operators, runtime statistics, missing index recommendations. Naive implementation shows the plan but misses critical details DBAs need. Parse both estimated and actual plans; handle operator-specific rendering rules.
 
-5. **Query Timeout Blindness** — No cancellation mechanism freezes UI on long queries. Prevention: AbortController with configurable timeout; cancel button aborts network AND sends cancel to proxy; partial results visibility on cancellation.
+5. **Credential and Connection Security Gaps** — Storing connection strings in localStorage exposes credentials. Never store passwords in localStorage — use sessionStorage with memory encryption at rest. Implement proper connection string encryption; plan for Azure AD token timeout.
 
 ## Implications for Roadmap
 
 Based on research, suggested phase structure:
 
-### Phase 1: Backend Proxy Foundation
-**Rationale:** Architecture is blocker for all live SQL Server functionality. Must establish secure connection management before query execution can exist. Dependencies: None (greenfield backend).
+### Phase 1: Foundation — Backend Proxy + State Architecture
+**Rationale:** All professional features require live SQL Server connections. The proxy is a prerequisite, not an add-on. State management collapse is the second-biggest risk. Both must be addressed before UI feature work begins.
+**Delivers:** Express.js proxy with mssql connection pooling, WebSocket query streaming, credential encryption at rest, formal state container with feature-specific slices, connection dialog UI with Entra MFA support.
+**Addresses:** Connection dialog (FEATURES.md table stakes), Object Explorer data model
+**Avoids:** Pitfall 1 (Backend Proxy Architecture), Pitfall 2 (State Management Collapse), Pitfall 5 (Credential Security)
+**Uses:** Stack technologies: Express.js, mssql (Tedious), node-sql-parser (for connection string parsing)
+**Research Flags:** None — standard patterns, well-documented Microsoft driver
 
-**Delivers:** Express backend proxy with mssql connection pooling, REST API for connection CRUD, WebSocket endpoint for query execution, encrypted credential storage, session management.
+### Phase 2: Core Query Execution — Live Query UI
+**Rationale:** The query editor is the primary workflow. Must work against real SQL Server before visual features can be validated. Maintains sql.js path for sandbox/practice unchanged during this phase.
+**Delivers:** Query editor connected to backend proxy, results grid with streaming, CSV/JSON/Excel export, multiple query tabs with history persistence, T-SQL syntax highlighting, basic IntelliSense.
+**Addresses:** Query editor (FEATURES.md table stakes), Results grid, Export, Tabs, History
+**Uses:** Stack technologies: Chart.js (for future charting integration), existing CodeMirror integration
+**Implements:** Pattern 1 from Architecture (REST API + WebSocket for query execution)
+**Research Flags:** None — established patterns from Azure Data Studio reference
 
-**Avoids:** Pitfall 1 (credential exposure), Pitfall 4 (proxy as direct SQL tunnel), Pitfall 6 (connection state errors from improper pooling)
+### Phase 3: Visual Design Tools — Table Designer, ER Viewer, Execution Plan
+**Rationale:** These are the key differentiators. Azure Data Studio never had database diagrams and is now retired. Visual table designer and ER viewer establish competitive positioning. Execution plan viewer enables DBA-grade query optimization.
+**Delivers:** Visual Table Designer (CREATE/ALTER via node-sql-parser), ER diagram visualization (D3 + dagre, lazy-loaded FK relationships), Execution plan viewer (parse Showplan XML, render operator tree with statistics), Connection groups/favorites, Code snippets with categories.
+**Addresses:** Visual Table Designer, ER diagrams, Execution Plan Viewer (FEATURES.md differentiators)
+**Uses:** Stack technologies: D3.js, dagre, node-sql-parser, DOMPurify
+**Implements:** Component architecture for visual rendering, operator-specific rendering rules for execution plans
+**Research Flags:** **Phase 3 needs deeper research** — Execution Plan XML schema complexity (Pitfall 4), ER diagram rendering strategy for large schemas (virtualization)
 
-**Uses:** Stack: Node.js 22.x, Express 4.x, tedious 19.x, mssql, WebSocket ws 9.x
+### Phase 4: Visual Query Builder + Query Optimization
+**Rationale:** Visual query builder extends the visual design tools story. Query optimization advisor adds AI-assisted tuning. Chart viewer connects results to visualization.
+**Delivers:** Visual Query Builder (alasql + node-sql-parser, scoped to simple SELECT), Query optimization suggestions (missing index detection with overlap detection), Query result charting (Chart.js with query history integration).
+**Addresses:** Visual Query Builder, Query Optimization (FEATURES.md differentiators), Chart Viewer (FEATURES.md)
+**Uses:** Stack technologies: alasql, node-sql-parser, Chart.js
+**Research Flags:** **Phase 4 needs deeper research** — Query optimization guidance UX (user research on what suggestions are helpful), Visual query builder scope validation
 
----
-
-### Phase 2: Connected Query Execution
-**Rationale:** Core workflow depends on Phase 1. Query editor, execution, and results grid are table-stakes features users expect immediately. Must implement streaming, pagination, and timeout handling from the start.
-
-**Delivers:** Query editor with Monaco (T-SQL highlighting), WebSocket query execution with row streaming, results grid with virtual scrolling, CSV/JSON export, query timeout/cancel, error handling with decoded SQL Server error codes.
-
-**Avoids:** Pitfall 3 (unbounded rendering), Pitfall 5 (timeout blindness), Pitfall 12 (cryptic errors)
-
-**Implements:** Architecture component: Frontend-Backend communication pattern
-
----
-
-### Phase 3: Connection Management & Object Explorer
-**Rationale:** Connection dialog and object explorer are table stakes; without object browsing, tool feels incomplete. Builds on Phase 1 connection infrastructure.
-
-**Delivers:** Connection dialog (SQL/Windows/Entra MFA auth), Object Explorer tree (databases, tables, views, SPs, functions with context menus), connection favorites/groups, connection health validation.
-
-**Uses:** Stack: React 18.x (if migrating) or vanilla JS modules, Zustand 5.x for state
-
----
-
-### Phase 4: Multi-Tab Workspace
-**Rationale:** Power users expect VS Code-style tab management. Tabs are the primary workspace—data loss on crash destroys trust. Builds on connected query execution (Phase 2).
-
-**Delivers:** Multiple query tabs with independent state, debounced autosave to localStorage, session restore on reload, dirty indicators, tab history persistence across sessions.
-
-**Avoids:** Pitfall 8 (workspace data loss)
-
----
-
-### Phase 5: Professional Polish
-**Rationale:** Keyboard shortcuts and theming are non-negotiable for professional audience. VS Code/SSMS power users have ingrained muscle memory. Without these, tool feels amateur.
-
-**Delivers:** VS Code-style keyboard shortcuts (Cmd/Ctrl+S save, Cmd/Ctrl+N new tab, Cmd/Ctrl+W close, Cmd/Ctrl+Enter execute, F5 execute), first-class dark/light theming (CSS custom properties, WCAG AA contrast), shortcut customization, shortcut cheat sheet overlay.
-
-**Avoids:** Pitfall 9 (shortcut conflicts), Pitfall 13 (dark mode as afterthought)
-
----
-
-### Phase 6: Differentiators (Visual Tools)
-**Rationale:** Visual table designer and execution plan viewer set the tool apart from basic query runners. These are complex features requiring XML parsing and graph rendering—appropriate for later phase once core is stable.
-
-**Delivers:** Visual table designer (CREATE/ALTER via GUI), execution plan viewer (XML plan parsing, visual flowchart, missing index detection), database diagram visualization.
-
-**Avoids:** Pitfall 11 (no execution plan visibility)
-
----
+### Phase 5: Administration Features — SQL Agent + Backup/Restore
+**Rationale:** Administration features are lower frequency but high value for DBAs. SQL Agent and Backup/Restore require careful UX for safety.
+**Delivers:** SQL Agent Job Viewer (schedules, step outcomes, history), Backup/Restore GUI (confirmation dialogs with target validation, operation logging).
+**Addresses:** SQL Agent, Backup/Restore (FEATURES.md advanced administration)
+**Avoids:** Pitfall 7 (SQL Agent complexity), Pitfall 8 (Backup/Restore safety)
+**Research Flags:** **Phase 5 needs deeper research** — SQL Agent MSDB schema (complexity of job state across multiple system tables)
 
 ### Phase Ordering Rationale
 
-1. **Backend before frontend** — Proxy architecture is prerequisite; no live queries without it
-2. **Query execution before UI polish** — Core workflow must work before adding tabs/keyboard shortcuts
-3. **Connection management parallel to or after Phase 1** — Depends on proxy, enables Object Explorer
-4. **Polish after core features** — Shortcuts and theming matter but don't block basic functionality
-5. **Differentiators last** — Visual tools are complex; ship core first, validate, then invest
-
-**Grouping logic:** Phases 1-2 form foundation (proxy + query execution). Phases 3-4 add productivity (connections + tabs). Phase 5 adds professional polish. Phase 6 adds competitive differentiation.
+- **Backend proxy first:** All 10 features require live SQL Server connections. Building features against sql.js guarantees full rewrite.
+- **State architecture before visual features:** Visual components multiply state complexity. Formal state prevents collapse.
+- **Query execution before visual tools:** Core workflow must work on real servers before adding visual flourishes.
+- **Visual tools before administration:** Higher frequency, broader audience — Table Designer and ER Viewer benefit more users than SQL Agent Job Viewer.
+- **Grouping by dependency:** Connection management → Query execution → Visual tools → Administration follows natural dependencies from FEATURES.md feature dependencies.
 
 ### Research Flags
 
 Phases likely needing deeper research during planning:
-- **Phase 1 (Backend Proxy):** Credential storage encryption approach—needs security review; Azure SQL Entra MFA implementation specifics
-- **Phase 6 (Differentiators):** Execution plan XML schema—complex parsing; visual diagram rendering libraries (if needed)
+- **Phase 3 (Execution Plan Viewer):** Complex XML schema with nested operators, operator-specific rendering rules, runtime statistics parsing
+- **Phase 3 (ER Viewer):** Large schema virtualization strategy, lazy loading optimization for 100+ tables
+- **Phase 4 (Query Optimization):** User research needed on what guidance is actionable vs overwhelming
+- **Phase 4 (Visual Query Builder):** Scope boundaries for complex queries (CTEs, window functions)
+- **Phase 5 (SQL Agent):** MSDB schema complexity, job state across multiple system tables
 
 Phases with standard patterns (skip research-phase):
-- **Phase 2 (Query Execution):** WebSocket streaming is well-documented (Supabase, PlanetScale patterns)
-- **Phase 4 (Tab Workspace):** Autosave/localStorage patterns are standard webdev
+- **Phase 1 (Backend Proxy):** Express + mssql is well-documented, Microsoft-supported driver
+- **Phase 2 (Query Execution):** REST + WebSocket for query streaming is industry standard (Supabase, PlanetScale use this pattern)
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | MEDIUM-HIGH | Based on official tedious/mssql documentation, Azure Data Studio architecture (retired but still reference), VS Code MSSQL extension source |
-| Features | MEDIUM | Microsoft documentation for SSMS/ADS, but Azure Data Studio is retired (Feb 2026)—community sentiment from archived discussions only |
-| Architecture | MEDIUM | Azure Data Studio reference (archived), mssql npm docs, web-based database tool patterns (Supabase, PlanetScale). MSSQL extension for VS Code source would increase confidence |
-| Pitfalls | MEDIUM | Based on existing codebase concerns (CONCERNS.md), architecture analysis, general web security patterns. OWASP validation recommended |
+| Stack | MEDIUM | CDN library versions verified via web fetch; backend proxy pattern confirmed via Azure Data Studio reference; sql.js constraint correctly identified |
+| Features | MEDIUM | Table stakes and differentiators well-documented via Microsoft docs; user frustrations from archived community discussions (not current); market gap (ADS retirement) verified |
+| Architecture | MEDIUM | Azure Data Studio archived reference provides architectural pattern; mssql API confirmed via npm docs; REST vs WebSocket pattern from industry standards (Supabase, PlanetScale) |
+| Pitfalls | MEDIUM | Pitfalls derived from CONCERNS.md and architectural analysis; execution plan complexity and SQL Agent complexity are well-documented in Microsoft docs; security patterns are standard |
 
 **Overall confidence:** MEDIUM
 
 ### Gaps to Address
 
-- **Azure SQL Entra MFA flow:** Detailed authentication flow not fully validated—critical for Azure SQL users, needs implementation spike
-- **Real-world connection pool behavior under load:** mssql pooling documented but not stress-tested in this context
-- **Monaco Editor T-SQL language server:** Whether to build custom language server or use existing vscode-mssql language server protocol implementation
-- **Existing codebase migration:** Vanilla JS to React migration path (if pursued) not detailed in current research
+- **T-SQL dialect coverage for node-sql-parser:** Not verified against all T-SQL syntax needed (CTEs, window functions, stored procedure parameters). Needs validation against actual SQL Server workloads during Phase 1.
+- **Connection string encryption implementation:** MVP approach (encrypted file on server) needs hardening for production. AWS Secrets Manager / HashiCorp Vault integration deferred to later.
+- **Performance at scale:** ER diagram with 100+ tables, execution plans >10MB, result sets >100K rows — virtualization strategies not verified. Needs testing during implementation.
+- **MFA/Entra authentication flow:** Entra MFA is complex (device code flow, token refresh). Partial implementation may work for MVP but full support needs validation.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [tedious GitHub](https://github.com/tediousjs/tedious) — Node.js TDS implementation, 1.6k stars, Microsoft-supported
-- [mssql npm](https://www.npmjs.com/package/mssql) — Connection pooling API, documented patterns
-- [SSMS 22 release notes (Microsoft Learn)](https://learn.microsoft.com/en-us/sql/ssms/release-notes-22) — Current official documentation
+- [Microsoft SSMS documentation](https://learn.microsoft.com/en-us/sql/ssms/sql-server-management-studio-ssms) — official docs
+- [SSMS 22 release notes](https://learn.microsoft.com/en-us/sql/ssms/release-notes-22) — current official release
+- [mssql/Tedious npm](https://github.com/tediousjs/node-mssql) — actively maintained, Microsoft-supported
+- [D3.js v7](https://d3js.org/) — verified current version
+- [Chart.js](https://www.chartjs.org/docs/latest/) — 60k stars, 2.4M weekly npm downloads
 
 ### Secondary (MEDIUM confidence)
-- [Azure Data Studio architecture (archived)](https://learn.microsoft.com/en-us/previous-versions/azure-data-studio/what-is-azure-data-studio) — Retired product but architecture still relevant reference
-- [vscode-mssql extension](https://github.com/microsoft/vscode-mssql) — Reference implementation for SQL Server VS Code extension
-- [SQL Tools Service](https://github.com/microsoft/sqltoolsservice) — .NET backend used by Azure Data Studio
+- [Azure Data Studio (archived)](https://learn.microsoft.com/en-us/previous-versions/azure-data-studio/what-is-azure-data-studio) — architectural reference for browser-based SQL tooling
+- [vscode-mssql extension](https://github.com/microsoft/vscode-mssql) — successor to Azure Data Studio SQL capabilities
+- [Azure Data Studio feature comparison](https://learn.microsoft.com/en-us/previous-versions/azure-data-studio/what-is-azure-data-studio) — shows what's implemented vs preview
+- [dagre GitHub](https://github.com/dagrejs/dagre) — v2.0.0 released Nov 2025
+- [node-sql-parser](https://github.com/一片博客/node-sql-parser) — T-SQL dialect support
 
 ### Tertiary (LOW confidence)
-- User frustration sources — community discussions archived, not current live sentiment
-- dbForge/Toad marketing materials — low confidence, primarily promotional content
+- [dbForge Studio](https://www.devart.com/dbforge-sql/studio/) — 404 from docs, marketing content only
+- [Toad for SQL Server](https://www.quest.com/products/toad-for-sql-server/) — marketing content
+- Community frustrations with existing tools — archived discussions, not current
 
 ---
 *Research completed: 2026-04-30*

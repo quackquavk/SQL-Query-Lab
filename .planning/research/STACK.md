@@ -1,144 +1,136 @@
-# Technology Stack
+# Stack Research
 
-**Project:** Browser-based SQL Server Management Studio
+**Domain:** Professional SQL Server Management Studio (browser-based)
 **Researched:** 2026-04-30
-**Confidence:** MEDIUM-HIGH
+**Confidence:** MEDIUM
+
+*Note: Context7 MCP not available; all findings via WebFetch of official docs and GitHub, labeled by confidence.*
 
 ## Recommended Stack
 
-### Architecture Overview
+### Core Technologies for Professional Features
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    BROWSER (Frontend)                       │
-│  React + Monaco Editor + WebSocket Client                   │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ WebSocket / HTTP
-┌─────────────────────┴───────────────────────────────────────┐
-│                  BACKEND PROXY                              │
-│  Node.js + Express + tedious (TDS protocol)               │
-│  - Connection management                                    │
-│  - Query execution                                          │
-│  - Result streaming                                         │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ TDS Protocol (TCP)
-┌─────────────────────┴───────────────────────────────────────┐
-│                  SQL SERVER                                 │
-│  SQL Server 2012+ on Windows/Linux/Azure SQL               │
-└─────────────────────────────────────────────────────────────┘
-```
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| **D3.js** | v7 | ER diagrams, execution plan graph rendering | Standard for directed graph visualization; pairs with dagre for automatic layout; used by TensorBoard, JointJS |
+| **@dagrejs/dagre** | v2.0.0 | Graph layout algorithm | Pure JS layout engine for directed graphs; renders execution plans and database relationships; browser script available |
+| **Chart.js** | v4 | Query result charting | 60k stars, 2.4M weekly downloads; canvas rendering for performance; strong docs and community |
+| **node-sql-parser** | latest | SQL parsing for Query Builder | Supports T-SQL dialect; parses ALTER/CREATE for Table Designer; AST-based for Stored Procedure Editor |
+| **alasql** | latest | Client-side SQL engine | JavaScript SQL engine; enables Query Builder visual SQL construction without backend |
 
-### Core Stack
+### Backend Proxy (Required for Live SQL Server)
 
-| Layer | Technology | Version | Purpose | Why |
-|-------|------------|---------|---------|-----|
-| **Frontend Framework** | React | 18.x | UI components | Mature ecosystem, Monaco Editor integration, Azure Data Studio uses React |
-| **Code Editor** | Monaco Editor | 0.50+ | SQL editing with IntelliSense | Microsoft-authored, powers VS Code, T-SQL language support via extensibility |
-| **Backend Runtime** | Node.js | 22.x LTS | Backend proxy server | Cross-platform, async I/O for concurrent connections, tedious TDS library support |
-| **SQL Connectivity** | tedious | 19.x | TDS protocol implementation | Pure JavaScript, supports TDS 7.4 (SQL Server 2012-2022), actively maintained (1.6k stars) |
-| **Web Framework** | Express | 4.x | HTTP API server | Minimal, fast, well-documented for REST API + WebSocket |
-| **Real-time Comms** | WebSocket (ws) | 9.x | Live query results | Bidirectional, low-latency streaming of query results to browser |
-| **State Management** | Zustand | 5.x | Connection/query state | Lightweight, TypeScript-first, simpler than Redux for this use case |
-| **Styling** | Tailwind CSS | 3.x | UI styling | Rapid development, VS Code-style dark themes achievable |
-| **Build Tool** | Vite | 6.x | Frontend bundling | Fast HMR, native ESM, excellent Monaco integration |
+| Technology | Purpose | Why |
+|------------|---------|-----|
+| **Express.js** | HTTP server | Minimal, unopinionated; proxies SQL queries from browser to SQL Server |
+| **mssql (tedious)** | SQL Server driver | Pure JS, cross-platform; official Microsoft driver; 2.3k stars, actively maintained |
 
-### Database Driver Details
-
-| Library | Language | Purpose | Notes |
-|---------|----------|---------|-------|
-| **tedious** | TypeScript/Node.js | TDS protocol client | Industry standard for Node.js SQL Server connectivity; supports SQL Server 2000-2022 |
-| **mssql** | Node.js | tedious wrapper | Connection pooling, promise-based API; use for higher-level operations |
-| **Microsoft.Data.SqlClient** | C#/.NET | TDS protocol (reference) | Azure Data Studio / VS Code MSSQL extension uses this via SQL Tools Service |
-
-**Why tedious over alternatives:**
-- Pure JavaScript/TypeScript — no native dependencies to install
-- Actively maintained by Microsoft (used in production tools)
-- Supports all SQL Server authentication methods (SQL auth, Windows auth via NTLM, Azure AD)
-- Implements TDS 7.4 (SQL Server 2012+) which covers essentially all modern SQL Server deployments
-
-### Alternative Approaches Considered
-
-| Approach | Pros | Cons | Why Not |
-|----------|------|------|---------|
-| **SQL Tools Service (.NET)** | Microsoft official, already used by VS Code | HTTP API not well documented, primarily stdio-based | More complex to deploy, .NET runtime required; tedious is simpler for HTTP proxy |
-| **JDBC via server-side Java** | Mature driver | Additional runtime, Java ecosystem unfamiliar | Overkill for this use case |
-| **Go-based TDS client** | Performance | New language to maintain | Unnecessary complexity at this stage |
+*No bundled/inline SQL Server access — browser sandbox prevents direct TDS protocol.*
 
 ### Supporting Libraries
 
-| Library | Purpose | When to Use |
-|---------|---------|-------------|
-| **sql-formatter** | T-SQL formatting | Query beautification, consistent styling |
-| **zod** | Schema validation | Validate connection configs, API request/response types |
-| **@tanstack/react-query** | Server state | Query caching, background refetching for connection list |
-| **react-aria** | Accessibility | Keyboard navigation, screen reader support for professional tool |
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| **sql.js** | 1.10.3 | SQLite in browser | Existing — Practice mode, sandbox, query validation |
+| **CodeMirror** | 5.65.16 | SQL editor | Existing — Editor, autocomplete, syntax highlighting |
+| **dagre-d3** | deprecated | D3 renderer for dagre | Only if custom SVG rendering needed; otherwise D3 directly |
+| **DOMPurify** | latest | HTML sanitization | Sanitize ER diagram tooltips, execution plan node details |
+| **file-saver** | latest | CSV/Excel export | Backup file downloads, result set exports |
 
-## Project Structure
+## What NOT to Use
 
-```
-sqlquerylab/
-├── frontend/                    # React application
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── QueryEditor/    # Monaco-based SQL editor
-│   │   │   ├── ResultsGrid/    # Query results display
-│   │   │   ├── ConnectionMgr/  # Connection dialog, object explorer
-│   │   │   └── TabWorkspace/   # Multi-tab query workspace
-│   │   ├── hooks/
-│   │   │   └── useQuery.ts     # Query execution with WebSocket
-│   │   ├── stores/
-│   │   │   └── connectionStore.ts  # Zustand connection state
-│   │   └── App.tsx
-│   ├── package.json
-│   └── vite.config.ts
-├── backend/                    # Node.js proxy server
-│   ├── src/
-│   │   ├── routes/
-│   │   │   ├── connections.ts  # Connection CRUD
-│   │   │   └── queries.ts      # Query execution endpoints
-│   │   ├── services/
-│   │   │   ├── sqlServer.ts    # tedious wrapper
-│   │   │   └── connectionPool.ts
-│   │   ├── websocket/
-│   │   │   └── queryStream.ts  # Real-time result streaming
-│   │   └── index.ts
-│   └── package.json
-└── package.json               # Workspace root
-```
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| **ANTLR-based parsers** | Complexity, setup overhead | node-sql-parser (hand-written recursive descent, no external deps) |
+| **Full diagramming libraries (JointJS, GoJS)** | Heavy weight ($), over-engineered | D3 + dagre for custom ER diagrams |
+| **C3.js** | Wrapper around D3, less control | Chart.js for charting, D3 for custom |
+| **Electron or NW.js** | Desktop wrapper, not browser-native | Browser-only constraint |
+| **Webpack/Vite/Rollup** | Conflicts with "no build step" constraint | Static file serving, CDN imports |
 
-## Key Technical Decisions
+## Stack Patterns by Variant
 
-### 1. Browser Cannot Connect Directly to SQL Server
-**Constraint:** Browsers cannot open raw TCP sockets to SQL Server (TDS protocol requires connection-oriented sockets).
+**If proxy backend is Node.js:**
+- Use Express + mssql for SQL Server communication
+- Proxy layer handles authentication, connection pooling
+- Browser sends SQL → proxy → SQL Server → response → browser
 
-**Solution:** Node.js backend acts as proxy. Browser communicates via HTTP/WebSocket to backend; backend maintains TDS connection to SQL Server.
+**If proxy backend is Go/C#:**
+- Use native TDS library
+- Same architectural pattern: thin proxy, browser stays thin
 
-### 2. Use WebSocket for Query Results
-**Reason:** SQL Server returns results as streaming tabular data. WebSocket allows backend to stream rows to frontend as they arrive, showing results progressively rather than waiting for complete dataset.
-
-### 3. Connection Pooling
-**Reason:** Professional tools need multiple concurrent connections. Use `mssql` connection pool with tedious underneath.
-
-### 4. Monaco Editor for SQL
-**Reason:** VS Code's editor powers the official MSSQL extension. Monaco provides excellent T-SQL syntax highlighting, IntelliSense via language server protocol, and is designed for professional editing experiences.
+**If working with sql.js only (no live server):**
+- alasql replaces mssql for client-side joins/transforms
+- node-sql-parser still valid for T-SQL translation
+- No ER diagram from live FK metadata (use seed database schemas)
 
 ## Installation
 
-```bash
-# Frontend
-cd frontend && npm install
+*Since this is a CDN-based, no-build project, libraries are loaded from CDN:*
 
-# Backend
-cd backend && npm install
+```html
+<!-- D3 + dagre for ER diagrams and execution plans -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@dagrejs/dagre@2.0.0/dist/dagre.min.js"></script>
 
-# Root workspace
-npm install -D tailwindcss @tailwindcss/vite
+<!-- Chart.js for result charting -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- node-sql-parser for SQL parsing -->
+<script src="https://cdn.jsdelivr.net/npm/node-sql-parser@5.0.0/build/node-sql-parser.min.js"></script>
+
+<!-- DOMPurify for sanitization -->
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.0/dist/purify.min.js"></script>
 ```
+
+For backend proxy (Node.js):
+```bash
+npm install express mssql cors helmet
+```
+
+## Alternatives Considered
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|--------------------------|
+| D3 + dagre | Cytoscape.js | Need out-of-box interactive graph editing with built-in UI controls |
+| Chart.js | ECharts | Need 3D charts, more complex visualizations, or map support |
+| node-sql-parser | Jison (build your own) | Only if node-sql-parser doesn't cover T-SQL dialect needed |
+| alasql | WebSQL | WebSQL is deprecated; alasql is actively maintained |
 
 ## Sources
 
-- [tedious GitHub](https://github.com/tediousjs/tedious) — Node.js TDS implementation, 1.6k stars
-- [vscode-mssql](https://github.com/microsoft/vscode-mssql) — Reference implementation for SQL Server VS Code extension
-- [SQL Tools Service](https://github.com/microsoft/sqltoolsservice) — .NET backend used by Azure Data Studio
-- [Microsoft.Data.SqlClient](https://github.com/dotnet/SqlClient) — Official .NET SQL Server driver
-- [Azure Data Studio architecture](https://learn.microsoft.com/en-us/sql/azure-data-studio/what-is-azure-data-studio) — Decommissioned but architecture still relevant
+- **D3.js:** https://d3js.org/ — verified current v7
+- **@dagrejs/dagre:** https://github.com/dagrejs/dagre — v2.0.0 released Nov 2025, browser scripts available
+- **Chart.js:** https://www.chartjs.org/docs/latest/ — verified current version, 60k stars, 2.4M weekly npm downloads
+- **node-mssql (tedious):** https://github.com/tediousjs/node-mssql — 2.3k stars, actively maintained, pure JS TDS driver
+- **alasql:** https://github.com/AlaSQL/alasql — verified exists, 1k stars, JavaScript SQL engine
+- **dagre-d3:** https://github.com/dagrejs/dagre-d3 — v0.5.0 last release Dec 2017, deprecated in favor of D3 direct rendering
+- **SQL Server execution plan XML:** Microsoft documentation on Showplan XML — standard XML schema, no special library needed beyond browser XML parser
+
+## Integration Points
+
+### With Existing Codebase
+
+**New modules to create:**
+- `scripts/diagram.js` — ER viewer using D3 + dagre
+- `scripts/execution-plan.js` — Parse Showplan XML, render with D3
+- `scripts/query-builder.js` — Visual query builder using alasql + node-sql-parser
+- `scripts/chart-renderer.js` — Chart.js integration for result sets
+- `scripts/table-designer.js` — CREATE/ALTER table UI driven by node-sql-parser
+
+**Integration hooks:**
+- `runtime.js` — Add `diagramDb` for metadata source
+- `ui.js` — Add render functions for new panels (ER viewer, chart output)
+- `main.js` — Wire new feature handlers
+- `index.html` — New panel containers, CDN script additions
+
+**Backend proxy integration:**
+- `scripts/live.js` — Connection manager sending queries to proxy
+- Proxy endpoint: `POST /api/query` → mssql → SQL Server → JSON response
+
+### Critical Constraint: No Build Step
+All new libraries must be available via CDN or IIFE modules. No npm packages requiring build/bundle.
+
+---
+
+*Stack research for: SQL Query Lab v1.1 Professional Feature Suite*
+*Researched: 2026-04-30*
