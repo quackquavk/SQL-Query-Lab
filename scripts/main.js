@@ -19,7 +19,7 @@ import { initEditor, injectCodemirrorFontFix } from './editor.js';
 import { loadQuestion, runPracticeQuery, navQuestion } from './practice.js';
 import {
   setMode, enterSandbox, runSandboxQuery, resetSandboxDb, runMssqlTranslation,
-  saveCurrentAsSnippet, loadHistoryItem
+  saveCurrentAsSnippet, loadHistoryItem, runLiveQuery
 } from './sandbox.js';
 
 // Wire cross-module hooks before any handler can fire
@@ -27,8 +27,29 @@ setDbHooks({ showFeedback, switchTab, renderSchema });
 setUiHooks({ loadQuestion, loadHistoryItem });
 
 function runQuery() {
+  if (runtime.cursor.currentMode === 'live') return runLiveQueryFromMain();
   if (runtime.cursor.currentMode === 'sandbox') return runSandboxQuery();
   return runPracticeQuery();
+}
+
+async function runLiveQueryFromMain() {
+  const sql = runtime.editor.getValue().trim();
+  if (!sql) {
+    showFeedback('error', 'Empty', 'Write some SQL before running.');
+    switchTab('message');
+    return;
+  }
+  try {
+    const result = await runLiveQuery(sql);
+    runtime.cursor.lastUserResult = { columns: result.columns?.map(c => c.name) || [], values: result.rows || [] };
+    document.getElementById('outCount').textContent = result.rows?.length || 0;
+    showFeedback('success', 'OK', `${result.rows?.length || 0} rows, ${result.executionTime || 0}ms`);
+    switchTab('output');
+  } catch (err) {
+    runtime.cursor.lastError = err.message;
+    showFeedback('error', 'Query error', err.message);
+    switchTab('message');
+  }
 }
 
 function resetDb() {
@@ -98,6 +119,18 @@ function wireUI() {
   document.getElementById('modePractice').addEventListener('click', () => setMode('practice'));
   document.getElementById('modeSandbox').addEventListener('click', () => setMode('sandbox'));
   document.getElementById('modeMssql').addEventListener('click', () => setMode('mssql'));
+  document.getElementById('modeLive').addEventListener('click', () => {
+    if (!runtime.cursor.connectionId) {
+      import('./ui.js').then(m => m.renderConnectionDialog());
+    } else {
+      setMode('live');
+    }
+  });
+
+  // Connect button for live mode
+  document.getElementById('connectBtn')?.addEventListener('click', () => {
+    import('./ui.js').then(m => m.renderConnectionDialog());
+  });
 
   // Save current as snippet (sandbox only)
   document.getElementById('saveSnippetBtn').addEventListener('click', saveCurrentAsSnippet);

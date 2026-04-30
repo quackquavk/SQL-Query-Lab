@@ -311,3 +311,186 @@ export function updateDirtyMark() {
   if (runtime.cursor.currentMode === 'sandbox' && runtime.sandboxDirty[runtime.cursor.currentDbName]) m.classList.add('show');
   else m.classList.remove('show');
 }
+
+export function renderConnectionDialog() {
+  const existing = document.getElementById('connection-dialog');
+  if (existing) existing.remove();
+
+  const html = `
+    <div id="connection-dialog" class="modal">
+      <div class="modal-content conn-modal">
+        <div class="modal-header">
+          <h2>Connect to SQL Server</h2>
+          <button class="modal-close" id="conn-dialog-close">&times;</button>
+        </div>
+        <form id="connection-form">
+          <div class="conn-field">
+            <label for="conn-name">Connection Name</label>
+            <input type="text" id="conn-name" placeholder="My Production DB" required>
+          </div>
+          <div class="conn-field">
+            <label for="conn-server">Server</label>
+            <input type="text" id="conn-server" placeholder="server.database.windows.net" required>
+          </div>
+          <div class="conn-field">
+            <label for="conn-database">Database (optional)</label>
+            <input type="text" id="conn-database" placeholder="master">
+          </div>
+          <div class="conn-field">
+            <label for="conn-auth-type">Authentication</label>
+            <select id="conn-auth-type">
+              <option value="sql">SQL Server Authentication</option>
+              <option value="windows">Windows Integrated Authentication</option>
+              <option value="entra">Azure Active Directory / Entra ID</option>
+            </select>
+          </div>
+          <div id="conn-dynamic-fields"></div>
+          <div class="conn-actions">
+            <button type="button" id="conn-test-btn" class="btn-secondary">Test Connection</button>
+            <button type="submit" class="btn-primary">Save & Connect</button>
+            <button type="button" class="btn-cancel" id="conn-cancel-btn">Cancel</button>
+          </div>
+          <div id="conn-test-result" class="conn-test-result"></div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  document.getElementById('conn-dialog-close').addEventListener('click', hideConnectionDialog);
+  document.getElementById('conn-cancel-btn').addEventListener('click', hideConnectionDialog);
+  document.getElementById('connection-dialog').addEventListener('click', (e) => {
+    if (e.target.id === 'connection-dialog') hideConnectionDialog();
+  });
+
+  const authTypeSelect = document.getElementById('conn-auth-type');
+  authTypeSelect.addEventListener('change', () => renderDynamicAuthFields(authTypeSelect.value));
+
+  renderDynamicAuthFields('sql');
+
+  const testBtn = document.getElementById('conn-test-btn');
+  testBtn.addEventListener('click', async () => {
+    const form = document.getElementById('connection-form');
+    const server = form['conn-server'].value;
+    const database = form['conn-database'].value;
+    const authType = form['conn-auth-type'].value;
+    const credentials = buildCredentialsFromForm(form, authType);
+
+    testBtn.disabled = true;
+    testBtn.textContent = 'Testing...';
+
+    try {
+      const { testConnection } = await import('./apiClient.js');
+      const result = await testConnection({ server, database, authType, credentials });
+      showConnectionTestResult(result.success, result.success
+        ? `Connected! Server: ${result.serverVersion}`
+        : `Failed: ${result.error}`);
+    } catch (err) {
+      showConnectionTestResult(false, `Error: ${err.message}`);
+    }
+
+    testBtn.disabled = false;
+    testBtn.textContent = 'Test Connection';
+  });
+
+  document.getElementById('connection-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const connection = {
+      name: form['conn-name'].value,
+      server: form['conn-server'].value,
+      database: form['conn-database'].value,
+      authType: form['conn-auth-type'].value,
+      credentials: buildCredentialsFromForm(form, form['conn-auth-type'].value)
+    };
+
+    const { saveConnection } = await import('./apiClient.js');
+    const result = await saveConnection(connection);
+
+    if (result.id) {
+      runtime.cursor.connectionId = result.id;
+      runtime.cursor.connectionName = result.name;
+      runtime.cursor.connected = true;
+      hideConnectionDialog();
+      showFeedback('success', `Connected to ${result.name}`);
+    } else {
+      showConnectionTestResult(false, result.error || 'Failed to save connection');
+    }
+  });
+
+  document.getElementById('connection-dialog').classList.add('open');
+}
+
+function renderDynamicAuthFields(authType) {
+  const container = document.getElementById('conn-dynamic-fields');
+  let fields = '';
+
+  switch (authType) {
+    case 'sql':
+      fields = `
+        <div class="conn-field">
+          <label for="conn-username">Username</label>
+          <input type="text" id="conn-username" autocomplete="username">
+        </div>
+        <div class="conn-field">
+          <label for="conn-password">Password</label>
+          <input type="password" id="conn-password" autocomplete="current-password">
+        </div>
+      `;
+      break;
+    case 'windows':
+      fields = `<p class="conn-hint">Windows credentials will be used automatically via backend.</p>`;
+      break;
+    case 'entra':
+      fields = `
+        <div class="conn-field">
+          <label for="conn-tenant">Tenant ID</label>
+          <input type="text" id="conn-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+        </div>
+        <div class="conn-field">
+          <label for="conn-client-id">Client ID</label>
+          <input type="text" id="conn-client-id">
+        </div>
+        <div class="conn-field">
+          <label for="conn-client-secret">Client Secret</label>
+          <input type="password" id="conn-client-secret">
+        </div>
+      `;
+      break;
+  }
+
+  container.innerHTML = fields;
+}
+
+function buildCredentialsFromForm(form, authType) {
+  switch (authType) {
+    case 'sql':
+      return {
+        username: form['conn-username']?.value || '',
+        password: form['conn-password']?.value || ''
+      };
+    case 'entra':
+      return {
+        tenantId: form['conn-tenant']?.value || '',
+        clientId: form['conn-client-id']?.value || '',
+        clientSecret: form['conn-client-secret']?.value || ''
+      };
+    case 'windows':
+    default:
+      return {};
+  }
+}
+
+export function showConnectionTestResult(success, message) {
+  const el = document.getElementById('conn-test-result');
+  if (!el) return;
+  el.className = success ? 'conn-test-result success' : 'conn-test-result error';
+  el.textContent = message;
+}
+
+export function hideConnectionDialog() {
+  const dialog = document.getElementById('connection-dialog');
+  if (dialog) dialog.classList.remove('open');
+  setTimeout(() => dialog?.remove(), 200);
+}

@@ -214,3 +214,43 @@
 .mssql-active .practice-only { display: none !important; }
 :not(.mssql-active) .mssql-only { display: none !important; }
 .mssql-active .sandbox-only { display: none !important; }
+
+/* Hidden in live mode */
+.live-active .practice-only { display: none !important; }
+.live-active .sandbox-only { display: none !important; }
+:not(.live-active) .live-only { display: none !important; }
+
+/* Connection dialog */
+.conn-modal { max-width: 480px; }
+.conn-field { margin-bottom: 12px; }
+.conn-field label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.conn-field input, .conn-field select { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-primary); color: var(--text); box-sizing: border-box; }
+.conn-field input:focus, .conn-field select:focus { outline: none; border-color: var(--accent); }
+.conn-hint { font-size: 13px; color: var(--text-muted); padding: 8px 0; }
+.conn-actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.conn-actions button { flex: 1; min-width: 100px; }
+.conn-test-result { margin-top: 12px; padding: 8px 12px; border-radius: 4px; font-size: 13px; display: none; }
+.conn-test-result.success { display: block; background: rgba(46, 204, 113, 0.15); color: #2ecc71; }
+.conn-test-result.error { display: block; background: rgba(231, 76, 60, 0.15); color: #e74c3c; }
+
+/* Live mode indicator */
+.live-indicator {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(46, 204, 113, 0.15);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+  border-radius: 12px;
+  font-size: 11px;
+  color: #2ecc71;
+}
+.live-indicator.active { display: flex; }
+.live-indicator::before { content: ""; width: 6px; height: 6px; background: #2ecc71; border-radius: 50%; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Connect button in topbar */
+#connectBtn { display: none; }
+.live-active #connectBtn { display: inline-flex; }
+.live-active .live-indicator { display: flex; }
+.live-active .mode-toggle { display: none; }

@@ -17,6 +17,10 @@ export const cursor = {
   lastUserResult: null,
   lastExpectedResult: null,
   lastMessage: null,
+  connectionId: null,
+  connectionName: null,
+  connected: false,
+  lastError: null,
 };
 
 export const sandboxDirty = {

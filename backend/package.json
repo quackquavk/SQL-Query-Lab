@@ -1,0 +1,10 @@
+{
+  "name": "sqlquerylab-backend",
+  "type": "module",
+  "dependencies": {
+    "hono": "^4.0.0",
+    "@hono/node-ws": "^1.0.0",
+    "mssql": "^10.0.0",
+    "ws": "^9.0.0"
+  }
+}

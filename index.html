@@ -38,10 +38,15 @@
       <span class="tag">Practice every SQL statement</span>
     </div>
     <div class="controls">
+      <div class="live-indicator" id="liveIndicator">
+        <span id="liveConnectionName">Not connected</span>
+      </div>
+      <button class="btn live-only" id="connectBtn">Connect...</button>
       <div class="mode-toggle" role="tablist" aria-label="Mode">
         <button id="modePractice" class="active" data-mode="practice"><span class="ico">●</span>Practice</button>
         <button id="modeSandbox" data-mode="sandbox"><span class="ico">◆</span>Sandbox</button>
         <button id="modeMssql" data-mode="mssql"><span class="ico">◈</span>MS SQL</button>
+        <button id="modeLive" data-mode="live"><span class="ico">▶</span>Live</button>
       </div>
       <div class="progress practice-only" title="Your solved count">
         <span><span class="count" id="progressCount">0</span> <span style="color:var(--text-dim)">of</span> <span id="progressTotal">0</span></span>

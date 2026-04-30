@@ -13,6 +13,7 @@ import {
 } from './ui.js';
 import { escapeHtml, splitSqlStatements, previewStatement } from './utils.js';
 import { enterPractice } from './practice.js';
+import { connectQuerySocket, executeQuery, cancelQuery, disconnectQuerySocket } from './apiClient.js';
 
 export function setMode(mode) {
   runtime.cursor.currentMode = mode;
@@ -22,6 +23,7 @@ export function setMode(mode) {
   document.body.classList.toggle('mssql-active', mode === 'mssql');
   document.body.classList.toggle('sandbox-mode', mode === 'sandbox');
   document.body.classList.toggle('mssql-mode', mode === 'mssql');
+  document.body.classList.toggle('live-active', mode === 'live');
 
   document.getElementById('modePractice').classList.toggle('active', mode === 'practice');
   document.getElementById('modeSandbox').classList.toggle('active', mode === 'sandbox');
@@ -29,6 +31,7 @@ export function setMode(mode) {
 
   if (mode === 'sandbox') enterSandbox();
   else if (mode === 'mssql') enterMssql();
+  else if (mode === 'live') enterLive();
   else enterPractice();
 }
 
@@ -88,6 +91,76 @@ export function enterMssql() {
   renderResultsTab('output');
   document.querySelectorAll('.results-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'output'));
   showFeedback('info', 'MS SQL', 'Write SQLite SQL in the editor and click "Translate to MS SQL" to convert it to T-SQL syntax.');
+}
+
+export async function enterLive() {
+  const editor = runtime.editor;
+  const script = state.liveScript || `-- Live SQL Server Mode\n-- Connected to: ${runtime.cursor.connectionName || 'SQL Server'}\n-- Run queries against your live database.\n\nSELECT 1 as test;\n`;
+  runtime.cursor.editorLoading = true;
+  editor.setValue(script);
+  editor.setCursor({ line: editor.lineCount(), ch: 0 });
+  runtime.cursor.editorLoading = false;
+
+  runtime.cursor.lastUserResult = null;
+  runtime.cursor.lastExpectedResult = null;
+  renderResultsTab('output');
+  document.querySelectorAll('.results-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'output'));
+  showFeedback('info', 'Live Mode', `Connected to ${runtime.cursor.connectionName || 'SQL Server'}. Run queries against your live database.`);
+}
+
+export async function runLiveQuery(sql) {
+  const connectionId = runtime.cursor.connectionId;
+  if (!connectionId) {
+    throw new Error('Not connected to a server');
+  }
+
+  let results = null;
+  let error = null;
+
+  await connectQuerySocket({
+    onColumns: (columns) => {
+      results = { columns, rows: [], rowsAffected: 0, executionTime: 0 };
+    },
+    onRows: (rows, total) => {
+      if (results) results.rows.push(...rows);
+    },
+    onDone: (rowsAffected, executionTime) => {
+      if (results) {
+        results.rowsAffected = rowsAffected;
+        results.executionTime = executionTime;
+      }
+    },
+    onError: (message, code, queryId) => {
+      error = { message, code };
+    }
+  });
+
+  const queryId = executeQuery(connectionId, sql, []);
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cancelQuery(queryId);
+      disconnectQuerySocket();
+      reject(new Error('Query timeout (30s)'));
+    }, 30000);
+
+    const check = () => {
+      if (error) {
+        clearTimeout(timeout);
+        disconnectQuerySocket();
+        reject(new Error(error.message));
+        return;
+      }
+      if (results && results.executionTime > 0) {
+        clearTimeout(timeout);
+        disconnectQuerySocket();
+        resolve(results);
+        return;
+      }
+      setTimeout(check, 50);
+    };
+    check();
+  });
 }
 
 export function translateToMssql(sql) {
