@@ -1,0 +1,93 @@
+/* ─── Center (editor + results) ───────────────────── */
+.center {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  min-height: 0;
+  min-width: 0;
+}
+.editor-wrap {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+.editor-toolbar .state-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-dim); margin-right: 6px;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
+}
+.editor-toolbar .state-dot.on { background: var(--success); box-shadow: 0 0 12px rgba(163, 201, 104, 0.5); }
+.editor-container {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.CodeMirror {
+  height: 100%;
+  background: var(--bg) !important;
+  color: var(--text);
+  font-family: var(--mono) !important;
+  font-size: 13.5px;
+  line-height: 1.65;
+  padding: 8px 0;
+}
+.cm-s-querylab .CodeMirror-gutters {
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  padding-right: 6px;
+}
+.cm-s-querylab .CodeMirror-linenumber { color: var(--text-dim); font-size: 11.5px; }
+.cm-s-querylab .CodeMirror-cursor { border-left: 1.5px solid var(--accent-bright); }
+.cm-s-querylab .CodeMirror-selected { background: rgba(224, 138, 60, 0.15) !important; }
+.cm-s-querylab .cm-keyword { color: var(--accent-bright); font-weight: 500; }
+.cm-s-querylab .cm-operator { color: var(--text); }
+.cm-s-querylab .cm-variable, .cm-s-querylab .cm-variable-2 { color: var(--text); }
+.cm-s-querylab .cm-string { color: #a3c968; }
+.cm-s-querylab .cm-number { color: #c5a3e0; }
+.cm-s-querylab .cm-comment { color: var(--text-dim); font-style: italic; }
+.cm-s-querylab .cm-bracket { color: var(--text-muted); }
+.cm-s-querylab .cm-atom { color: var(--info); }
+.cm-s-querylab .CodeMirror-activeline-background { background: rgba(255,255,255,0.02) !important; }
+
+/* ─── Autocomplete popup ─────────────────────────── */
+.CodeMirror-hints {
+  position: absolute;
+  z-index: 500;
+  overflow-y: auto;
+  max-height: 260px;
+  margin: 2px 0 0;
+  padding: 4px 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  box-shadow: 0 14px 40px -10px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.3);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  list-style: none;
+  min-width: 180px;
+}
+.CodeMirror-hint {
+  padding: 5px 14px 5px 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.CodeMirror-hint-active {
+  background: var(--accent-soft);
+  color: var(--accent-bright);
+  border-left-color: var(--accent);
+}

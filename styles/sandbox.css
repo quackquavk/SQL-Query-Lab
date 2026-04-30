@@ -1,0 +1,246 @@
+/* Sandbox right panel */
+.sandbox-panel {
+  display: flex; flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.sandbox-head {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sandbox-head .meta {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.sandbox-head .meta::before {
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--info);
+  box-shadow: 0 0 8px rgba(127, 178, 212, 0.6);
+}
+.sandbox-head h2 {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+.sandbox-body {
+  flex: 1;
+  overflow: auto;
+  padding: 14px 18px 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.sandbox-body p { margin-bottom: 10px; }
+
+.snippet-section { margin-top: 18px; }
+.snippet-section h4 {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.snippet-section h4 span {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  font-style: normal;
+}
+
+.snippet-list {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.snippet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.snippet-row:hover {
+  border-color: var(--border-bright);
+  background: var(--surface-2);
+}
+.snippet-row .name {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.snippet-row .preview {
+  flex: 2;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.snippet-row .del {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.snippet-row .del:hover { color: var(--error); }
+.snippet-empty {
+  padding: 16px 12px;
+  text-align: center;
+  color: var(--text-dim);
+  font-style: italic;
+  font-family: var(--serif);
+  font-size: 14px;
+  border: 1px dashed var(--border);
+  border-radius: 3px;
+}
+
+.sandbox-tip {
+  margin-top: 18px;
+  padding: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--info);
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.sandbox-tip strong { color: var(--text); }
+/* MS SQL mode panel */
+.mssql-panel {
+  display: flex; flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.mssql-output {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text);
+  white-space: pre-wrap;
+  max-height: 400px;
+  overflow: auto;
+}
+.mssql-output .mssql-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.mssql-empty {
+  padding: 20px 12px;
+  text-align: center;
+  color: var(--text-dim);
+  font-style: italic;
+  font-family: var(--serif);
+  font-size: 14px;
+  border: 1px dashed var(--border);
+  border-radius: 3px;
+}
+
+/* Sandbox-specific results: no Expected tab needed */
+:not(.sandbox-active) .sandbox-only-tab { display: none; }
+.sandbox-active .practice-only-tab { display: none; }
+
+/* The "DB modified" indicator */
+.dirty-mark {
+  display: none;
+  margin-left: 6px;
+  padding: 1px 6px;
+  background: var(--error-soft);
+  color: var(--error);
+  border-radius: 2px;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.dirty-mark.show { display: inline-block; }
+
+/* ─── Sandbox mode ────────────────────────────────── */
+body.sandbox-mode .right { display: none; }
+body.sandbox-mode .main { grid-template-columns: 260px 1fr; }
+body.sandbox-mode .results { max-height: 50%; }
+body.mssql-mode .right { display: none; }
+body.mssql-mode .main { grid-template-columns: 260px 1fr; }
+body.mssql-mode .results { max-height: 50%; }
+body.mssql-mode .left { display: none; }
+body.mssql-mode .center { grid-column: 1 / -1; }
+
+.btn.btn-sandbox {
+  background: var(--surface-1);
+  border-color: var(--info);
+  color: var(--info);
+}
+.btn.btn-sandbox:hover { background: rgba(127, 178, 212, 0.1); }
+.btn.btn-sandbox.active {
+  background: var(--info);
+  color: #0a1620;
+  font-weight: 600;
+}
+.btn.btn-sandbox::before { content: "▱ "; font-size: 11px; opacity: 0.8; }
+.btn.btn-sandbox.active::before { content: "▰ "; }
+
+.sandbox-banner {
+  position: relative;
+  padding: 14px 22px;
+  background: linear-gradient(90deg, rgba(127, 178, 212, 0.08), transparent 70%);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.sandbox-banner .label {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  color: var(--info);
+  letter-spacing: 0.01em;
+}
+.sandbox-banner .desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 200px;
+}
+.sandbox-banner .actions { display: flex; gap: 8px; }
+.sandbox-banner .ghost-btn {
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--text-muted);
+  padding: 6px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--sans);
+}
+.sandbox-banner .ghost-btn:hover { color: var(--info); border-color: var(--info); }
+.sandbox-banner .ghost-btn.danger:hover { color: var(--error); border-color: var(--error); }
