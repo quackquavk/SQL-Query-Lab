@@ -119,3 +119,49 @@
   background: var(--error);
   color: var(--bg);
 }
+
+/* ─── Search Bar (CodeMirror dialog) ── */
+.CodeMirror-dialog {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 12px;
+  font-size: 13px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.CodeMirror-dialog input[type="text"] {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 3px 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  border-radius: 3px;
+  outline: none;
+}
+
+.CodeMirror-dialog input[type="text"]:focus {
+  border-color: var(--accent);
+}
+
+.CodeMirror-dialog button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.CodeMirror-dialog button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}

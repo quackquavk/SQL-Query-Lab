@@ -256,6 +256,18 @@ function wireUI() {
       }
     });
   }
+
+  // Global keyboard shortcuts (only when editor is NOT focused)
+  document.addEventListener('keydown', (e) => {
+    const editorInput = runtime.editor?.getInputField();
+    if (!editorInput || document.activeElement !== editorInput) return;
+
+    // Cmd/Ctrl+S: format SQL
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      formatEditorSql();
+    }
+  });
 }
 
 async function boot() {

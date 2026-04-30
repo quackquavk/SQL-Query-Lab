@@ -69,6 +69,15 @@ export function initEditor({ runQuery, runMssqlTranslation, runLiveQuery }) {
       'Cmd-Enter':  () => { if (runtime.cursor.currentMode === 'mssql') runMssqlTranslation(); else if (runtime.editorQueryExecutor) runtime.editorQueryExecutor(); },
       'Ctrl-Q': formatEditorSql,
       'Cmd-Q':  formatEditorSql,
+      'Ctrl-S': formatEditorSql,
+      'Cmd-S':  formatEditorSql,
+      'Ctrl-/': function(cm) { cm.toggleComment({ lineComment: '--' }); },
+      'Cmd-/': function(cm) { cm.toggleComment({ lineComment: '--' }); },
+      'Ctrl-F': 'findPersistent',
+      'Cmd-F': 'findPersistent',
+      'Ctrl-H': 'replace',
+      'Cmd-H': 'replace',
+      'Escape': function(cm) { cm.focus(); },
       'Ctrl-Space': 'autocomplete'
     },
     hintOptions: {
