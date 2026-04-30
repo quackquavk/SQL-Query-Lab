@@ -92,7 +92,10 @@ Plans:
 12. Built-in starter snippets available (SELECT TOP 100, INSERT, UPDATE, DELETE patterns)
 13. Query history persists across sessions
 
-**Plans:** TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 03-01-PLAN.md — Multi-tab workspace, object explorer tree, snippet management
 
 **UI hint:** yes
 
@@ -131,7 +134,7 @@ Plans:
 |-------|---------------|--------|-----------|
 | 1. Backend Proxy Foundation | 2/2 | Complete | 2026-04-30 |
 | 2. Connected Query Execution | 1/1 | Planned | - |
-| 3. Object Explorer & Workspace | 0/1 | Not started | - |
+| 3. Object Explorer & Workspace | 1/1 | Planned | - |
 | 4. Professional Polish | 0/1 | Not started | - |
 
 ---
