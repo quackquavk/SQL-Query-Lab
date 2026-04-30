@@ -12,7 +12,8 @@ import {
 import {
   showFeedback, switchTab, toast, renderSchema, renderResources, renderHistory,
   renderResultsTab, renderFilters, renderQuestionList, updateDirtyMark,
-  setUiHooks
+  setUiHooks, renderResultsStreaming, handleExportCsv, handleExportJson,
+  clearResultSets, storeResultSet
 } from './ui.js';
 import { formatEditorSql } from './format.js';
 import { initEditor, injectCodemirrorFontFix } from './editor.js';
@@ -255,6 +256,12 @@ async function boot() {
     runtime.liveDb['blank'] = blankDb;
   }
 
+  // Load live mode preferences
+  const { getLivePreferences } = await import('./state.js');
+  const livePrefs = getLivePreferences();
+  runtime.cursor.livePageSize = livePrefs.pageSize;
+  runtime.cursor.queryTimeout = livePrefs.timeout;
+
   initEditor({ runQuery, runMssqlTranslation, runLiveQuery: runLiveQueryFromMain });
 
   runtime.cursor.activeCategoryFilter = state.lastCategoryFilter || 'ALL';
@@ -264,6 +271,10 @@ async function boot() {
   runtime.editorQueryExecutor = runQuery;
 
   wireUI();
+
+  // Initialize timeout input
+  const timeoutInput = document.getElementById('query-timeout');
+  if (timeoutInput) timeoutInput.value = livePrefs.timeout;
 
   const startMode = state.mode === 'sandbox' ? 'sandbox' : 'practice';
   setMode(startMode);

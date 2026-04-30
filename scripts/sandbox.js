@@ -10,7 +10,8 @@ import {
 import {
   showFeedback, switchTab, toast, renderSchema, renderResultsTab,
   renderHistory, updateDirtyMark, renderResultsStreaming,
-  storeResultSet, getResultSet
+  storeResultSet, getResultSet, handleExportCsv, handleExportJson,
+  clearResultSets
 } from './ui.js';
 import { escapeHtml, splitSqlStatements, previewStatement } from './utils.js';
 import { enterPractice } from './practice.js';
@@ -37,6 +38,8 @@ export function setMode(mode) {
 }
 
 export function enterSandbox() {
+  hideLiveResultsUI();
+
   const targetDb = state.sandboxDb || 'hospital';
   runtime.cursor.currentDbName = targetDb;
   document.getElementById('dbSelect').value = targetDb;
@@ -107,6 +110,69 @@ export async function enterLive() {
   renderResultsTab('output');
   document.querySelectorAll('.results-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'output'));
   showFeedback('info', 'Live Mode', `Connected to ${runtime.cursor.connectionName || 'SQL Server'}. Run queries against your live database.`);
+
+  // Show live-specific results UI
+  showLiveResultsUI();
+}
+
+export function showLiveResultsUI() {
+  const body = document.getElementById('resultsBody');
+  const gridWrap = document.getElementById('results-grid-wrap');
+  const exportDiv = document.getElementById('results-export');
+  const pagination = document.getElementById('results-pagination');
+  const status = document.getElementById('results-status');
+  const loading = document.getElementById('results-loading');
+  const empty = document.getElementById('results-empty');
+  if (body) body.style.display = 'none';
+  if (gridWrap) gridWrap.classList.remove('hidden');
+  if (exportDiv) exportDiv.classList.remove('hidden');
+  if (pagination) pagination.classList.remove('hidden');
+  if (status) status.classList.remove('hidden');
+  if (loading) loading.classList.add('hidden');
+  if (empty) empty.classList.add('hidden');
+
+  // Update live status indicator
+  const liveStatus = document.getElementById('live-status');
+  const connName = document.getElementById('conn-name');
+  const liveConnName = document.getElementById('liveConnectionName');
+  if (liveStatus && runtime.cursor.connectionName) {
+    liveStatus.classList.remove('hidden');
+    if (connName) connName.textContent = runtime.cursor.connectionName;
+    if (liveConnName) liveConnName.textContent = 'Connected: ' + runtime.cursor.connectionName;
+  } else if (liveStatus) {
+    liveStatus.classList.add('hidden');
+    if (liveConnName) liveConnName.textContent = 'Not connected';
+  }
+
+  // Wire export buttons
+  const csvBtn = document.getElementById('btn-export-csv');
+  const jsonBtn = document.getElementById('btn-export-json');
+  if (csvBtn) csvBtn.onclick = () => handleExportCsv(0);
+  if (jsonBtn) jsonBtn.onclick = () => handleExportJson(0);
+}
+
+export function hideLiveResultsUI() {
+  const body = document.getElementById('resultsBody');
+  const gridWrap = document.getElementById('results-grid-wrap');
+  const exportDiv = document.getElementById('results-export');
+  const pagination = document.getElementById('results-pagination');
+  const status = document.getElementById('results-status');
+  const loading = document.getElementById('results-loading');
+  const empty = document.getElementById('results-empty');
+  if (body) body.style.display = '';
+  if (gridWrap) gridWrap.classList.add('hidden');
+  if (exportDiv) exportDiv.classList.add('hidden');
+  if (pagination) pagination.innerHTML = '';
+  if (status) { status.className = 'results-status hidden'; status.textContent = ''; }
+  if (loading) loading.classList.add('hidden');
+  if (empty) empty.classList.add('hidden');
+
+  const liveStatus = document.getElementById('live-status');
+  if (liveStatus) liveStatus.classList.add('hidden');
+  const liveConnName = document.getElementById('liveConnectionName');
+  if (liveConnName) liveConnName.textContent = 'Not connected';
+
+  clearResultSets();
 }
 
 export async function runLiveQuery(sql, options = {}) {
