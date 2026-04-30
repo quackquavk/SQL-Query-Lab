@@ -1,94 +1,68 @@
----
-gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: completed
-last_updated: "2026-04-30T12:03:00.000Z"
-progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
----
+# State: SQL Query Lab v1.1
 
-# State: SQL Query Lab
+**Milestone:** v1.1 Professional Feature Suite
+**Current Phase:** 5 (Visual Design Tools)
+**Started:** 2026-04-30
 
-**Last updated:** 2026-04-30
+---
 
 ## Project Reference
 
 **Core Value:** Professionals can manage SQL Server infrastructure from any browser, with zero setup and full feature parity with desktop SSMS.
 
-**Current Focus:** Phase 03 (Object Explorer & Workspace) — COMPLETE
-**Milestone:** v1.0 — ALL PLANS COMPLETE
+**Current Focus:** Phase 5 — Visual Design Tools (ER diagrams, Table Designer, Execution Plan Viewer)
 
 ---
 
-## Current Position
+## Phase Progress
 
-Phase: 03 (object-explorer-workspace) — COMPLETE
-Plan: 2 of 2
-**Phase:** 4
-
-**Status:** Phase 03 complete — all 7 plans executed
-
-**Progress:** [█████████░] 86%
-
----
-
-## Phase Summary
-
-| Phase | Name | Status | Plans |
-|-------|------|--------|-------|
-| 1 | Backend Proxy Foundation | Complete | 2/2 |
-| 2 | Connected Query Execution | Complete | 1/1 |
-| 3 | Object Explorer & Workspace | Complete | 2/2 |
-| 4 | Professional Polish | Complete | 2/2 |
+| Phase | Goal | Status | Plans | Completed |
+|-------|------|--------|-------|-----------|
+| 1-4 | v1.0 milestone | Complete | - | ✓ |
+| 5 | Visual Design Tools | Not started | 0/4 | - |
+| 6 | Query Tools | Not started | 0/4 | - |
+| 7 | Administration | Not started | 0/2 | - |
 
 ---
 
 ## Performance Metrics
 
-- **Requirements mapped:** 43/43 v1 requirements
-- **Phases defined:** 4
-- **Granularity:** Coarse
+- **Requirements:** 10 total for v1.1
+- **Mapped to phases:** 10/10 (100%)
+- **Phases started:** 0
+- **Phases complete:** 0
 
 ---
 
 ## Accumulated Context
 
-### Architecture Notes
-
-- Browser (React + Monaco) → Node.js Backend Proxy (Express + tedious) → SQL Server
-- Backend proxy is architecturally mandatory (TDS protocol, credential security)
-- Credentials never stored in browser; backend handles encrypted storage
-- WebSocket for row-by-row streaming query results
-
 ### Key Decisions
+- Backend proxy must precede professional features (research finding)
+- D3.js + dagre for ER diagrams and execution plan rendering
+- Chart.js for query result charting
+- node-sql-parser for T-SQL parsing in table designer and SP editor
 
-- Connection string storage: Encrypted at rest, never logged
-- Stack: Node.js 22.x, Express 4.x, tedious 19.x, mssql, WebSocket ws 9.x, React 18.x, Monaco Editor 0.50+, Zustand 5.x
+### Dependencies
+- All v1.1 phases depend on backend proxy being operational (Phase 4 of v1.0)
+- Visual Design Tools (Phase 5) must complete before Query Tools (Phase 6)
+- Query Tools (Phase 6) must complete before Administration (Phase 7)
 
-### Phase Dependencies
+### Blockers
+- None identified yet
 
-1. Phase 1 (Backend Proxy) → No dependencies
-2. Phase 2 (Query Execution) → Depends on Phase 1
-3. Phase 3 (Object Explorer & Workspace) → Depends on Phase 2
-4. Phase 4 (Professional Polish) → Depends on Phase 3
-
-### Research Flags
-
-- Phase 1: Credential storage encryption approach needs security review; Azure SQL Entra MFA implementation spike needed
-- Phase 4 (Visual Tools): Execution plan XML schema parsing complex; diagram rendering libraries TBD
+### Notes
+- Research flags: Execution Plan XML complexity, ER diagram virtualization for large schemas
+- T-SQL dialect coverage for node-sql-parser needs validation against actual workloads
+- Entra MFA authentication deferred to future phase
 
 ---
 
 ## Session Continuity
 
-**Last session:** 2026-04-30T07:04:28.671Z
-**Next action:** `/gsd-execute-phase 2` to execute Phase 2 plans
+**Last updated:** 2026-04-30
+**Roadmap version:** 1.0
+**Next action:** `/gsd-plan-phase 5`
 
 ---
 
-*State initialized: 2026-04-30*
+*State file managed by GSD workflow*
