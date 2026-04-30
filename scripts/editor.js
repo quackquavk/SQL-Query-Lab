@@ -49,7 +49,7 @@ function sqlHint(cm) {
 
   return {
     list: matches,
-    from: cur,
+    from: CodeMirror.Pos(cur.line, token.start),
     to: cur
   };
 }

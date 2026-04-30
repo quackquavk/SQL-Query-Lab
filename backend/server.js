@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { upgradeWebSocket } from '@hono/node-server';
+import 'dotenv/config';
 import { handleQueryWebSocket } from './routes/query.ws.js';
 import connections from './routes/connections.js';
 import { serve } from '@hono/node-server';
