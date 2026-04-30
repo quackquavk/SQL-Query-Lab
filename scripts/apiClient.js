@@ -91,6 +91,72 @@ export function cancelQuery(queryId) {
   }
 }
 
+// Live query streaming via WebSocket.
+// Returns an object with addEventListener/removeEventListener for:
+// 'columns' → ({ columns: [{name, type}] })
+// 'rows' → ({ rows: [row...], total })
+// 'done' → ({ executionTime, rowCount })
+// 'error' → ({ message })
+export function createQueryStreamer(connectionId, sql, options = {}) {
+  const { timeout = 30000 } = options;
+  const queryId = `q-${++queryIdCounter}`;
+  const listeners = { columns: [], rows: [], done: [], error: [] };
+  let ws = null;
+  let timeoutHandle = null;
+
+  function onColumns(cols) { listeners.columns.forEach(l => l({ columns: cols })); }
+  function onRows(rows, total) { listeners.rows.forEach(l => l({ rows, total })); }
+  function onDone(rowsAffected, executionTime) { listeners.done.forEach(l => l({ rowsAffected, executionTime })); }
+  function onError(message, code, qid) { listeners.error.forEach(l => l({ message, code })); }
+
+  function connect() {
+    return new Promise((resolve, reject) => {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${location.host}/api/query`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'execute', connectionId, sql, queryId, timeout }));
+        resolve();
+      };
+      ws.onerror = () => reject(new Error('WebSocket connection failed'));
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        const { type } = msg;
+        if (type === 'columns') onColumns(msg.columns);
+        else if (type === 'rows') onRows(msg.rows, msg.total);
+        else if (type === 'done') onDone(msg.rowsAffected, msg.executionTime);
+        else if (type === 'error') onError(msg.message, msg.code, msg.queryId);
+      };
+    });
+  }
+
+  return {
+    queryId,
+    connect,
+    cancel() {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      if (ws) ws.send(JSON.stringify({ type: 'cancel', queryId }));
+    },
+    setTimeout(ms, onTimeout) {
+      timeoutHandle = setTimeout(() => {
+        onTimeout?.();
+        this.cancel();
+      }, ms);
+    },
+    addEventListener(event, handler) {
+      if (listeners[event]) listeners[event].push(handler);
+    },
+    removeEventListener(event, handler) {
+      if (listeners[event]) listeners[event] = listeners[event].filter(h => h !== handler);
+    },
+    destroy() {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      if (ws) { ws.close(); ws = null; }
+    }
+  };
+}
+
 export function disconnectQuerySocket() {
   if (ws) {
     ws.close();
