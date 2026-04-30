@@ -123,7 +123,11 @@ Plans:
 10. User can view database diagrams (ER visualization) — v2 feature
 11. User can view execution plans (XML plan parsing, visual flowchart) — v2 feature
 
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Theme system (dark/light/auto), WCAG focus indicators (THEM-01, THEM-02, THEM-03, THEM-05)
+- [ ] 04-02-PLAN.md — VS Code keyboard shortcuts, SQL formatting, find/replace (THEM-04, EDIT-05, EDIT-06, EDIT-07)
 
 **UI hint:** yes
 
@@ -136,7 +140,7 @@ Plans:
 | 1. Backend Proxy Foundation | 2/2 | Complete | 2026-04-30 |
 | 2. Connected Query Execution | 1/1 | Planned | - |
 | 3. Object Explorer & Workspace | 1/1 | Complete   | 2026-04-30 |
-| 4. Professional Polish | 0/1 | Not started | - |
+| 4. Professional Polish | 0/2 | Not started | - |
 
 ---
 
