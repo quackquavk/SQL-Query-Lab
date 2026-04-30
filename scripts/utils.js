@@ -106,3 +106,46 @@ export function splitSqlStatements(sql) {
   if (tail) out.push(tail);
   return out;
 }
+
+// RFC 4180 compliant CSV export
+export function exportToCsv(columns, rows) {
+  const escapeField = (val) => {
+    if (val === null || val === undefined) return '';
+    const str = String(val);
+    if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  };
+  const header = columns.map(c => escapeField(c.name || c)).join(',');
+  const dataRows = rows.map(row =>
+    row.map(cell => escapeField(cell)).join(',')
+  );
+  return [header, ...dataRows].join('\r\n');
+}
+
+// JSON export: array of objects
+export function exportToJson(columns, rows) {
+  const objects = rows.map(row => {
+    const obj = {};
+    columns.forEach((col, i) => {
+      const key = col.name || col || `col_${i}`;
+      obj[key] = row[i];
+    });
+    return obj;
+  });
+  return JSON.stringify(objects, null, 2);
+}
+
+// Trigger browser download of content
+export function downloadBlob(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
