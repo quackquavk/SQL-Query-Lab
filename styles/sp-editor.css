@@ -1,0 +1,197 @@
+/* Stored Procedure Editor Styles */
+
+.sp-editor-panel {
+  display: none;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  max-height: 400px;
+}
+
+.sp-editor-panel.visible {
+  display: flex;
+}
+
+/* Header */
+.sp-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.sp-editor-header h3 {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.sp-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sp-new-btn,
+.sp-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 3px;
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+
+.sp-new-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-bright);
+}
+
+.sp-close-btn:hover {
+  background: var(--error);
+  color: white;
+}
+
+/* Parameter Strip */
+.sp-param-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  min-height: 44px;
+  align-items: center;
+}
+
+.sp-param-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.sp-param-name {
+  font-family: var(--mono);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.sp-param-type {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.sp-no-params {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* Editor Area */
+.sp-editor-area {
+  flex: 1;
+  overflow: auto;
+  min-height: 150px;
+  max-height: 250px;
+}
+
+.sp-editor-area .CodeMirror {
+  height: 100%;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* GO Line Highlight */
+.sp-go-line {
+  background: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 4px,
+    rgba(224, 138, 60, 0.1) 4px,
+    rgba(224, 138, 60, 0.1) 8px
+  );
+  border-left: 2px dashed var(--accent);
+}
+
+/* Save Button */
+.sp-save-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--accent);
+  border: none;
+  color: #1a1208;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--sans);
+}
+
+.sp-save-btn:hover {
+  background: var(--accent-bright);
+}
+
+.sp-save-btn:active {
+  transform: scale(0.98);
+}
+
+/* Validation Error Styling */
+.sp-validation-error {
+  text-decoration: wavy underline var(--error);
+  text-underline-offset: 3px;
+}
+
+/* GO Divider in Editor */
+.sp-go-divider {
+  position: relative;
+}
+
+.sp-go-divider::before {
+  content: 'GO';
+  position: absolute;
+  left: -30px;
+  top: 0;
+  font-size: 9px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Error Tooltip */
+.sp-error-tooltip {
+  position: absolute;
+  background: var(--surface-2);
+  border: 1px solid var(--error);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--error);
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  max-width: 250px;
+  pointer-events: none;
+}
+
+/* Tab in right panel */
+.right-tab[data-tab="sp"] {
+  position: relative;
+}
+
+.right-tab[data-tab="sp"]::before {
+  content: '⚡';
+  margin-right: 6px;
+}
