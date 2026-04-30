@@ -1,10 +1,13 @@
 // UI rendering: schema, resources, history, results, modal, toast, feedback, splash.
+// Also includes streaming results grid renderer for live query mode.
 
 import * as runtime from './runtime.js';
 import { state, solved, persist, MAX_HISTORY, formatHistoryTime, clearHistory } from './state.js';
 import { QUESTIONS } from './questions.js';
 import { activeDb } from './db.js';
-import { escapeHtml, previewStatement } from './utils.js';
+import { escapeHtml, previewStatement, exportToCsv, exportToJson, downloadBlob } from './utils.js';
+
+const ROW_HEIGHT = 28; // pixels per row for virtual scrolling
 
 // Hooks injected by main.js to call back into other modules without import cycles.
 let _hooks = {
@@ -493,4 +496,218 @@ export function hideConnectionDialog() {
   const dialog = document.getElementById('connection-dialog');
   if (dialog) dialog.classList.remove('open');
   setTimeout(() => dialog?.remove(), 200);
+}
+
+// ─── Live Query Streaming Results ────────────────────────────────────────
+
+export function renderResultsStreaming(columns, options = {}) {
+  const { pageSize = 100, onPageChange, onSort, onExport } = options;
+
+  const wrap = document.getElementById('results-grid-wrap');
+  const header = document.getElementById('results-header');
+  const body = document.getElementById('results-body');
+
+  if (!wrap || !header || !body) return null;
+
+  // Build column header HTML
+  let headerHtml = '<tr>';
+  columns.forEach((col, i) => {
+    headerHtml += `<th data-col="${i}">${escapeHtml(col.name || String(col))}</th>`;
+  });
+  headerHtml += '</tr>';
+  header.innerHTML = headerHtml;
+
+  // Sort state
+  let sortCol = null;
+  let sortDir = 'asc';
+
+  // Streaming state
+  let allRows = [];
+  let currentPage = 1;
+  let totalPages = 1;
+
+  function renderPageRows() {
+    const start = (currentPage - 1) * pageSize;
+    const page = allRows.slice(start, start + pageSize);
+
+    body.innerHTML = page.map(row => {
+      let html = '<tr>';
+      row.forEach((cell, ci) => {
+        if (cell === null) html += `<td class="null">NULL</td>`;
+        else if (!isNaN(cell) && cell !== '' && String(cell).match(/^-?\d+(\.\d+)?$/)) html += `<td class="num">${escapeHtml(String(cell))}</td>`;
+        else html += `<td title="${escapeHtml(String(cell))}">${escapeHtml(String(cell).slice(0, 300))}</td>`;
+      });
+      html += '</tr>';
+      return html;
+    }).join('');
+  }
+
+  function updatePagination() {
+    totalPages = Math.max(1, Math.ceil(allRows.length / pageSize));
+    renderPagination(currentPage, totalPages, pageSize, allRows.length, (page, newSize) => {
+      if (newSize) pageSize = newSize;
+      currentPage = page;
+      renderPageRows();
+      onPageChange?.(page);
+    });
+  }
+
+  // Attach sort handlers
+  header.querySelectorAll('th').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = parseInt(th.dataset.col);
+      if (sortCol === col) {
+        if (sortDir === 'asc') sortDir = 'desc';
+        else if (sortDir === 'desc') { sortCol = null; sortDir = 'asc'; }
+      } else {
+        sortCol = col;
+        sortDir = 'asc';
+      }
+      // Update sort indicators
+      header.querySelectorAll('th').forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+      if (sortCol !== null) th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+      // Sort rows
+      if (sortCol !== null) {
+        allRows.sort((a, b) => {
+          const va = a[col] ?? '';
+          const vb = b[col] ?? '';
+          const cmp = String(va).localeCompare(String(vb), undefined, { numeric: true });
+          return sortDir === 'asc' ? cmp : -cmp;
+        });
+      }
+      currentPage = 1;
+      renderPageRows();
+      updatePagination();
+      onSort?.(sortCol, sortDir);
+    });
+  });
+
+  // Virtual scrolling setup
+  let scrollTimer = null;
+  wrap.addEventListener('scroll', () => {
+    if (allRows.length > pageSize * 3) {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => {
+        const st = wrap.scrollTop;
+        const viewH = wrap.clientHeight;
+        const startIdx = Math.floor(st / ROW_HEIGHT);
+        const visibleCount = Math.ceil(viewH / ROW_HEIGHT);
+        // For large result sets, we render visible window + buffer
+        // For now, basic pagination handles most cases; virtual scroll deferred
+      }, 16);
+    }
+  });
+
+  return {
+    addRows(rows) {
+      allRows.push(...rows);
+      if (currentPage === totalPages || totalPages === 1) {
+        renderPageRows();
+        updatePagination();
+      } else {
+        updatePagination();
+      }
+    },
+    complete(executionTime, rowCount) {
+      const statusEl = document.getElementById('results-status');
+      if (statusEl) {
+        statusEl.className = 'results-status';
+        statusEl.textContent = `✓ Query executed in ${executionTime}ms — ${rowCount ?? allRows.length} rows`;
+      }
+      updatePagination();
+    },
+    error(message) {
+      const statusEl = document.getElementById('results-status');
+      if (statusEl) {
+        statusEl.className = 'results-status error';
+        statusEl.textContent = `✗ ${message}`;
+      }
+      body.innerHTML = `<div class="results-empty" style="color:var(--error)">${escapeHtml(message)}</div>`;
+    },
+    getPage() { return currentPage; },
+    getTotalPages() { return totalPages; },
+    setPageSize(size) {
+      pageSize = size;
+      currentPage = 1;
+      renderPageRows();
+      updatePagination();
+    },
+    getRows() { return allRows; },
+    getColumns() { return columns; }
+  };
+}
+
+export function renderPagination(currentPage, totalPages, pageSize, rowCount, onPageChange) {
+  const el = document.getElementById('results-pagination');
+  if (!el) return;
+
+  if (totalPages <= 1 && (!rowCount || rowCount <= pageSize)) {
+    el.innerHTML = '';
+    return;
+  }
+
+  let html = '';
+
+  // Prev button
+  html += `<button class="page-btn" data-page="${currentPage - 1}" ${currentPage <= 1 ? 'disabled' : ''}>‹</button>`;
+
+  // Page numbers
+  const maxPages = 7;
+  let startPage = Math.max(1, currentPage - 3);
+  let endPage = Math.min(totalPages, startPage + maxPages - 1);
+  if (endPage - startPage < maxPages - 1) startPage = Math.max(1, endPage - maxPages + 1);
+
+  if (startPage > 1) { html += `<button class="page-btn" data-page="1">1</button>`; if (startPage > 2) html += '<span class="page-ellipsis">…</span>'; }
+  for (let p = startPage; p <= endPage; p++) html += `<button class="page-btn ${p === currentPage ? 'active' : ''}" data-page="${p}">${p}</button>`;
+  if (endPage < totalPages) { if (endPage < totalPages - 1) html += '<span class="page-ellipsis">…</span>'; html += `<button class="page-btn" data-page="${totalPages}">${totalPages}</button>`; }
+
+  // Next button
+  html += `<button class="page-btn" data-page="${currentPage + 1}" ${currentPage >= totalPages ? 'disabled' : ''}>›</button>`;
+
+  // Page size selector
+  html += `<select class="page-size-select">
+    <option value="100" ${pageSize === 100 ? 'selected' : ''}>100</option>
+    <option value="200" ${pageSize === 200 ? 'selected' : ''}>200</option>
+    <option value="500" ${pageSize === 500 ? 'selected' : ''}>500</option>
+  </select>`;
+
+  // Row count display
+  const startRow = (currentPage - 1) * pageSize + 1;
+  const endRow = Math.min(currentPage * pageSize, rowCount || 0);
+  html += `<span class="page-info">${rowCount ? startRow + '-' + endRow + ' of ' + rowCount + ' rows' : ''}</span>`;
+
+  el.innerHTML = html;
+
+  el.querySelectorAll('.page-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = parseInt(btn.dataset.page);
+      if (p >= 1 && p <= totalPages) onPageChange(p);
+    });
+  });
+
+  el.querySelector('.page-size-select')?.addEventListener('change', (e) => {
+    onPageChange(1, parseInt(e.target.value));
+  });
+}
+
+let _resultsets = [];
+export function storeResultSet(columns, rows) {
+  _resultsets.push({ columns, rows });
+}
+export function getResultSet(index) { return _resultsets[index] ?? null; }
+export function clearResultSets() { _resultsets = []; }
+
+export function handleExportCsv(resultSetIndex) {
+  const rs = getResultSet(resultSetIndex);
+  if (!rs) return;
+  const csv = exportToCsv(rs.columns, rs.rows);
+  const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+  downloadBlob(csv, `results_${resultSetIndex + 1}_${ts}.csv`, 'text/csv');
+}
+export function handleExportJson(resultSetIndex) {
+  const rs = getResultSet(resultSetIndex);
+  if (!rs) return;
+  const json = exportToJson(rs.columns, rs.rows);
+  const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+  downloadBlob(json, `results_${resultSetIndex + 1}_${ts}.json`, 'application/json');
 }
