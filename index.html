@@ -12,6 +12,10 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css" />
 
+<!-- D3.js and dagre for ER diagrams and execution plans -->
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+
 <link rel="stylesheet" href="styles/base.css" />
 <link rel="stylesheet" href="styles/topbar.css" />
 <link rel="stylesheet" href="styles/sandbox.css" />
@@ -20,6 +24,8 @@
 <link rel="stylesheet" href="styles/results.css" />
 <link rel="stylesheet" href="styles/right-panel.css" />
 <link rel="stylesheet" href="styles/modal.css" />
+<link rel="stylesheet" href="styles/er-diagram.css" />
+<link rel="stylesheet" href="styles/table-designer.css" />
 </head>
 <body>
 
@@ -93,11 +99,18 @@
     <aside class="left">
       <div class="left-tabs">
         <button class="left-tab active" data-left="schema">Schema</button>
+        <button class="left-tab" data-left="er-diagram">ER Diagram</button>
         <button class="left-tab" data-left="resources">Resources</button>
         <button class="left-tab sandbox-only" data-left="history">History</button>
         <button class="left-tab sandbox-only" data-left="snippets">Snippets</button>
       </div>
       <div class="left-content" id="leftContent"></div>
+      <div id="erDiagramPanel" class="er-diagram-panel" style="display:none">
+        <div class="er-empty-state">
+          <h3>No database selected</h3>
+          <p>Connect to a SQL Server instance to explore your database schema visually.</p>
+        </div>
+      </div>
       <div id="objExplorer" class="obj-explorer">
         <div class="obj-tree"></div>
       </div>

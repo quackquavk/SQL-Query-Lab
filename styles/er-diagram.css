@@ -1,0 +1,233 @@
+/* ER Diagram Panel Styles */
+
+.er-diagram-panel {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  position: relative;
+}
+
+.er-diagram-panel svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ER Node Styles */
+.er-node {
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.er-node:hover .er-node-bg {
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+}
+
+.er-node-bg {
+  fill: var(--surface-1);
+  stroke: var(--border);
+  stroke-width: 1px;
+  transition: stroke 0.15s, fill 0.15s;
+}
+
+.er-node-header {
+  fill: var(--surface-2);
+}
+
+.er-node-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  fill: var(--text);
+}
+
+.er-col-name {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  fill: var(--text);
+}
+
+.er-col-type {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  fill: var(--text-dim);
+}
+
+/* Selected state */
+.er-node-selected .er-node-bg {
+  stroke: var(--accent);
+  stroke-width: 2px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.er-node-selected .er-node-title {
+  fill: var(--accent-bright);
+}
+
+/* PK Badge */
+.er-pk-badge {
+  fill: var(--accent);
+}
+
+/* FK Indicator */
+.er-fk-dot {
+  fill: var(--accent);
+  opacity: 0.6;
+}
+
+/* FK Lines */
+.er-fk-line {
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  stroke-dasharray: 4, 2;
+  fill: none;
+  opacity: 0.6;
+}
+
+.er-fk-arrow {
+  fill: var(--accent);
+  opacity: 0.6;
+}
+
+/* Zoom Controls */
+.er-zoom-controls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+}
+
+.er-zoom-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--sans);
+}
+
+.er-zoom-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-bright);
+}
+
+.er-zoom-btn:active {
+  transform: scale(0.95);
+}
+
+/* Empty State */
+.er-empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.er-empty-state h3 {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 20px;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+}
+
+.er-empty-state p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Loading State */
+.er-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Columns Panel (right sidebar) */
+.columns-panel {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.columns-panel h3 {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.columns-panel .hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+
+.column-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.column-row:last-child {
+  border-bottom: none;
+}
+
+.column-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.column-type {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+
+.column-badges {
+  display: flex;
+  gap: 4px;
+}
+
+.col-badge {
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.col-badge.pk {
+  background: rgba(224, 138, 60, 0.15);
+  color: var(--accent-bright);
+}
+
+.col-badge.fk {
+  background: rgba(163, 201, 104, 0.15);
+  color: var(--success);
+}
+
+.col-badge.null {
+  background: var(--surface-2);
+  color: var(--text-dim);
+}

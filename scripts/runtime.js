@@ -32,6 +32,9 @@ export const cursor = {
   connectionName: null,
   connected: false,
   lastError: null,
+  erDiagram: { selectedTable: null, zoomLevel: 1, panOffset: { x: 0, y: 0 } },
+  execPlan: { xml: null, operators: [], costThreshold: 0 },
+  spEditor: { isOpen: false, targetSp: null, dirty: false },
 };
 
 export const sandboxDirty = {

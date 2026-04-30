@@ -278,3 +278,95 @@ export async function toggleConnectionFavorite(connectionId) {
   });
   return res.json();
 }
+
+/**
+ * Fetch schema for ER diagram (tables, columns, relationships).
+ * GET /api/schema/:database
+ */
+export async function fetchErSchema(database) {
+  const res = await fetch(`${API_BASE}/schema/${encodeURIComponent(database)}`);
+  if (!res.ok) throw new Error(`Schema fetch failed: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Execute DDL statement (CREATE/ALTER TABLE).
+ * POST /api/execute-ddl
+ */
+export async function executeDdl(ddl) {
+  const res = await fetch(`${API_BASE}/execute-ddl`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    credentials: 'include',
+    body: JSON.stringify({ ddl })
+  });
+  return res.json();
+}
+
+/**
+ * Fetch execution plan XML for a query.
+ * POST /api/execution-plan
+ */
+export async function fetchExecutionPlan(query) {
+  const res = await fetch(`${API_BASE}/execution-plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    credentials: 'include',
+    body: JSON.stringify({ query })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.xml;
+}
+
+/**
+ * List stored procedures in a database.
+ * GET /api/stored-procedures/:db
+ */
+export async function fetchStoredProcedures(database) {
+  const res = await fetch(`${API_BASE}/stored-procedures/${encodeURIComponent(database)}`, {
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  return res.json();
+}
+
+/**
+ * Fetch a stored procedure definition.
+ * GET /api/stored-procedure/:db/:name
+ */
+export async function fetchStoredProcedure(database, name) {
+  const res = await fetch(`${API_BASE}/stored-procedure/${encodeURIComponent(database)}/${encodeURIComponent(name)}`, {
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  return res.json();
+}
+
+/**
+ * Save a stored procedure (CREATE or ALTER).
+ * POST /api/stored-procedure/:db
+ */
+export async function saveStoredProcedure(database, name, definition) {
+  const res = await fetch(`${API_BASE}/stored-procedure/${encodeURIComponent(database)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    credentials: 'include',
+    body: JSON.stringify({ name, definition })
+  });
+  return res.json();
+}
+
+/**
+ * Validate T-SQL syntax.
+ * POST /api/validate-tsql
+ */
+export async function validateTsql(spText) {
+  const res = await fetch(`${API_BASE}/validate-tsql`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    credentials: 'include',
+    body: JSON.stringify({ sql: spText })
+  });
+  return res.json();
+}
