@@ -254,3 +254,34 @@
 .live-active #connectBtn { display: inline-flex; }
 .live-active .live-indicator { display: flex; }
 .live-active .mode-toggle { display: none; }
+
+/* ─── Theme Toggle ── */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.theme-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.theme-btn:hover {
+  color: var(--text);
+  background: var(--surface-1);
+}
+
+.theme-btn.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}

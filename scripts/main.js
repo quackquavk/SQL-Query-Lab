@@ -13,7 +13,7 @@ import {
   showFeedback, switchTab, toast, renderSchema, renderResources, renderHistory,
   renderResultsTab, renderFilters, renderQuestionList, updateDirtyMark,
   setUiHooks, renderResultsStreaming, handleExportCsv, handleExportJson,
-  clearResultSets, storeResultSet, renderSnippets
+  clearResultSets, storeResultSet, renderSnippets, initObjectExplorer
 } from './ui.js';
 import { formatEditorSql } from './format.js';
 import { initEditor, injectCodemirrorFontFix } from './editor.js';
@@ -92,6 +92,26 @@ function wireUI() {
     if (!menuDrop.contains(e.target) && e.target !== menuBtn) {
       menuDrop.classList.remove('open');
     }
+  });
+
+  // Theme toggle buttons
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const theme = btn.dataset.theme;
+      document.documentElement.setAttribute('data-theme', theme);
+      state.theme = theme;
+      persist();
+      // Update active class
+      document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      menuDrop?.classList.remove('open');
+    });
+  });
+
+  // Apply saved theme active state on load
+  const currentTheme = state.theme || 'dark';
+  document.querySelectorAll('.theme-btn').forEach(b => {
+    if (b.dataset.theme === currentTheme) b.classList.add('active');
   });
   document.getElementById('menuClearDraft').addEventListener('click', () => {
     menuDrop.classList.remove('open');
@@ -243,6 +263,18 @@ async function boot() {
     locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`
   });
   runtime.setSQL(SQL);
+
+  // Apply saved theme or default to dark (before first paint to avoid flash)
+  const savedTheme = state.theme || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
+  // Listen for system preference changes when theme is 'auto'
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  mediaQuery.addEventListener('change', (e) => {
+    if (state.theme === 'auto') {
+      document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+    }
+  });
 
   for (const name of Object.keys(SEEDS)) {
     const db = new SQL.Database();
