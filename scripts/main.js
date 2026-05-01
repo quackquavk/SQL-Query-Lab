@@ -162,13 +162,31 @@ function createQueryBuilderSvg(panel) {
 let _schemaDiffCurrent = null;
 let _schemaDiffSelectedTable = null;
 
+// Expose sandbox DB names for the schema diff panel (populated by sandbox.js on mode switch)
+function getSandboxDbNames() {
+  try {
+    const keys = Object.keys(runtime.sandboxDb);
+    if (keys.length > 0) return keys;
+  } catch (e) {
+    console.warn('[schemaDiff] getSandboxDbNames runtime error:', e.message);
+  }
+  // Fallback to seeded DB names (same set as questions use)
+  try {
+    return Object.keys(SEEDS);
+  } catch (e) {
+    console.warn('[schemaDiff] getSandboxDbNames SEEDS error:', e.message);
+    return ['hospital', 'company', 'school'];
+  }
+}
+
 // Populate DB dropdowns and wire diff rendering
 function renderSchemaDiffPanel() {
   const sourceSelect = document.getElementById('diffSourceDb');
   const targetSelect = document.getElementById('diffTargetDb');
   if (!sourceSelect || !targetSelect) return;
 
-  const dbNames = Object.keys(runtime.sandboxDb);
+  // Gather all available DB names: sandbox (live) or SEEDS keys as fallback
+  const dbNames = getSandboxDbNames();
   sourceSelect.innerHTML = '';
   targetSelect.innerHTML = '';
 
@@ -185,9 +203,9 @@ function renderSchemaDiffPanel() {
   });
 
   const current = runtime.cursor.currentDbName;
-  sourceSelect.value = current;
+  sourceSelect.value = dbNames.includes(current) ? current : (dbNames[0] || '');
   if (dbNames.length > 1) {
-    const next = dbNames.find(n => n !== current) || dbNames[0];
+    const next = dbNames.find(n => n !== sourceSelect.value) || dbNames[1] || dbNames[0];
     targetSelect.value = next;
   }
 
@@ -200,6 +218,8 @@ function renderSchemaDiffPanel() {
 
     if (colPanel) colPanel.style.display = 'none';
 
+    if (!srcName || !tgtName) return;
+
     if (srcName === tgtName) {
       const d3 = window.d3;
       if (d3 && svgEl) {
@@ -207,7 +227,7 @@ function renderSchemaDiffPanel() {
         const g = d3.select(svgEl).append('g');
         const msg = 'Select different databases to compare';
         g.append('text')
-          .attr('x', svgEl.clientWidth / 2 || 200)
+          .attr('x', (svgEl.clientWidth || 400) / 2)
           .attr('y', 30)
           .attr('text-anchor', 'middle')
           .attr('class', 'er-empty-state-text')
@@ -220,8 +240,14 @@ function renderSchemaDiffPanel() {
     if (emptyEl) emptyEl.style.display = 'none';
 
     try {
-      const srcSchema = await fetchLocalSchema(runtime.sandboxDb[srcName]);
-      const tgtSchema = await fetchLocalSchema(runtime.sandboxDb[tgtName]);
+      const srcDb = runtime.sandboxDb[srcName] || runtime.liveDb[srcName];
+      const tgtDb = runtime.sandboxDb[tgtName] || runtime.liveDb[tgtName];
+      if (!srcDb || !tgtDb) {
+        showFeedback('error', 'Schema Diff', 'Database not loaded — switch to Sandbox mode first.');
+        return;
+      }
+      const srcSchema = await fetchLocalSchema(srcDb);
+      const tgtSchema = await fetchLocalSchema(tgtDb);
       const diff = diffSchemas(srcSchema, tgtSchema);
       _schemaDiffCurrent = diff;
 
