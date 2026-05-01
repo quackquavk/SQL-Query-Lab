@@ -37,6 +37,8 @@ export const cursor = {
   execPlan: { xml: null, operators: [], costThreshold: 0 },
   spEditor: { isOpen: false, targetSp: null, dirty: false },
   queryBuilder: { isOpen: false, tables: [], selectedColumns: {}, joins: [], whereConditions: [] },
+  originalResult: null,            // Deep-copy of first query result; never mutated
+  filterSortState: { searchText: '', sortCol: null, sortDir: 'asc' },
 };
 
 export const sandboxDirty = {
