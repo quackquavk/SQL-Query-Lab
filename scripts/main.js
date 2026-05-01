@@ -22,7 +22,8 @@ import { loadQuestion, runPracticeQuery, navQuestion } from './practice.js';
 import {
   setMode, enterSandbox, runSandboxQuery, resetSandboxDb, runMssqlTranslation,
   saveCurrentAsSnippet, loadHistoryItem, runLiveQuery, cancelLiveQuery,
-  createTab, closeTab, switchTabById, restoreTabs, markTabDirty, reorderTabs
+  createTab, closeTab, switchTabById, restoreTabs, markTabDirty, reorderTabs,
+  createFolder, renderSnippetList
 } from './sandbox.js';
 import {
   initQueryBuilder, addTableToCanvas, removeTableFromCanvas,
@@ -288,6 +289,15 @@ function wireUI() {
 
   // Save current as snippet (sandbox only)
   document.getElementById('saveSnippetBtn').addEventListener('click', saveCurrentAsSnippet);
+
+  // Create folder button
+  document.getElementById('addFolderBtn').addEventListener('click', () => {
+    const name = prompt('Folder name:');
+    if (name) {
+      createFolder(name);
+      // No renderSnippetList() call needed — createFolder calls it
+    }
+  });
 
   document.getElementById('dbSelect').addEventListener('change', e => {
     const name = e.target.value;

@@ -1,11 +1,12 @@
 // Persistent state: localStorage layer, drafts, history, snippets, progress.
 // Schema (localStorage key "querylab:v1"):
 // {
-//   version: 2,
+//   version: 4,
 //   solved: [ids], drafts: { [id]: text },
 //   lastQuestionId, lastCategoryFilter, lastDifficultyFilter,
 //   mode, sandboxDb, sandboxScript, sandboxStates,
-//   snippets: [...], history: [...],
+//   snippets: [...], snippetFolders: {}, folders: [...],
+//   history: [...],
 //   mssqlDb, mssqlScript
 // }
 
@@ -18,7 +19,7 @@ export const MAX_HISTORY = 1000;
 
 export function defaultState() {
   return {
-    version: 3,
+    version: 4,
     solved: [], drafts: {},
     lastQuestionId: null,
     lastCategoryFilter: 'ALL', lastDifficultyFilter: 'ALL',
@@ -28,6 +29,8 @@ export function defaultState() {
     sandboxStates: {},
     snippets: [],
     snippetCategories: ['General', 'SELECT', 'INSERT', 'UPDATE', 'DELETE'],
+    folders: [],
+    snippetFolders: {},
     openTabs: [],
     activeTabId: null,
     history: [],
@@ -44,28 +47,32 @@ export const BUILTIN_SNIPPETS = [
     name: 'SELECT TOP 100',
     category: 'SELECT',
     sql: 'SELECT TOP 100 * FROM table_name\nWHERE condition;',
-    builtin: true
+    builtin: true,
+    folderId: null
   },
   {
     id: 'builtin-insert',
     name: 'INSERT Statement',
     category: 'INSERT',
     sql: 'INSERT INTO table_name (column1, column2, column3)\nVALUES (value1, value2, value3);',
-    builtin: true
+    builtin: true,
+    folderId: null
   },
   {
     id: 'builtin-update',
     name: 'UPDATE Statement',
     category: 'UPDATE',
     sql: 'UPDATE table_name\nSET column1 = value1, column2 = value2\nWHERE condition;',
-    builtin: true
+    builtin: true,
+    folderId: null
   },
   {
     id: 'builtin-delete',
     name: 'DELETE Statement',
     category: 'DELETE',
     sql: 'DELETE FROM table_name\nWHERE condition;',
-    builtin: true
+    builtin: true,
+    folderId: null
   }
 ];
 
@@ -99,6 +106,13 @@ function loadState() {
       if (parsed && parsed.version === 3) {
         const s = Object.assign(defaultState(), parsed);
         ensureBuiltinSnippets(s);
+        // Migration v3 → v4: add folders, snippetFolders, and folderId on snippets
+        if (!s.folders) s.folders = [];
+        if (!s.snippetFolders) s.snippetFolders = {};
+        // Ensure all snippets have folderId
+        (s.snippets || []).forEach(sn => {
+          if (sn.folderId === undefined) sn.folderId = null;
+        });
         return s;
       }
     }

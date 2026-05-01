@@ -677,22 +677,117 @@ export function renderSnippetList() {
   const userSnippets = state.snippets || [];
   const allSnippets = [...builtin, ...userSnippets];
   const snippets = allSnippets;
+  const folders = (state.folders || []).sort((a, b) => (a.order || 0) - (b.order || 0));
 
-  count.textContent = snippets.length;
-  if (snippets.length === 0) {
+  // Build items array: folders at top level, root snippets and folderless snippets below
+  const rootItems = [];
+  const folderSnippets = {};
+
+  // Group snippets by folderId
+  (state.snippets || []).forEach(sn => {
+    const fid = sn.folderId || '__root__';
+    if (!folderSnippets[fid]) folderSnippets[fid] = [];
+    folderSnippets[fid].push(sn);
+  });
+  if (!folderSnippets['__root__']) folderSnippets['__root__'] = [];
+
+  const buildHtml = (parentId, depth) => {
+    let html = '';
+    const indent = depth * 16;
+    // Render child folders
+    folders.filter(f => f.parentId === parentId).forEach(folder => {
+      const isCollapsed = (state.snippetFolders || {})[folder.id];
+      const childHtml = buildHtml(folder.id, depth + 1);
+      const isEmpty = !childHtml && (!folderSnippets[folder.id] || folderSnippets[folder.id].length === 0);
+      html += `<div class="snippet-folder" data-folder-id="${folder.id}" style="padding-left:${indent}px" ${folder.builtin ? '' : ''}>
+        <div class="folder-row" data-folder-id="${folder.id}" draggable="true">
+          <button class="folder-toggle" data-folder-id="${folder.id}">${isCollapsed ? '▶' : '▼'}</button>
+          <span class="folder-dot" style="background:${escapeHtml(folder.color || '#4a4a5a')}"></span>
+          <span class="folder-name" title="${escapeHtml(folder.name)}">${escapeHtml(folder.name)}</span>
+          <span class="folder-count">${(folderSnippets[folder.id] || []).length}</span>
+          ${!parentId ? `<button class="folder-del" data-folder-del="${folder.id}" title="Delete folder">×</button>` : ''}
+        </div>
+        ${!isCollapsed ? childHtml : ''}
+      </div>`;
+    });
+    // Render snippets in this folder (parentId null means root, stored as '__root__' key)
+    const rootKey = '__root__';
+    const folderSnipList = parentId ? (folderSnippets[parentId] || []) : (folderSnippets[rootKey] || []);
+    folderSnipList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).forEach(s => {
+      html += `<div class="snippet-row" data-id="${s.id}" data-snippet-folder="${parentId}" style="padding-left:${indent + 16}px">
+        <div class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
+        <div class="preview" title="${escapeHtml(s.sql.slice(0, 200))}">${escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 60))}</div>
+        ${s.builtin ? '<span class="builtin-tag">built-in</span>' : ''}
+        <button class="ins-btn" data-ins="${s.id}" title="Insert at cursor">→</button>
+        ${!s.builtin ? `<button class="del" data-del="${s.id}" title="Delete snippet">×</button>` : ''}
+      </div>`;
+    });
+    return html;
+  };
+
+  const topLevelHtml = buildHtml(null, 0);
+
+  const totalSnippets = allSnippets.length;
+  count.textContent = totalSnippets + ' · ' + folders.length + ' folders';
+
+  if (totalSnippets === 0 && folders.length === 0) {
     list.innerHTML = '<div class="snippet-empty">No saved snippets yet</div>';
     return;
   }
-  const sorted = [...snippets].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  list.innerHTML = sorted.map(s => `
-    <div class="snippet-row" data-id="${s.id}">
-      <div class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
-      <div class="preview" title="${escapeHtml(s.sql.slice(0, 200))}">${escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 60))}</div>
-      ${s.builtin ? '<span class="builtin-tag">built-in</span>' : ''}
-      <button class="ins-btn" data-ins="${s.id}" title="Insert at cursor">→</button>
-      ${!s.builtin ? `<button class="del" data-del="${s.id}" title="Delete snippet">×</button>` : ''}
-    </div>
-  `).join('');
+
+  list.innerHTML = topLevelHtml;
+
+  // Folder toggle
+  list.querySelectorAll('.folder-toggle').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const fid = btn.dataset.folderId;
+      state.snippetFolders = state.snippetFolders || {};
+      state.snippetFolders[fid] = !state.snippetFolders[fid];
+      persist(true);
+      renderSnippetList();
+    });
+  });
+
+  // Folder right-click context menu
+  list.querySelectorAll('.folder-row').forEach(row => {
+    row.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const fid = row.dataset.folderId;
+      const folder = (state.folders || []).find(f => f.id === fid);
+      if (!folder) return;
+      const action = prompt('Folder options:\n1. Rename\n2. Change color\n3. Delete\n\nEnter 1, 2, or 3:');
+      if (action === '1') {
+        const newName = prompt('New folder name:', folder.name);
+        if (newName) renameFolder(fid, newName);
+      } else if (action === '2') {
+        const colors = ['#4a4a5a', '#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5', '#8e24aa'];
+        const picked = prompt('Pick a color (1-7):\n1. Gray\n2. Red\n3. Orange\n4. Yellow\n5. Green\n6. Blue\n7. Purple', '6');
+        if (picked) {
+          const idx = parseInt(picked) - 1;
+          if (idx >= 0 && idx < colors.length) setFolderColor(fid, colors[idx]);
+        }
+      } else if (action === '3') {
+        if (confirm('Delete folder "' + folder.name + '"? Snippets in this folder move to root.')) {
+          deleteFolder(fid);
+        }
+      }
+    });
+  });
+
+  // Folder delete button (top-level only)
+  list.querySelectorAll('.folder-del').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const fid = btn.dataset.folderDel;
+      const folder = (state.folders || []).find(f => f.id === fid);
+      if (folder && confirm('Delete folder "' + folder.name + '"? Snippets will move to root.')) {
+        deleteFolder(fid);
+      }
+    });
+  });
+
+  // Snippet rows
   list.querySelectorAll('.snippet-row').forEach(r => {
     r.addEventListener('click', (e) => {
       if (e.target.classList.contains('del') || e.target.classList.contains('ins-btn')) return;
@@ -777,12 +872,12 @@ export function deleteSnippet(id) {
 
 // ─── Snippet CRUD ─────────────────────────────────────────
 // SNIP-01: save with name/category, SNIP-03: delete by id, SNIP-03: edit snippet
-export function saveSnippet({ id, name, category, sql }) {
+export function saveSnippet({ id, name, category, sql, folderId }) {
   if (!name || !sql) return;
   if (id) {
     const idx = (state.snippets || []).findIndex(s => s.id === id);
     if (idx !== -1) {
-      state.snippets[idx] = { ...state.snippets[idx], name, category, sql, updatedAt: Date.now() };
+      state.snippets[idx] = { ...state.snippets[idx], name, category, sql, folderId: folderId ?? state.snippets[idx].folderId, updatedAt: Date.now() };
     }
   } else {
     state.snippets = state.snippets || [];
@@ -792,6 +887,7 @@ export function saveSnippet({ id, name, category, sql }) {
       category: category || 'General',
       sql,
       db: runtime.cursor.currentDbName,
+      folderId: folderId ?? null,
       createdAt: Date.now(),
       builtin: false
     });
@@ -877,4 +973,119 @@ export function loadHistoryItem(id) {
   persist();
   editor.focus();
   toast('Query loaded into editor.', 'From history');
+}
+
+// ─── Folder CRUD ───────────────────────────────────────
+
+function getFolderDepth(folderId) {
+  if (!folderId) return 0;
+  const folder = (state.folders || []).find(f => f.id === folderId);
+  if (!folder) return 0;
+  return 1 + getFolderDepth(folder.parentId);
+}
+
+export function createFolder(name, parentId) {
+  if (!name || !name.trim()) {
+    toast('Folder name cannot be empty.', 'Error');
+    return null;
+  }
+  // Enforce max depth of 3
+  if (parentId) {
+    const depth = getFolderDepth(parentId);
+    if (depth >= 3) {
+      showFeedback('error', 'Depth limit', 'Folders can only be nested up to 3 levels deep.');
+      return null;
+    }
+  }
+  const folder = {
+    id: 'folder_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    name: name.trim().slice(0, 80),
+    parentId: parentId || null,
+    color: '#4a4a5a',
+    createdAt: Date.now(),
+    order: (state.folders || []).length
+  };
+  state.folders = state.folders || [];
+  state.folders.push(folder);
+  persist(true);
+  renderSnippetList();
+  toast('Folder "' + folder.name + '" created', 'Folder');
+  return folder;
+}
+
+export function renameFolder(id, newName) {
+  if (!id || !newName || !newName.trim()) return;
+  const idx = (state.folders || []).findIndex(f => f.id === id);
+  if (idx === -1) return;
+  state.folders[idx].name = newName.trim().slice(0, 80);
+  persist(true);
+  renderSnippetList();
+}
+
+export function deleteFolder(id) {
+  if (!id) return;
+  // Recursively collect child folder IDs
+  const toDelete = [id];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    (state.folders || []).forEach(f => {
+      if (f.parentId && toDelete.includes(f.parentId) && !toDelete.includes(f.id)) {
+        toDelete.push(f.id);
+        changed = true;
+      }
+    });
+  }
+  // Move all snippets in deleted folders to root
+  (state.snippets || []).forEach(sn => {
+    if (toDelete.includes(sn.folderId)) sn.folderId = null;
+  });
+  // Remove all folders in toDelete
+  state.folders = (state.folders || []).filter(f => !toDelete.includes(f.id));
+  persist(true);
+  renderSnippetList();
+}
+
+export function moveFolder(id, newParentId) {
+  if (!id) return;
+  // Prevent dropping a folder into itself or its descendants
+  if (newParentId) {
+    if (id === newParentId) {
+      showFeedback('error', 'Invalid move', 'A folder cannot be moved into itself.');
+      return;
+    }
+    // Check if newParentId is a descendant of id
+    const collectAncestors = (fid) => {
+      const f = (state.folders || []).find(x => x.id === fid);
+      if (!f || !f.parentId) return new Set();
+      const ancestors = collectAncestors(f.parentId);
+      ancestors.add(f.parentId);
+      return ancestors;
+    };
+    const descendants = collectAncestors(id);
+    if (descendants.has(newParentId)) {
+      showFeedback('error', 'Invalid move', 'A folder cannot be moved into its own descendant.');
+      return;
+    }
+    // Enforce depth limit
+    const depth = getFolderDepth(newParentId);
+    if (depth >= 3) {
+      showFeedback('error', 'Depth limit', 'Folders can only be nested up to 3 levels deep.');
+      return;
+    }
+  }
+  const idx = (state.folders || []).findIndex(f => f.id === id);
+  if (idx === -1) return;
+  state.folders[idx].parentId = newParentId || null;
+  persist(true);
+  renderSnippetList();
+}
+
+export function setFolderColor(id, color) {
+  if (!id) return;
+  const idx = (state.folders || []).findIndex(f => f.id === id);
+  if (idx === -1) return;
+  state.folders[idx].color = color || '#4a4a5a';
+  persist(true);
+  renderSnippetList();
 }
