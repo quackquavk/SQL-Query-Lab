@@ -61,6 +61,12 @@ export function enterSandbox() {
   updateDirtyMark();
   renderSnippetList();
 
+  // Expose runSandbox to window for inlineEdit re-render trigger.
+  window._runSandbox = runSandboxQuery;
+
+  // Also expose reset for testing.
+  window._resetSandboxDb = resetSandboxDb;
+
   document.querySelectorAll('.left-tab').forEach(b => {
     b.classList.toggle('active', b.dataset.left === 'history');
   });
@@ -155,6 +161,11 @@ export function showLiveResultsUI() {
     liveStatus.classList.add('hidden');
     if (liveConnName) liveConnName.textContent = 'Not connected';
   }
+
+  window._runSandbox = runSandboxQuery;
+
+  // Also expose reset for testing.
+  window._resetSandboxDb = resetSandboxDb;
 
   // Wire export buttons
   const csvBtn = document.getElementById('btn-export-csv');

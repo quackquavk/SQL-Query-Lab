@@ -8,6 +8,27 @@ import { activeDb } from './db.js';
 import { escapeHtml, previewStatement, exportToCsv, exportToJson, downloadBlob } from './utils.js';
 import * as apiClient from './apiClient.js';
 
+// Cache the inlineEdit module after first dynamic import.
+let _inlineEditModule = null;
+
+/**
+ * Dynamically import inlineEdit.js and enable editing on any result-table
+ * rendered inside container.  Preserves in-progress edits across re-renders.
+ */
+async function _enableInlineEditing(container) {
+  if (runtime.cursor.currentMode !== 'sandbox') return;
+  const tables = container.querySelectorAll('table.result-table');
+  if (tables.length === 0) return;
+
+  if (!_inlineEditModule) {
+    _inlineEditModule = await import('./inlineEdit.js');
+  }
+
+  tables.forEach(table => {
+    _inlineEditModule.enableInlineEditing(table);
+  });
+}
+
 const ROW_HEIGHT = 28; // pixels per row for virtual scrolling
 
 // Hooks injected by main.js to call back into other modules without import cycles.
@@ -143,36 +164,43 @@ export function renderResultsTab(tab) {
               <span class="preview">${escapeHtml(blk._stmt || 'result')}</span>
               <span style="color:var(--text-dim)">${(blk.values||[]).length} row${(blk.values||[]).length === 1 ? '' : 's'}</span>
             </div>
-            ${renderTable(blk)}
+            ${renderTable(blk, runtime.cursor.lastQueryTableName)}
           </div>
         `).join('');
       }
     } else {
-      body.innerHTML = renderTable(last);
+      body.innerHTML = renderTable(last, runtime.cursor.lastQueryTableName);
     }
+    // Wire inline editing for sandbox mode after DOM insertion.
+    _enableInlineEditing(body);
   } else if (tab === 'expected') {
     if (!exp) body.innerHTML = '<div class="results-empty">No expected output yet</div>';
-    else body.innerHTML = renderTable(exp);
+    else body.innerHTML = renderTable(exp, runtime.cursor.lastQueryTableName);
   } else {
     body.innerHTML = runtime.cursor.lastMessage || '<div class="results-empty">No messages yet</div>';
   }
 }
 
-export function renderTable(res) {
+export function renderTable(res, tableName) {
   if (!res.columns || res.columns.length === 0) {
     return '<div class="results-empty">Query executed but returned no columns</div>';
   }
-  let html = '<table class="result-table"><thead><tr>';
-  res.columns.forEach(c => html += `<th>${escapeHtml(c)}</th>`);
+  const safeTableName = tableName ? escapeHtml(tableName) : '';
+  let html = `<table class="result-table" data-table="${safeTableName}"><thead><tr>`;
+  res.columns.forEach((c, ci) => html += `<th data-col-idx="${ci}">${escapeHtml(c)}</th>`);
   html += '</tr></thead><tbody>';
   if (res.values.length === 0) {
     html += `<tr><td colspan="${res.columns.length}" style="color:var(--text-dim);font-style:italic;padding:14px">(no rows)</td></tr>`;
   } else {
-    res.values.forEach(row => {
+    res.values.forEach((row, ri) => {
       html += '<tr>';
-      row.forEach(cell => {
-        if (cell === null) html += '<td class="null">NULL</td>';
-        else html += `<td>${escapeHtml(String(cell))}</td>`;
+      row.forEach((cell, ci) => {
+        const safeVal = escapeHtml(String(cell ?? ''));
+        if (cell === null) {
+          html += `<td class="null" data-col="${ci}" data-row="${ri}" data-value="NULL"><span data-original="NULL">NULL</span></td>`;
+        } else {
+          html += `<td data-col="${ci}" data-row="${ri}" data-value="${safeVal}"><span data-original="${safeVal}">${safeVal}</span></td>`;
+        }
       });
       html += '</tr>';
     });
