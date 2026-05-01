@@ -84,6 +84,11 @@ if (fs.existsSync(uiFile)) {
     uiContent.includes('Object explorer initialization failed'),
     'ui.js logs "Object explorer initialization failed" on fetch error'
   );
+  // ER Diagram wiring: context menu passes connId to fetchErSchema
+  check(
+    /fetchErSchema\s*\(\s*connId/.test(uiContent) || /fetchErSchema\s*\(\s*connId,/.test(uiContent),
+    'ui.js calls fetchErSchema(connId, ...) — connectionId passed from context menu'
+  );
 } else {
   console.log('  ⚠️  ui.js not found at expected path — skipping');
 }
@@ -145,6 +150,63 @@ if (fs.existsSync(testFile)) {
     check(hasAsyncFns, 'object-explorer-test.js uses async/await (expected for Playwright)');
     check(content.includes('test.describe') || content.includes('describe('), 'Test file has test.describe block');
   }
+}
+
+// ── 10. ER Diagram test file exists ─────────────────────────────────────────
+const erDiagramTestFile = path.join(__dirname, 'er-diagram-test.js');
+check(fs.existsSync(erDiagramTestFile), 'er-diagram-test.js exists');
+
+// ── 11. ER Diagram test file structural checks ──────────────────────────────
+if (fs.existsSync(erDiagramTestFile)) {
+  const erTestContent = fs.readFileSync(erDiagramTestFile, 'utf-8');
+  check(erTestContent.includes('[data-left="er-diagram"]') || erTestContent.includes("data-left=\"er-diagram\""),
+    'ER diagram test checks data-left="er-diagram" tab');
+  check(erTestContent.includes('#erDiagramPanel') || erTestContent.includes('erDiagramPanel'),
+    'ER diagram test references #erDiagramPanel');
+  check(erTestContent.includes('Show ER Diagram') || erTestContent.includes('Show ER'),
+    'ER diagram test triggers "Show ER Diagram" context menu action');
+  check(erTestContent.includes('connectionId') || erTestContent.includes('connId'),
+    'ER diagram test verifies connectionId is passed to fetchErSchema');
+  check(erTestContent.includes('.er-node') || erTestContent.includes('er-node'),
+    'ER diagram test checks for .er-node SVG elements');
+  check(erTestContent.includes('Playwright') || erTestContent.includes('playwright'),
+    'ER diagram test uses Playwright framework');
+  check(
+    erTestContent.includes('SKIP_LIVE_DB') || erTestContent.includes('skip'),
+    'ER diagram test has skip/mock option for when SQL Server unavailable'
+  );
+}
+
+// ── 12. apiClient.js fetchErSchema signature includes connectionId ───────────
+if (fs.existsSync(apiFile)) {
+  const apiContent = fs.readFileSync(apiFile, 'utf-8');
+  // fetchErSchema should be defined with (connectionId, database) signature
+  check(
+    /export\s+(?:async\s+)?function\s+fetchErSchema\s*\(\s*connectionId\s*,\s*(?:database|[^)]+)/.test(apiContent) ||
+    /fetchErSchema\s*=\s*(?:async\s+)?\([^)]*connectionId[^)]*\)/.test(apiContent),
+    'apiClient.js fetchErSchema signature includes connectionId'
+  );
+  // fetchErSchema should use /api/schema endpoint and forward auth headers
+  check(apiContent.includes('/api/schema'), 'apiClient uses /api/schema endpoint for ER diagram');
+  check(apiContent.includes('X-Server') || apiContent.includes('X-Auth-Type'),
+    'apiClient forwards auth headers (X-Server/X-Auth-Type) to backend');
+}
+
+// ── 13. erDiagram.js fetchErSchema reads connection from runtime ───────────────
+const erDiagramFile = path.join(__dirname, '..', 'erDiagram.js');
+if (fs.existsSync(erDiagramFile)) {
+  const erContent = fs.readFileSync(erDiagramFile, 'utf-8');
+  check(erContent.includes('fetchErSchema'), 'erDiagram.js imports/calls fetchErSchema');
+  check(
+    /fetchErSchema\s*\(\s*connectionId\s*,/.test(erContent) ||
+    /fetchErSchema\s*\(\s*connId\s*,/.test(erContent),
+    'erDiagram.js calls fetchErSchema(connectionId, ...) with connectionId arg'
+  );
+  check(
+    erContent.includes('runtime.connections') || erContent.includes('connections?.'),
+    'erDiagram.js reads connection from runtime.connections'
+  );
+  check(erContent.includes('initErDiagram'), 'erDiagram.js has initErDiagram function');
 }
 
 // ── Summary ─────────────────────────────────────────────────────────────────
