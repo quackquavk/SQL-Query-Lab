@@ -3,10 +3,10 @@
 // GET /api/stored-procedure/:db/:name - get definition
 // POST /api/stored-procedure/:db - create/update procedure
 
-import { Router } from 'hono';
+import { Hono } from 'hono';
 import { getPool } from '../services/sqlServer.js';
 
-const router = new Router();
+const router = new Hono();
 
 /**
  * GET /api/stored-procedures/:db

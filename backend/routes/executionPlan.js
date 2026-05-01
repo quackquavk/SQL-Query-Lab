@@ -1,10 +1,10 @@
 // Execution Plan endpoint - POST /api/execution-plan
 // Executes query with SET SHOWPLAN_XML ON and returns XML Showplan
 
-import { Router } from 'hono';
+import { Hono } from 'hono';
 import { getPool } from '../services/sqlServer.js';
 
-const router = new Router();
+const router = new Hono();
 
 /**
  * POST /api/execution-plan

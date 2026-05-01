@@ -18,13 +18,21 @@ export async function saveConnection({ name, server, database, authType, credent
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
     credentials: 'include',
-    body: JSON.stringify({ name, server, database, authType, credentials, masterPassword: 'browser-session-key' })
+    body: JSON.stringify({ name, server, database, authType, credentials })
   });
   return res.json();
 }
 
 export async function listConnections() {
   const res = await fetch(`${API_BASE}/connections`, {
+    credentials: 'include',
+    headers: { 'X-User-Id': 'browser-user' }
+  });
+  return res.json();
+}
+
+export async function getConnection(id) {
+  const res = await fetch(`${API_BASE}/connections/${id}`, {
     credentials: 'include',
     headers: { 'X-User-Id': 'browser-user' }
   });

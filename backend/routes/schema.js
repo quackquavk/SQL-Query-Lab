@@ -1,9 +1,9 @@
 // Schema fetch endpoints - GET /api/schema/:database, GET /api/schema/:database/:table
 
-import { Router } from 'hono';
+import { Hono } from 'hono';
 import { getPool } from '../services/sqlServer.js';
 
-const router = new Router();
+const router = new Hono();
 
 /**
  * GET /api/schema/:database

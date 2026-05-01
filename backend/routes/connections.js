@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { encryptConnection, decryptConnection } from '../services/crypto.js';
+import { encryptConnection, decryptConnection, decryptConnectionServer } from '../services/crypto.js';
 import { testConnection } from '../services/sqlServer.js';
 
 const connections = new Hono();
@@ -19,14 +19,15 @@ function decodeError(err) {
 
 connections.post('/', async (ctx) => {
   try {
-    const { name, server, database, authType, credentials, masterPassword } = await ctx.req.json();
+    const { name, server, database, authType, credentials } = await ctx.req.json();
 
     if (!name || !server || !authType) {
       return ctx.json({ success: false, error: 'Missing required fields' }, 400);
     }
 
+    const masterPassword = process.env.MASTER_PASSWORD;
     if (!masterPassword) {
-      return ctx.json({ success: false, error: 'Master password required for encryption' }, 400);
+      return ctx.json({ success: false, error: 'Server not configured with MASTER_PASSWORD' }, 500);
     }
 
     const connData = { server, database, authType, credentials };
@@ -48,6 +49,26 @@ connections.get('/', async (ctx) => {
     list.push({ id, name: conn.name });
   }
   return ctx.json(list);
+});
+
+connections.get('/:id', async (ctx) => {
+  try {
+    const { id } = ctx.req.param();
+    const conn = connectionsStore.get(id);
+    if (!conn) {
+      return ctx.json({ success: false, error: 'Connection not found' }, 404);
+    }
+
+    const decrypted = await decryptConnectionServer(conn.encryptedBlob);
+    if (!decrypted) {
+      return ctx.json({ success: false, error: 'Decryption failed — check MASTER_PASSWORD' }, 400);
+    }
+
+    return ctx.json({ success: true, id: conn.id, name: conn.name, ...decrypted });
+  } catch (err) {
+    console.error('[connections] GET /:id error:', err.message);
+    return ctx.json({ success: false, error: err.message }, 500);
+  }
 });
 
 connections.delete('/:id', async (ctx) => {

@@ -1,9 +1,9 @@
 // T-SQL Validation endpoint - POST /api/validate-tsql
 // Validates T-SQL syntax using node-sql-parser
 
-import { Router } from 'hono';
+import { Hono } from 'hono';
 
-const router = new Router();
+const router = new Hono();
 
 // Lazy-load parser to handle missing dependency gracefully
 let _parser = null;

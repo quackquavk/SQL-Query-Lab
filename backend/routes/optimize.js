@@ -1,10 +1,10 @@
 // Optimization endpoint - POST /api/optimize
 // Analyzes SQL queries and returns optimization suggestions using SET SHOWPLAN_XML ON
 
-import { Router } from 'hono';
+import { Hono } from 'hono';
 import { getPool } from '../services/sqlServer.js';
 
-const router = new Router();
+const router = new Hono();
 
 router.post('/', async (c) => {
   const { sql } = await c.req.json();

@@ -16,6 +16,21 @@ function deriveKey(masterPassword, salt) {
   );
 }
 
+/**
+ * Derives the server-side encryption key from the MASTER_PASSWORD env var.
+ * Returns null if the env var is not set.
+ */
+function getServerKey() {
+  const masterPassword = process.env.MASTER_PASSWORD;
+  if (!masterPassword) {
+    console.error('[crypto] MASTER_PASSWORD env var is not set — server-side decryption unavailable');
+    return null;
+  }
+  // Dummy salt for server key — the actual salt from the blob is used instead.
+  // We return the raw password here; deriveKey will combine it with the blob's salt.
+  return masterPassword;
+}
+
 async function encryptConnection(connectionData, masterPassword) {
   const salt = randomBytes(SALT_LENGTH);
   const iv = randomBytes(IV_LENGTH);
@@ -61,4 +76,22 @@ async function decryptConnection(blob, masterPassword) {
   }
 }
 
-export { encryptConnection, decryptConnection };
+/**
+ * Server-side decryption — uses MASTER_PASSWORD env var, no client password needed.
+ * Returns null and logs on failure.
+ */
+async function decryptConnectionServer(blob) {
+  const serverKey = getServerKey();
+  if (!serverKey) {
+    console.error('[crypto] decryptConnectionServer: MASTER_PASSWORD not configured');
+    return null;
+  }
+  try {
+    return await decryptConnection(blob, serverKey);
+  } catch (err) {
+    console.error('[crypto] decryptConnectionServer: decryption failed', err.message);
+    return null;
+  }
+}
+
+export { encryptConnection, decryptConnection, decryptConnectionServer };

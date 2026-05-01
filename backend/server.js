@@ -63,6 +63,23 @@ server.on('upgrade', (request, socket, head) => {
         socket.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
       }
     });
+  } else if (url.pathname === '/api/backup/progress') {
+    // WebSocket for backup/restore progress streaming
+    socket.on('message', async (msg) => {
+      try {
+        const data = JSON.parse(msg);
+        if (data.type === 'backup_progress') {
+          socket.send(JSON.stringify({
+            type: 'progress',
+            percent: data.percent || 0,
+            currentFile: data.currentFile || '',
+            elapsed: data.elapsed || 0
+          }));
+        }
+      } catch (err) {
+        // ignore malformed messages
+      }
+    });
   }
 });
 

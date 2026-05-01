@@ -1,10 +1,10 @@
 // DDL Execution endpoint - POST /api/execute-ddl
 // Executes DDL statements (CREATE/ALTER TABLE, etc.)
 
-import { Router } from 'hono';
+import { Hono } from 'hono';
 import { getPool } from '../services/sqlServer.js';
 
-const router = new Router();
+const router = new Hono();
 
 /**
  * POST /api/execute-ddl

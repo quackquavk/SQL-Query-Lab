@@ -197,28 +197,4 @@ function formatBytes(bytes) {
   return `${bytes} bytes`;
 }
 
-// WebSocket handler for progress streaming (used by frontend)
-backupRestore.ws('/progress', (c) => {
-  return upgradeWebSocket((socket) => {
-    socket.onopen = () => {
-      // Client connected for progress updates
-    };
-
-    socket.onmessage = async (msg) => {
-      const data = JSON.parse(msg);
-      if (data.type === 'backup_progress') {
-        // Broadcast progress to client
-        socket.send(JSON.stringify({
-          type: 'progress',
-          percent: data.percent || 0,
-          currentFile: data.currentFile || '',
-          elapsed: data.elapsed || 0
-        }));
-      }
-    };
-
-    socket.onclose = () => {};
-  });
-});
-
 export default backupRestore;
