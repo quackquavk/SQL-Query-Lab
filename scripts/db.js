@@ -111,3 +111,166 @@ export function updateHintTables() {
     closeOnUnfocus: true
   });
 }
+
+// ─── Inline Cell Editing Helpers ─────────────────────────────────
+
+// Expose key functions for browser console testing
+// These are also used by the UI layer for actual cell editing
+window._inlineEdit = {
+  getTableInfo,
+  getPrimaryKeyColumns,
+  formUpdateStatement,
+  validateCellValue,
+  getLastQueryTableName: () => runtime.cursor.lastQueryTableName
+};
+
+/**
+ * Get column metadata for a table using PRAGMA table_info.
+ * Returns array of { name, type, pk } objects.
+ * pk > 0 means it's part of the primary key.
+ */
+export function getTableInfo(name) {
+  const db = activeDb();
+  if (!db) return [];
+  try {
+    const res = db.exec(`PRAGMA table_info("${name.replace(/"/g, '""')}")`);
+    if (!res[0]) return [];
+    return res[0].values.map(row => ({
+      name: String(row[1]),
+      type: String(row[2] || 'TEXT').toUpperCase(),
+      pk: Number(row[5]) || 0
+    }));
+  } catch (e) {
+    console.warn('inlineEdit: getTableInfo error:', e.message);
+    return [];
+  }
+}
+
+/**
+ * Get primary key columns for a table.
+ * Returns array of { name, type } for columns that are part of the primary key.
+ */
+export function getPrimaryKeyColumns(name) {
+  return getTableInfo(name).filter(col => col.pk > 0);
+}
+
+/**
+ * Form an UPDATE statement given table, column, new value, and PK info.
+ * pkColumns: array of { name, type } for each PK column
+ * pkValues: array of values corresponding to pkColumns
+ */
+export function formUpdateStatement(tableName, columnName, newValue, pkColumns, pkValues) {
+  const cols = getTableInfo(tableName);
+  const colMeta = cols.find(c => c.name === columnName);
+  if (!colMeta) {
+    console.warn('inlineEdit: column not found:', columnName);
+    return null;
+  }
+
+  // Determine if value needs quoting
+  const isText = colMeta.type.includes('TEXT') || colMeta.type.includes('CHAR') || colMeta.type.includes('CLOB');
+  const isNull = newValue === null || newValue === undefined || String(newValue).toLowerCase() === 'null';
+
+  let formattedValue;
+  if (isNull) {
+    formattedValue = 'NULL';
+  } else if (isText) {
+    // Escape single quotes in string values
+    formattedValue = "'" + String(newValue).replace(/'/g, "''") + "'";
+  } else {
+    // Numeric types - use as-is
+    formattedValue = String(newValue);
+  }
+
+  // Build WHERE clause from PK columns
+  const whereParts = pkColumns.map((pk, i) => {
+    const pkIsText = pk.type.includes('TEXT') || pk.type.includes('CHAR') || pk.type.includes('CLOB');
+    const val = pkValues[i];
+    const pkFormatted = (val === null || val === undefined || String(val).toLowerCase() === 'null')
+      ? 'NULL'
+      : pkIsText
+        ? "'" + String(val).replace(/'/g, "''") + "'"
+        : String(val);
+    return `${pk.name} = ${pkFormatted}`;
+  });
+
+  const where = whereParts.length > 0 ? ' WHERE ' + whereParts.join(' AND ') : '';
+  return `UPDATE ${tableName} SET ${columnName} = ${formattedValue}${where}`;
+}
+
+/**
+ * Validate a cell value against a column type.
+ * Returns { ok: true } for valid values, { ok: false, reason: '...' } for invalid.
+ */
+export function validateCellValue(value, columnType) {
+  const type = columnType.toUpperCase();
+
+  // NULL is always valid
+  if (value === null || value === undefined || String(value).toLowerCase() === 'null') {
+    return { ok: true };
+  }
+
+  // TEXT, CHAR, CLOB types accept any string value
+  if (type.includes('TEXT') || type.includes('CHAR') || type.includes('CLOB')) {
+    return { ok: true };
+  }
+
+  // BLOB type accepts any value (stored as-is in hex typically)
+  if (type.includes('BLOB')) {
+    return { ok: true };
+  }
+
+  // Numeric types (INTEGER, REAL, NUMERIC, FLOAT, DOUBLE, DECIMAL, etc.)
+  if (type.includes('INT') || type.includes('REAL') || type.includes('NUMERIC') ||
+      type.includes('FLOAT') || type.includes('DOUBLE') || type.includes('DECIMAL') ||
+      type.includes('NUMERIC') || type.includes('NUMBER')) {
+
+    const strVal = String(value).trim();
+
+    // Check for empty string
+    if (strVal === '') {
+      return { ok: false, reason: 'Empty value not allowed for numeric column' };
+    }
+
+    // Check for whitespace-only
+    if (strVal !== String(Number(strVal)).trim()) {
+      // Try to detect actual numeric parsing failure
+      const num = Number(strVal);
+      if (isNaN(num)) {
+        return { ok: false, reason: `"${strVal}" is not a valid number` };
+      }
+    }
+
+    // For INTEGER types, check for decimal point
+    if (type.includes('INT') && strVal.includes('.')) {
+      const num = Number(strVal);
+      if (Math.floor(num) !== num) {
+        return { ok: false, reason: 'Decimal values not allowed for integer column' };
+      }
+    }
+
+    return { ok: true };
+  }
+
+  // BOOLEAN type
+  if (type.includes('BOOL')) {
+    const strVal = String(value).toLowerCase().trim();
+    if (['0', '1', 'true', 'false', 'yes', 'no'].includes(strVal)) {
+      return { ok: true };
+    }
+    return { ok: false, reason: `"${value}" is not a valid boolean (use 0/1 or true/false)` };
+  }
+
+  // DATE/DATETIME types - accept common formats, but don't be too strict
+  if (type.includes('DATE') || type.includes('TIME')) {
+    // Very lenient date validation - just check it's not obviously bad
+    const strVal = String(value).trim();
+    if (strVal.length === 0) {
+      return { ok: false, reason: 'Empty value not allowed for date column' };
+    }
+    return { ok: true };
+  }
+
+  // For any other type, accept as valid (TYPE column in SQLite)
+  return { ok: true };
+}

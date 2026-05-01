@@ -440,11 +440,34 @@ export function runSandboxQuery() {
   const elapsed = Date.now() - startedAt;
 
   const allStmts = splitSqlStatements(sql);
+  let tableExtracted = false;
   if (results && results.length > 0) {
     let ri = 0;
     for (const stmt of allStmts) {
       if (/^\s*(SELECT|WITH|PRAGMA|EXPLAIN|VALUES)\b/i.test(stmt) && ri < results.length) {
         results[ri]._stmt = previewStatement(stmt);
+        // Extract table name from first non-PRAGMA/EXPLAIN statement
+        if (!tableExtracted && /^\s*(SELECT|WITH|VALUES)\b/i.test(stmt)) {
+          tableExtracted = true;
+          try {
+            // Try "FROM tableName" pattern first (most common in SELECT)
+            const fromMatch = stmt.match(/\bFROM\s+([^\s,;()]+)/i);
+            if (fromMatch) {
+              runtime.cursor.lastQueryTableName = fromMatch[1].replace(/[`"\[\]]/g, '');
+            } else {
+              // For WITH (CTE), try to find the table referenced after the WITH name
+              const cteMatch = stmt.match(/\bWITH\s+\w+\s+as\s*\(\s*(?:SELECT.*?\bFROM\s+([^\s,;()]+)|VALUES.*?\bIN\s*\(\s*SELECT\s+\w+\s+FROM\s+([^\s,;()]+))/i);
+              if (cteMatch && cteMatch[1]) {
+                runtime.cursor.lastQueryTableName = cteMatch[1].replace(/[`"\[\]]/g, '');
+              } else if (cteMatch && cteMatch[2]) {
+                runtime.cursor.lastQueryTableName = cteMatch[2].replace(/[`"\[\]]/g, '');
+              }
+            }
+          } catch (e) {
+            console.warn('inlineEdit: ERROR extracting table name:', e.message);
+            runtime.cursor.lastQueryTableName = null;
+          }
+        }
         ri++;
       }
     }
