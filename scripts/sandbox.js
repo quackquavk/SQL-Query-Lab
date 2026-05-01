@@ -42,6 +42,9 @@ export function setMode(mode) {
 
 export function enterSandbox() {
   hideLiveResultsUI();
+  // Hide object explorer in sandbox mode
+  document.getElementById('objExplorer')?.classList.remove('visible');
+  document.querySelectorAll('.left-tab').forEach(b => b.classList.remove('live-tab'));
 
   const targetDb = state.sandboxDb || 'hospital';
   runtime.cursor.currentDbName = targetDb;
@@ -81,6 +84,11 @@ export function enterSandbox() {
 }
 
 export function enterMssql() {
+  hideLiveResultsUI();
+  // Hide object explorer in mssql mode
+  document.getElementById('objExplorer')?.classList.remove('visible');
+  document.querySelectorAll('.left-tab').forEach(b => b.classList.remove('live-tab'));
+
   const targetDb = state.mssqlDb || 'hospital';
   runtime.cursor.currentDbName = targetDb;
   document.getElementById('dbSelect').value = targetDb;
@@ -124,6 +132,14 @@ export async function enterLive() {
   // Show live-specific results UI and update connection indicator
   showLiveResultsUI();
   updateConnectionUI();
+
+  // Show object explorer and select the "Object Explorer" left tab
+  const panel = document.getElementById('objExplorer');
+  if (panel) panel.classList.add('visible');
+
+  // Hide leftContent and show objExplorer, select the explorer tab
+  document.getElementById('leftContent').style.display = 'none';
+  document.querySelectorAll('.left-tab').forEach(b => b.classList.remove('active'));
 
   // Initialize object explorer if connected
   if (runtime.cursor.connectionId) {

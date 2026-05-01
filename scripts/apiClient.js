@@ -216,22 +216,28 @@ export async function fetchObjectTree(connectionId) {
 
 /**
  * Fetch column info for a table (lazy-loaded on table expand).
+ * GET /api/schema/:database/:table → returns { columns: [...] }
  * Returns { columns: [{ name, dataType, isNullable, isPrimaryKey }] }
  */
 export async function fetchTableColumns(connectionId, database, table) {
-  const res = await fetch(`${API_BASE}/schema/${database}/${table}/columns?connectionId=${connectionId}`);
+  const res = await fetch(`${API_BASE}/schema/${encodeURIComponent(database)}/${encodeURIComponent(table)}`);
   if (!res.ok) throw new Error('Failed to fetch columns');
-  return res.json();
+  const data = await res.json();
+  // Backend returns { columns: [...] } — extract and return that directly
+  return { columns: data.columns || [] };
 }
 
 /**
  * Fetch stored procedure definition text.
- * Returns SQL definition string.
+ * GET /api/stored-procedure/:db/:name → returns { definition: "..." }
+ * Returns the definition string.
  */
 export async function fetchProcedureDefinition(connectionId, database, procedure) {
-  const res = await fetch(`${API_BASE}/schema/${database}/${procedure}/definition?connectionId=${connectionId}`);
+  const res = await fetch(`${API_BASE}/stored-procedure/${encodeURIComponent(database)}/${encodeURIComponent(procedure)}`);
   if (!res.ok) throw new Error('Failed to fetch procedure definition');
-  return res.text();
+  const data = await res.json();
+  // Backend returns { definition } — extract the string
+  return data.definition || '';
 }
 
 /**

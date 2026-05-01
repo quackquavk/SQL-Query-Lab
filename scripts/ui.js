@@ -807,48 +807,174 @@ function getContextMenuItems(nodeType, nodeName, database) {
   if (nodeType === 'table') {
     items.push(
       { label: 'Select Top 100', action: () => { runtime.editor?.setValue(`SELECT TOP 100 * FROM ${nodeName};`); } },
-      { label: 'New Query', action: () => { /* sandbox.createTab(database, connId); */ } },
-      { label: 'Refresh', action: () => { /* refresh logic */ } }
+      { label: 'New Query', action: () => {
+        if (typeof window.openNewTab === 'function') {
+          const tabId = window.openNewTab(runtime.cursor.currentDbName, connId, `SELECT TOP 100 * FROM ${nodeName};`);
+          if (tabId && runtime.openTabs && runtime.activeTabId !== tabId) {
+            const { switchTabById } = runtime.getTabApi?.() || {};
+            switchTabById?.(tabId);
+          }
+        }
+      }},
+      { label: 'Show ER Diagram', action: async () => {
+        const panel = document.getElementById('erDiagramPanel');
+        const svg = panel?.querySelector('svg');
+        if (!svg) { showFeedback('error', 'ER Diagram', 'ER diagram SVG element not found'); return; }
+        try {
+          const schema = await apiClient.fetchErSchema(database);
+          const { initErDiagram } = await import('./erDiagram.js');
+          initErDiagram(svg, schema);
+          document.getElementById('leftContent').style.display = 'none';
+          panel.style.display = '';
+          // Switch left tab if needed
+          document.querySelectorAll('.left-tab').forEach(b => b.classList.remove('active'));
+          const erTab = document.querySelector('.left-tab[data-left="er-diagram"]');
+          if (erTab) erTab.classList.add('active');
+        } catch (err) {
+          showFeedback('error', 'ER Diagram', 'Failed to load schema: ' + err.message);
+        }
+      }},
+      { label: 'Open in Table Designer', action: async () => {
+        const { openTableDesigner } = await import('./tableDesigner.js');
+        openTableDesigner(nodeName);
+      }},
+      { label: 'Refresh', action: async () => {
+        try {
+          const data = await apiClient.refreshObjectNode(connId, database, 'table', nodeName);
+          showFeedback('success', 'Refreshed', nodeName);
+        } catch (err) {
+          showFeedback('error', 'Refresh failed', err.message);
+        }
+      }}
     );
   } else if (nodeType === 'view') {
     items.push(
       { label: 'Select Top 100', action: () => { runtime.editor?.setValue(`SELECT TOP 100 * FROM ${nodeName};`); } },
-      { label: 'Script As CREATE', action: () => { /* future feature */ } },
-      { label: 'Refresh', action: () => { /* refresh logic */ } }
+      { label: 'New Query', action: () => {
+        if (typeof window.openNewTab === 'function') {
+          const tabId = window.openNewTab(runtime.cursor.currentDbName, connId, `SELECT TOP 100 * FROM ${nodeName};`);
+          if (tabId && runtime.openTabs && runtime.activeTabId !== tabId) {
+            const { switchTabById } = runtime.getTabApi?.() || {};
+            switchTabById?.(tabId);
+          }
+        }
+      }},
+      { label: 'Show ER Diagram', action: async () => {
+        const panel = document.getElementById('erDiagramPanel');
+        const svg = panel?.querySelector('svg');
+        if (!svg) { showFeedback('error', 'ER Diagram', 'ER diagram SVG element not found'); return; }
+        try {
+          const schema = await apiClient.fetchErSchema(database);
+          const { initErDiagram } = await import('./erDiagram.js');
+          initErDiagram(svg, schema);
+          document.getElementById('leftContent').style.display = 'none';
+          panel.style.display = '';
+          document.querySelectorAll('.left-tab').forEach(b => b.classList.remove('active'));
+          const erTab = document.querySelector('.left-tab[data-left="er-diagram"]');
+          if (erTab) erTab.classList.add('active');
+        } catch (err) {
+          showFeedback('error', 'ER Diagram', 'Failed to load schema: ' + err.message);
+        }
+      }},
+      { label: 'Refresh', action: async () => {
+        try {
+          await apiClient.refreshObjectNode(connId, database, 'view', nodeName);
+          showFeedback('success', 'Refreshed', nodeName);
+        } catch (err) {
+          showFeedback('error', 'Refresh failed', err.message);
+        }
+      }}
     );
   } else if (nodeType === 'procedure') {
     items.push(
       { label: 'Execute', action: () => { runtime.editor?.setValue(`EXEC ${nodeName};`); } },
-      { label: 'Script As CREATE', action: () => { /* future feature */ } },
+      { label: 'Open in SP Editor', action: async () => {
+        const { openSpEditor } = await import('./spEditor.js');
+        openSpEditor(nodeName);
+      }},
       { label: 'Open in New Tab', action: () => {
         apiClient.fetchProcedureDefinition(connId, database, nodeName).then(def => {
           if (typeof window.openNewTab === 'function') {
             window.openNewTab(database, connId, def);
           }
         });
+      }},
+      { label: 'Refresh', action: async () => {
+        try {
+          await apiClient.refreshObjectNode(connId, database, 'procedure', nodeName);
+          showFeedback('success', 'Refreshed', nodeName);
+        } catch (err) {
+          showFeedback('error', 'Refresh failed', err.message);
+        }
       }}
     );
   } else if (nodeType === 'function') {
     items.push(
-      { label: 'Script As CREATE', action: () => { /* future feature */ } },
       { label: 'Open in New Tab', action: () => {
         apiClient.fetchProcedureDefinition(connId, database, nodeName).then(def => {
           if (typeof window.openNewTab === 'function') {
             window.openNewTab(database, connId, def);
           }
         });
+      }},
+      { label: 'Open in SP Editor', action: async () => {
+        const { openSpEditor } = await import('./spEditor.js');
+        openSpEditor(nodeName);
+      }},
+      { label: 'Refresh', action: async () => {
+        try {
+          await apiClient.refreshObjectNode(connId, database, 'function', nodeName);
+          showFeedback('success', 'Refreshed', nodeName);
+        } catch (err) {
+          showFeedback('error', 'Refresh failed', err.message);
+        }
       }}
     );
   } else if (nodeType === 'database') {
     items.push(
-      { label: 'New Query', action: () => { /* sandbox.createTab(database, connId); */ } },
-      { label: 'Refresh', action: () => { /* refresh logic */ } }
+      { label: 'New Query', action: () => {
+        if (typeof window.openNewTab === 'function') {
+          const tabId = window.openNewTab(database, connId, `USE ${database};\nSELECT TOP 100 * FROM tablename`);
+          if (tabId && runtime.openTabs && runtime.activeTabId !== tabId) {
+            const { switchTabById } = runtime.getTabApi?.() || {};
+            switchTabById?.(tabId);
+          }
+        }
+      }},
+      { label: 'Refresh', action: async () => {
+        try {
+          const data = await apiClient.refreshObjectNode(connId, database, 'database');
+          runtime.assignObjectTree(data);
+          renderObjectTree(data);
+          showFeedback('success', 'Refreshed', database);
+        } catch (err) {
+          showFeedback('error', 'Refresh failed', err.message);
+        }
+      }}
     );
   } else if (nodeType === 'group') {
-    const groupId = node.dataset.groupId;
+    const groupId = node.dataset?.groupId;
     items.push(
-      { label: 'Connect', action: () => { /* connect logic */ } },
-      { label: 'Rename', action: () => { /* rename inline */ } },
+      { label: 'Connect', action: () => {
+        // Load the first connection in this group
+        apiClient.listConnections().then(conns => {
+          const first = conns.find(c => String(c.groupId) === String(groupId));
+          if (first) {
+            runtime.cursor.connectionId = first.id;
+            runtime.cursor.connectionName = first.name;
+            runtime.cursor.connected = true;
+            updateConnectionUI();
+            initObjectExplorer();
+            showFeedback('success', 'Connected to', first.name);
+          }
+        }).catch(err => showFeedback('error', 'Connect failed', err.message));
+      }},
+      { label: 'Rename Group', action: () => {
+        const newName = prompt('New group name:');
+        if (newName && groupId) {
+          apiClient.updateConnectionGroup(groupId, { name: newName }).catch(err => showFeedback('error', 'Rename failed', err.message));
+        }
+      }},
       { label: 'Delete', action: () => { apiClient.deleteConnectionGroup(groupId); } },
       { label: '★ Add Favorite', action: () => { apiClient.toggleConnectionFavorite(groupId); } }
     );
@@ -864,16 +990,38 @@ export async function initObjectExplorer() {
   const connId = runtime.cursor.connectionId;
   if (!connId) return;
 
+  // Use per-connection storage in runtime.objectTree
+  const existing = runtime.getObjectTree(connId);
+  if (existing) {
+    // Already loaded — just render
+    renderObjectTree(existing);
+    showObjectExplorer();
+    return;
+  }
+
   try {
     const treeData = await apiClient.fetchObjectTree(connId);
     runtime.assignObjectTree(treeData);
+    // Assign per-connection using connId
+    runtime.objectTree[connId] = treeData;
     renderObjectTree(treeData);
-
-    // Show object explorer panel
-    const panel = document.getElementById('objExplorer');
-    if (panel) panel.classList.add('visible');
+    showObjectExplorer();
   } catch (err) {
     console.warn('Object explorer initialization failed:', err.message);
+  }
+}
+
+function showObjectExplorer() {
+  const panel = document.getElementById('objExplorer');
+  if (panel) panel.classList.add('visible');
+  // Also ensure live tab is active when in live mode
+  const mode = runtime.cursor.currentMode;
+  if (mode === 'live') {
+    document.querySelectorAll('.left-tab').forEach(b => {
+      if (b.dataset.left === 'obj-explorer') b.classList.add('active');
+      else b.classList.remove('active');
+    });
+    document.getElementById('leftContent').style.display = 'none';
   }
 }
 

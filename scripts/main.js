@@ -599,6 +599,32 @@ function wireUI() {
     import('./ui.js').then(m => m.renderConnectionDialog());
   });
 
+  // Expose window.openNewTab for object explorer context menu actions
+  window.openNewTab = (database, connectionId, sql) => {
+    const { createTab, switchTabById } = runtime.getTabApi?.() || {};
+    if (!createTab) return null;
+    const tabId = createTab(database || runtime.cursor.currentDbName, connectionId || runtime.cursor.connectionId);
+    // Set SQL content on the new tab
+    const tab = runtime.openTabs.find(t => t.id === tabId);
+    if (tab) {
+      tab.sql = sql || '';
+      tab.dirty = false;
+      state.openTabs = runtime.openTabs;
+      persist(true);
+    }
+    if (runtime.editor) {
+      runtime.cursor.editorLoading = true;
+      runtime.editor.setValue(sql || '');
+      runtime.editor.setCursor({ line: 0, ch: 0 });
+      runtime.cursor.editorLoading = false;
+    }
+    runtime.setActiveTabId(tabId);
+    state.activeTabId = tabId;
+    persist(true);
+    if (typeof renderTabBar === 'function') renderTabBar();
+    return tabId;
+  };
+
   // Save current as snippet (sandbox only)
   document.getElementById('saveSnippetBtn').addEventListener('click', saveCurrentAsSnippet);
 

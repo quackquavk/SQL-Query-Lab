@@ -448,7 +448,11 @@
 .obj-tree .view-node::before { content: '👁️ '; }
 .obj-tree .proc-node::before { content: '⚡ '; }
 .obj-tree .func-node::before { content: 'ƒ '; }
-.obj-loading { font-size: 11px; color: var(--text-dim); padding: 4px 6px; }
+.obj-loading { font-size: 11px; color: var(--text-dim); padding: 4px 6px; animation: obj-loading-pulse 1.2s ease-in-out infinite; }
+@keyframes obj-loading-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
 .obj-section { margin-bottom: 10px; }
 .obj-section-header { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--text-dim); padding: 4px 6px; }
 .obj-context-menu {

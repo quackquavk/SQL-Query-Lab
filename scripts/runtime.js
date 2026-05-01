@@ -70,4 +70,6 @@ export function setOpenTabs(v) { openTabs = v; }
 export function setActiveTabId(v) { activeTabId = v; }
 export function setTabCounter(v) { tabCounter = v; }
 export function incTabCounter() { return ++tabCounter; }
-export function assignObjectTree(data) { Object.keys(objectTree).forEach(k => delete objectTree[k]); Object.assign(objectTree, data); }
+export function assignObjectTree(data) { Object.assign(objectTree, data); }
+export function getObjectTree(connectionId) { return objectTree[connectionId] || null; }
+export function clearObjectTree(connectionId) { if (connectionId && objectTree[connectionId]) delete objectTree[connectionId]; }
