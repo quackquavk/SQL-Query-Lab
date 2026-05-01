@@ -509,6 +509,14 @@ function wireUI() {
     const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
     downloadBlob(new Blob([buf]), `results_${ts}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   });
+
+  // Export Wizard button
+  document.getElementById('btn-export-wizard')?.addEventListener('click', async () => {
+    const last = runtime.cursor.lastUserResult;
+    if (!last) { showFeedback('error', 'Export', 'Run a query first to export results.'); return; }
+    const { openExportWizard } = await import('./exportWizard.js');
+    openExportWizard();
+  });
 }
 
 async function boot() {
