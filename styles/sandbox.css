@@ -207,11 +207,10 @@
 body.sandbox-mode .right { display: none; }
 body.sandbox-mode .main { grid-template-columns: 260px 1fr; }
 body.sandbox-mode .results { max-height: 50%; }
-body.mssql-mode .right { display: none; }
-body.mssql-mode .main { grid-template-columns: 260px 1fr; }
-body.mssql-mode .results { max-height: 50%; }
+body.mssql-mode .right { }
+body.mssql-mode .main { grid-template-columns: 1fr 340px; }
 body.mssql-mode .left { display: none; }
-body.mssql-mode .center { grid-column: 1 / -1; }
+body.mssql-mode .center { grid-column: 1; }
 
 .btn.btn-sandbox {
   background: var(--surface-1);

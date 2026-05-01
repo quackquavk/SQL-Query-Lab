@@ -11,9 +11,9 @@ import {
   showFeedback, switchTab, toast, renderSchema, renderResultsTab,
   renderHistory, updateDirtyMark, renderResultsStreaming,
   storeResultSet, getResultSet, handleExportCsv, handleExportJson,
-  clearResultSets, initObjectExplorer, updateChartColumnOptions
+  clearResultSets, initObjectExplorer
 } from './ui.js';
-import { renderBarChart, renderLineChart, renderPieChart, destroyChart, getChartConfig } from './chartRenderer.js';
+import { renderBarChart, renderLineChart, renderPieChart, destroyChart, getChartConfig, updateChartColumnOptions } from './chartRenderer.js';
 import { enableOptimizationHints, clearOptimizationDecorations, isOptimizationEnabled } from './optimizationHighlights.js';
 import { fetchOptimizationSuggestions } from './apiClient.js';
 import { escapeHtml, splitSqlStatements, previewStatement } from './utils.js';
