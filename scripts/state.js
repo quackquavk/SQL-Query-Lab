@@ -14,7 +14,7 @@ import { cursor, sandboxDb } from './runtime.js';
 
 const STORAGE_KEY = 'querylab:v1';
 const LEGACY_SOLVED_KEY = 'qlab_solved';
-export const MAX_HISTORY = 50;
+export const MAX_HISTORY = 1000;
 
 export function defaultState() {
   return {
@@ -201,7 +201,7 @@ export function markSolved(id, updateProgressUI) {
   }
 }
 
-export function addToHistory(sql, ok, error, onRender) {
+export function addToHistory(sql, ok, error, onRender, { executionTime, rowCount } = {}) {
   state.history = state.history || [];
   state.history.unshift({
     id: 'h_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
@@ -209,7 +209,9 @@ export function addToHistory(sql, ok, error, onRender) {
     sql,
     ok: !!ok,
     error: error || null,
-    ranAt: Date.now()
+    ranAt: Date.now(),
+    executionTime: executionTime ?? null,
+    rowCount: rowCount ?? null
   });
   if (state.history.length > MAX_HISTORY) state.history = state.history.slice(0, MAX_HISTORY);
   persist();

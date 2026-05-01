@@ -185,7 +185,8 @@ export function startEditing(td) {
  */
 function _handleEnter(td, colName, tableName, headerNames, headers) {
   let committed = false;
-  commitEdit(td, colName, tableName, headerNames, headers, (ok) => { committed = ok; });
+  const inputEl = _activeInput;
+  commitEdit(td, colName, tableName, headerNames, headers, inputEl, (ok) => { committed = ok; });
 }
 
 /**
@@ -195,14 +196,16 @@ function _handleEnter(td, colName, tableName, headerNames, headers) {
  */
 function _handleTab(td, colName, tableName, headerNames, headers) {
   let committed = false;
-  // Clear the input guard early so activateNextCell → startEditing can run.
-  // The 350ms cleanup timer still fires and clears CSS state.
-  _activeInput = null;
-  _activeTable = null;
-  commitEdit(td, colName, tableName, headerNames, headers, (ok) => { committed = ok; });
+  // Pass the input element explicitly so commitEdit doesn't rely on _activeInput,
+  // which allows us to clear _activeInput before activateNextCell → startEditing.
+  const inputEl = _activeInput;
+  commitEdit(td, colName, tableName, headerNames, headers, inputEl, (ok) => { committed = ok; });
   // Clear _lastKey after commit so blur can distinguish click-outside from Tab.
   _lastKey = null;
   if (committed) {
+    // Clear input state so startEditing can begin a new edit on the next cell.
+    _activeInput = null;
+    _activeTable = null;
     activateNextCell(td, td.dataset.col, td.dataset.row, headers);
   }
 }
@@ -211,10 +214,10 @@ function _handleTab(td, colName, tableName, headerNames, headers) {
  * Commit the edit: validate the new value, build and execute UPDATE, re-render results.
  * Calls onComplete(true) on success, onComplete(false) on failure/validation error.
  */
-function commitEdit(td, colName, tableName, headerNames, headers, onComplete) {
-  if (!_activeInput) { onComplete?.(false); return; }
+function commitEdit(td, colName, tableName, headerNames, headers, inputEl, onComplete) {
+  if (!inputEl) { onComplete?.(false); return; }
 
-  const input = _activeInput;
+  const input = inputEl;
   const newValue = input.value.trim();
   const originalValue = td.dataset.originalValue || '';
 

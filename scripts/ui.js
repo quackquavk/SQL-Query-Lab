@@ -669,11 +669,18 @@ export function renderHistory() {
     html += `<div class="history-empty">No queries yet.<br><span style="font-family:var(--sans);font-style:normal;font-size:11.5px;color:var(--text-dim);letter-spacing:0.05em">Run a query — it'll appear here.</span></div>`;
   } else {
     for (const h of hist) {
+      const execLabel = h.executionTime !== null && h.executionTime !== undefined
+        ? `${h.executionTime}ms`
+        : '—';
+      const rowsLabel = h.rowCount !== null && h.rowCount !== undefined
+        ? `${h.rowCount} rows`
+        : '—';
       html += `
         <div class="history-item" data-id="${h.id}" title="${escapeHtml(h.sql)}">
           <span class="ts">
             <span class="status-dot ${h.ok ? 'ok' : 'err'}"></span>
             ${h.db}.db · ${formatHistoryTime(h.ranAt)}
+            <span class="exec-time" style="font-size:10px;color:var(--text-dim);margin-left:4px">${execLabel} · ${rowsLabel}</span>
           </span>
           <div class="preview">${escapeHtml(previewStatement(h.sql, 140))}</div>
         </div>

@@ -275,6 +275,8 @@ export async function runLiveQuery(sql, options = {}) {
       showFeedback('success', 'OK', `${rowsAffected} rows, ${executionTime}ms`);
       switchTab('output');
 
+      addToHistory(sql, true, null, renderHistory, { executionTime, rowCount: rowsAffected });
+
       if (isOptimizationEnabled()) {
         fetchAndShowOptimizations(sql);
       }
@@ -290,6 +292,9 @@ export async function runLiveQuery(sql, options = {}) {
       runtime.cursor.lastError = message;
       showFeedback('error', 'Query error', message);
       switchTab('message');
+
+      addToHistory(sql, false, message, renderHistory, { executionTime: null, rowCount: null });
+
       streamer.destroy();
       reject(new Error(message));
     });
@@ -443,7 +448,7 @@ export function runSandboxQuery() {
   try {
     results = db.exec(sql);
   } catch (e) {
-    addToHistory(sql, false, e.message, renderHistory);
+    addToHistory(sql, false, e.message, renderHistory, { executionTime: null, rowCount: null });
     showFeedback('error', 'SQL error', `<pre>${escapeHtml(e.message)}</pre>`);
     switchTab('message');
     return;
@@ -452,7 +457,9 @@ export function runSandboxQuery() {
 
   const allStmts = splitSqlStatements(sql);
   let tableExtracted = false;
+  let totalRows = 0;
   if (results && results.length > 0) {
+    totalRows = results.reduce((a, r) => a + (r.values || []).length, 0);
     let ri = 0;
     for (const stmt of allStmts) {
       if (/^\s*(SELECT|WITH|PRAGMA|EXPLAIN|VALUES)\b/i.test(stmt) && ri < results.length) {
@@ -493,11 +500,10 @@ export function runSandboxQuery() {
     updateHintTables();
   }
 
-  addToHistory(sql, true, null, renderHistory);
+  addToHistory(sql, true, null, renderHistory, { executionTime: elapsed, rowCount: totalRows });
 
   if (results && results.length > 0) {
     runtime.cursor.lastUserResult = results;
-    const totalRows = results.reduce((a, r) => a + (r.values || []).length, 0);
     document.getElementById('outCount').textContent = totalRows;
     const stmtCount = allStmts.length;
     const resCount = results.length;
