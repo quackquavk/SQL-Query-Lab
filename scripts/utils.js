@@ -149,3 +149,29 @@ export function downloadBlob(content, filename, mimeType) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// XLSX export using SheetJS (CDN global: window.XLSX)
+export function exportToXlsx(columns, rows, renamedCols) {
+  if (typeof window.XLSX === 'undefined') {
+    console.warn('SheetJS (xlsx) not loaded — XLSX export unavailable');
+    return null;
+  }
+  // Apply column renames if provided
+  const displayCols = columns.map(col => {
+    const key = col.name || col;
+    return renamedCols && renamedCols[key] ? renamedCols[key] : key;
+  });
+  // Build row objects for SheetJS json_to_sheet
+  const data = rows.map(row => {
+    const obj = {};
+    columns.forEach((col, i) => {
+      const key = col.name || col;
+      obj[displayCols[i]] = row[i];
+    });
+    return obj;
+  });
+  const wb = window.XLSX.utils.book_new();
+  const ws = window.XLSX.utils.json_to_sheet(data, { header: displayCols });
+  window.XLSX.utils.book_append_sheet(wb, ws, 'Export');
+  return window.XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+}

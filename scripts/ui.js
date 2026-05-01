@@ -5,7 +5,7 @@ import * as runtime from './runtime.js';
 import { state, solved, persist, MAX_HISTORY, formatHistoryTime, clearHistory, historySearch, historyFilterOk, historyFilterDb, setHistorySearch, setHistoryFilter, getHistoryFilters } from './state.js';
 import { QUESTIONS } from './questions.js';
 import { activeDb } from './db.js';
-import { escapeHtml, previewStatement, exportToCsv, exportToJson, downloadBlob } from './utils.js';
+import { escapeHtml, previewStatement, exportToCsv, exportToJson, exportToXlsx, downloadBlob } from './utils.js';
 import * as apiClient from './apiClient.js';
 import { applySort, applyFilter, clearState, getState, storeOriginal } from './filterSort.js';
 
@@ -281,8 +281,19 @@ export function switchTab(tab) {
 
 export function renderResultsTab(tab) {
   const body = document.getElementById('resultsBody');
+  const exportDiv = document.getElementById('results-export');
   const last = runtime.cursor.lastUserResult;
   const exp = runtime.cursor.lastExpectedResult;
+
+  // Show export toolbar when results are available
+  if (exportDiv) {
+    if (last && last.columns && last.columns.length > 0) {
+      exportDiv.classList.remove('hidden');
+    } else {
+      exportDiv.classList.add('hidden');
+    }
+  }
+
   if (tab === 'output') {
     if (!last) {
       body.innerHTML = '<div class="results-empty">Run a query to see results</div>';
@@ -1557,16 +1568,16 @@ export function getResultSet(index) { return _resultsets[index] ?? null; }
 export function clearResultSets() { _resultsets = []; }
 
 export function handleExportCsv(resultSetIndex) {
-  const rs = getResultSet(resultSetIndex);
+  const rs = resultSetIndex !== undefined ? getResultSet(resultSetIndex) : runtime.cursor.lastUserResult;
   if (!rs) return;
   const csv = exportToCsv(rs.columns, rs.rows);
   const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
-  downloadBlob(csv, `results_${resultSetIndex + 1}_${ts}.csv`, 'text/csv');
+  downloadBlob(csv, `results_${ts}.csv`, 'text/csv');
 }
 export function handleExportJson(resultSetIndex) {
-  const rs = getResultSet(resultSetIndex);
+  const rs = resultSetIndex !== undefined ? getResultSet(resultSetIndex) : runtime.cursor.lastUserResult;
   if (!rs) return;
   const json = exportToJson(rs.columns, rs.rows);
   const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
-  downloadBlob(json, `results_${resultSetIndex + 1}_${ts}.json`, 'application/json');
+  downloadBlob(json, `results_${ts}.json`, 'application/json');
 }

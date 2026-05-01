@@ -35,6 +35,7 @@ import {
   initChart, renderBarChart, renderLineChart, renderPieChart,
   destroyChart, updateChartColumnOptions, getChartConfig
 } from './chartRenderer.js';
+import { exportToCsv, exportToJson, exportToXlsx, downloadBlob } from './utils.js';
 
 // Wire cross-module hooks before any handler can fire
 setDbHooks({ showFeedback, switchTab, renderSchema });
@@ -475,6 +476,38 @@ function wireUI() {
     if (type === 'bar') renderBarChart(data, xCol, yCol);
     else if (type === 'line') renderLineChart(data, xCol, yCol);
     else if (type === 'pie') renderPieChart(data, xCol, yCol);
+  });
+
+  // Export buttons: CSV
+  document.getElementById('btn-export-csv').addEventListener('click', () => {
+    const last = runtime.cursor.lastUserResult;
+    if (!last) { showFeedback('error', 'Export', 'Run a query first to export.'); return; }
+    const csv = exportToCsv(last.columns, last.values);
+    const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+    downloadBlob(csv, `results_${ts}.csv`, 'text/csv');
+  });
+
+  // Export buttons: JSON
+  document.getElementById('btn-export-json').addEventListener('click', () => {
+    const last = runtime.cursor.lastUserResult;
+    if (!last) { showFeedback('error', 'Export', 'Run a query first to export.'); return; }
+    const json = exportToJson(last.columns, last.values);
+    const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+    downloadBlob(json, `results_${ts}.json`, 'application/json');
+  });
+
+  // Export button: XLSX (SheetJS)
+  document.getElementById('btn-export-xlsx')?.addEventListener('click', () => {
+    if (typeof window.XLSX === 'undefined') {
+      showFeedback('error', 'Export', 'SheetJS not loaded — XLSX export unavailable.');
+      return;
+    }
+    const last = runtime.cursor.lastUserResult;
+    if (!last) { showFeedback('error', 'Export', 'Run a query first to export.'); return; }
+    const buf = exportToXlsx(last.columns, last.values);
+    if (!buf) { showFeedback('error', 'Export', 'XLSX export failed.'); return; }
+    const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+    downloadBlob(new Blob([buf]), `results_${ts}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   });
 }
 
