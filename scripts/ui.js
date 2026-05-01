@@ -7,6 +7,7 @@ import { QUESTIONS } from './questions.js';
 import { activeDb } from './db.js';
 import { escapeHtml, previewStatement, exportToCsv, exportToJson, downloadBlob } from './utils.js';
 import * as apiClient from './apiClient.js';
+import { applySort, applyFilter, clearState, getState, storeOriginal } from './filterSort.js';
 
 // Cache the inlineEdit module after first dynamic import.
 let _inlineEditModule = null;
@@ -157,6 +158,8 @@ export function renderResultsTab(tab) {
       if (last.length === 0) {
         body.innerHTML = '<div class="results-empty">No SELECT results — statements executed</div>';
       } else {
+        // Store original for filter/sort before rendering
+        last.forEach((blk) => storeOriginal(blk));
         body.innerHTML = last.map((blk, i) => `
           <div class="multi-result">
             <div class="stmt-header">
@@ -169,8 +172,12 @@ export function renderResultsTab(tab) {
         `).join('');
       }
     } else {
+      // Store original for filter/sort before rendering
+      storeOriginal(last);
       body.innerHTML = renderTable(last, runtime.cursor.lastQueryTableName);
     }
+    // Wire filter/sort handlers after DOM insertion
+    wireFilterSortHandlers(body);
     // Wire inline editing for sandbox mode after DOM insertion.
     _enableInlineEditing(body);
   } else if (tab === 'expected') {
@@ -186,8 +193,22 @@ export function renderTable(res, tableName) {
     return '<div class="results-empty">Query executed but returned no columns</div>';
   }
   const safeTableName = tableName ? escapeHtml(tableName) : '';
-  let html = `<table class="result-table" data-table="${safeTableName}"><thead><tr>`;
-  res.columns.forEach((c, ci) => html += `<th data-col-idx="${ci}">${escapeHtml(c)}</th>`);
+  const fsState = getState();
+  const sortCol = fsState.sortCol;
+  const sortDir = fsState.sortDir;
+
+  let html = `<div class="fs-bar">
+    <input class="fs-search" type="text" placeholder="Filter rows..." value="${escapeHtml(fsState.searchText || '')}" />
+    <button class="fs-clear" title="Clear filter/sort" ${!fsState.searchText && sortCol === null ? 'style="opacity:0.3;pointer-events:none"' : ''}>×</button>
+  </div>
+  <table class="result-table" data-table="${safeTableName}"><thead><tr>`;
+
+  res.columns.forEach((c, ci) => {
+    const isSorted = sortCol === ci;
+    const arrow = isSorted ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+    const sortClass = isSorted ? ` sort-${sortDir}` : '';
+    html += `<th class="sortable${sortClass}" data-sort-col="${ci}" data-sort-dir="${isSorted ? sortDir : ''}" style="cursor:pointer;user-select:none">${escapeHtml(c)}${arrow}</th>`;
+  });
   html += '</tr></thead><tbody>';
   if (res.values.length === 0) {
     html += `<tr><td colspan="${res.columns.length}" style="color:var(--text-dim);font-style:italic;padding:14px">(no rows)</td></tr>`;
@@ -891,6 +912,49 @@ export function renderSnippets() {
     getSandboxModule().then(mod => {
       mod.saveSnippet({ name, category, sql });
       renderSnippets();
+    });
+  });
+}
+
+// ─── Filter/Sort Handlers ─────────────────────────────────────────────────
+
+/**
+ * Wire click/keyup handlers on the filter bar and sortable column headers.
+ * Called after renderResultsTab inserts new DOM content.
+ */
+let _debounceTimer = null;
+
+export function wireFilterSortHandlers(container) {
+  // Clear button: reset to original
+  const clearBtn = container.querySelector('.fs-clear');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      clearState();
+      renderResultsTab('output');
+    });
+  }
+
+  // Search input: debounced filter
+  const searchInput = container.querySelector('.fs-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      clearTimeout(_debounceTimer);
+      _debounceTimer = setTimeout(() => {
+        applyFilter(searchInput.value);
+        renderResultsTab('output');
+      }, 200);
+    });
+  }
+
+  // Column header clicks: sort
+  container.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = parseInt(th.dataset.sortCol);
+      const currentDir = th.dataset.sortDir;
+      // Toggle: asc → desc → clear
+      const nextDir = currentDir === 'asc' ? 'desc' : 'asc';
+      applySort(col, nextDir);
+      renderResultsTab('output');
     });
   });
 }
