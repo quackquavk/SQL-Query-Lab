@@ -1449,6 +1449,14 @@ export function renderConnectionDialog() {
           <h2>Connect to SQL Server</h2>
           <button class="modal-close" id="conn-dialog-close">&times;</button>
         </div>
+        <div id="conn-saved-section" class="conn-saved-section">
+          <div class="conn-saved-header">
+            <span>Saved Connections</span>
+          </div>
+          <div id="conn-saved-list" class="conn-saved-list">
+            <div class="conn-saved-loading">Loading...</div>
+          </div>
+        </div>
         <form id="connection-form">
           <div class="conn-field">
             <label for="conn-name">Connection Name</label>
@@ -1546,6 +1554,9 @@ export function renderConnectionDialog() {
   });
 
   document.getElementById('connection-dialog').classList.add('open');
+
+  // Load saved connections list
+  loadSavedConnections();
 }
 
 function renderDynamicAuthFields(authType) {
@@ -1619,6 +1630,83 @@ export function hideConnectionDialog() {
   const dialog = document.getElementById('connection-dialog');
   if (dialog) dialog.classList.remove('open');
   setTimeout(() => dialog?.remove(), 200);
+}
+
+async function loadSavedConnections() {
+  const listEl = document.getElementById('conn-saved-list');
+  if (!listEl) return;
+
+  try {
+    const { listConnections, getConnection, deleteConnection } = await import('./apiClient.js');
+    const conns = await listConnections();
+
+    if (!conns || conns.length === 0) {
+      listEl.innerHTML = '<div class="conn-saved-empty">No saved connections yet.</div>';
+      return;
+    }
+
+    listEl.innerHTML = conns.map(c => `
+      <div class="conn-saved-row" data-id="${c.id}">
+        <div>
+          <div class="conn-saved-name">${escapeHtml(c.name || '')}</div>
+          <div class="conn-saved-server">${escapeHtml(c.server || '')}</div>
+        </div>
+        <button class="conn-saved-delete" data-delete="${c.id}" title="Delete">&times;</button>
+      </div>
+    `).join('');
+
+    // Click a row → fetch full credentials and auto-fill form
+    listEl.querySelectorAll('.conn-saved-row').forEach(row => {
+      row.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('conn-saved-delete')) return;
+        const id = row.dataset.id;
+        try {
+          const full = await getConnection(id);
+          if (full && !full.error) {
+            // Auto-fill form fields
+            document.getElementById('conn-name').value = full.name || '';
+            document.getElementById('conn-server').value = full.server || '';
+            document.getElementById('conn-database').value = full.database || '';
+            const authType = full.authType || 'sql';
+            document.getElementById('conn-auth-type').value = authType;
+            renderDynamicAuthFields(authType);
+            // Fill credentials after dynamic fields are rendered
+            setTimeout(() => {
+              if (authType === 'sql' && full.credentials) {
+                document.getElementById('conn-username').value = full.credentials.username || '';
+                document.getElementById('conn-password').value = full.credentials.password || '';
+              } else if (authType === 'entra' && full.credentials) {
+                document.getElementById('conn-tenant').value = full.credentials.tenantId || '';
+                document.getElementById('conn-client-id').value = full.credentials.clientId || '';
+                document.getElementById('conn-client-secret').value = full.credentials.clientSecret || '';
+              }
+            }, 0);
+            showFeedback('success', 'Loaded', full.name);
+          }
+        } catch (err) {
+          showFeedback('error', 'Load failed', err.message);
+        }
+      });
+    });
+
+    // Delete button
+    listEl.querySelectorAll('.conn-saved-delete').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm('Delete this saved connection?')) return;
+        const id = btn.dataset.delete;
+        try {
+          await deleteConnection(id);
+          loadSavedConnections(); // Re-render list
+          showFeedback('success', 'Deleted', '');
+        } catch (err) {
+          showFeedback('error', 'Delete failed', err.message);
+        }
+      });
+    });
+  } catch (err) {
+    listEl.innerHTML = '<div class="conn-saved-error">Could not load saved connections.</div>';
+  }
 }
 
 // ─── Live Query Streaming Results ────────────────────────────────────────

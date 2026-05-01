@@ -208,6 +208,94 @@
   font-size: 14px;
 }
 
+/* ─── Saved Connections List ───────────────────────── */
+.conn-saved-section {
+  border-bottom: 1px solid var(--border);
+  padding: 0 0 14px;
+  margin-bottom: 16px;
+}
+.conn-saved-header {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 10px 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.conn-saved-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.conn-saved-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s;
+  background: var(--surface);
+}
+.conn-saved-row:hover {
+  border-color: var(--accent);
+  background: var(--surface-1);
+}
+.conn-saved-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conn-saved-server {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conn-saved-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 8px;
+  line-height: 1;
+  border-radius: 3px;
+  transition: all 0.12s;
+  opacity: 0.4;
+}
+.conn-saved-row:hover .conn-saved-delete { opacity: 1; }
+.conn-saved-delete:hover {
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 15%, transparent);
+}
+.conn-saved-empty {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  padding: 10px 0;
+  font-style: italic;
+}
+.conn-saved-loading {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 10px 0;
+}
+.conn-saved-error {
+  font-size: 12px;
+  color: var(--error);
+  padding: 10px 0;
+}
+
 /* ─── Export Wizard Modal ───────────────────────────── */
 .wizard-backdrop {
   z-index: 200;
