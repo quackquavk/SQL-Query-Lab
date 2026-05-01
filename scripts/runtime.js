@@ -40,6 +40,8 @@ export const cursor = {
   originalResult: null,            // Deep-copy of first query result; never mutated
   filterSortState: { searchText: '', sortCol: null, sortDir: 'asc' },
   profileVisible: false,         // Column profile panel toggle state
+  diffResult: null,              // Result of compareResultsets()
+  diffReference: null,           // Reference result set for diff comparison
 };
 
 export const sandboxDirty = {

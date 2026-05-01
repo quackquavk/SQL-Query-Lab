@@ -184,6 +184,7 @@
           <button class="results-tab" data-tab="message">Message</button>
           <button class="results-tab live-only-tab" data-tab="exec-plan">Execution Plan</button>
           <button class="results-tab profile-tab" id="profileBtn" data-profile="true" title="Toggle column profile panel">Profile</button>
+          <button class="results-tab diff-tab" data-tab="diff">Diff</button>
         </div>
         <div class="results-toolbar" id="resultsToolbar" style="display:none">
           <button class="btn" id="showExecPlanBtn">Show Execution Plan</button>
@@ -213,6 +214,7 @@
         <!-- Live mode streaming results -->
         <div id="results-status" class="results-status hidden"></div>
         <div id="results-export" class="results-export hidden">
+          <button class="btn-export btn-compare" id="btn-compare">Compare</button>
           <button class="btn-export" id="btn-export-csv">CSV</button>
           <button class="btn-export" id="btn-export-json">JSON</button>
           <button class="btn-export" id="btn-export-xlsx">XLSX</button>

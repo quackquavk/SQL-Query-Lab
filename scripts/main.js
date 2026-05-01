@@ -37,6 +37,7 @@ import {
 } from './chartRenderer.js';
 import { exportToCsv, exportToJson, exportToXlsx, downloadBlob } from './utils.js';
 import { openShortcutModal, closeShortcutModal, initShortcutSearch } from './shortcuts.js';
+import { compareResultsets } from './diffTool.js';
 
 // Wire cross-module hooks before any handler can fire
 setDbHooks({ showFeedback, switchTab, renderSchema });
@@ -542,6 +543,36 @@ function wireUI() {
     if (!last) { showFeedback('error', 'Export', 'Run a query first to export results.'); return; }
     const { openExportWizard } = await import('./exportWizard.js');
     openExportWizard();
+  });
+
+  // Compare button: diff two result sets
+  document.getElementById('btn-compare').addEventListener('click', () => {
+    const ui = { _resultsets: [] };
+    const rs0 = ui._resultsets[0];
+    const rs1 = ui._resultsets[1];
+    const last = runtime.cursor.lastUserResult;
+
+    if (!rs0 && !rs1 && !last) {
+      showFeedback('info', 'No diff', 'Run at least two queries to compare.');
+      return;
+    }
+
+    // Reference = older result set (rs0 or last), Current = most recent (last or rs1)
+    let reference = rs0 || last;
+    let current = last;
+
+    if (rs0 && rs1) {
+      reference = rs0;
+      current = rs1;
+    } else if (rs0 && !rs1 && last) {
+      reference = rs0;
+      current = last;
+    }
+
+    const result = compareResultsets(reference, current);
+    runtime.cursor.diffResult = result;
+    runtime.cursor.diffReference = reference;
+    switchTab('diff');
   });
 }
 

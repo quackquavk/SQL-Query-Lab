@@ -8,6 +8,7 @@ import { activeDb } from './db.js';
 import { escapeHtml, previewStatement, exportToCsv, exportToJson, exportToXlsx, downloadBlob } from './utils.js';
 import * as apiClient from './apiClient.js';
 import { applySort, applyFilter, clearState, getState, storeOriginal } from './filterSort.js';
+import { compareResultsets, formatDiffSummary } from './diffTool.js';
 
 // Cache the inlineEdit module after first dynamic import.
 let _inlineEditModule = null;
@@ -330,6 +331,12 @@ export function renderResultsTab(tab) {
   } else if (tab === 'expected') {
     if (!exp) body.innerHTML = '<div class="results-empty">No expected output yet</div>';
     else body.innerHTML = renderTable(exp, runtime.cursor.lastQueryTableName);
+  } else if (tab === 'diff') {
+    if (runtime.cursor.diffResult) {
+      body.innerHTML = renderDiffView(runtime.cursor.diffResult);
+    } else {
+      body.innerHTML = '<div class="results-empty">No diff available. Click Compare after running two queries.</div>';
+    }
   } else {
     body.innerHTML = runtime.cursor.lastMessage || '<div class="results-empty">No messages yet</div>';
   }
@@ -375,6 +382,117 @@ export function renderTable(res, tableName) {
   }
   html += '</tbody></table>';
   return html;
+}
+
+// ─── Diff View ─────────────────────────────────────────────────────────────
+
+/**
+ * Render a side-by-side diff view from a compareResultsets() result object.
+ * Three-column layout: Reference table | Current table | Delta summary.
+ * @param {object} diff - result of compareResultsets()
+ * @returns {string} HTML string
+ */
+export function renderDiffView(diff) {
+  if (!diff) {
+    return '<div class="diff-empty">No diff data available.</div>';
+  }
+
+  const { reference, current, added, removed, changed, unchanged, columnDeltas, isSame } = diff;
+  const refCols = (reference && reference.columns) ? reference.columns : [];
+  const curCols = (current && current.columns) ? current.columns : [];
+  const colCount = Math.max(refCols.length, curCols.length);
+
+  const totalAdded = added.length;
+  const totalRemoved = removed.length;
+  const totalChanged = changed.length;
+  const totalUnchanged = unchanged.length;
+
+  // Build column headers row (shared across reference + current panels)
+  function buildColHeaders(cols) {
+    if (!cols || cols.length === 0) return '<tr><th class="diff-col-header-empty">—</th></tr>';
+    return '<tr>' + cols.map(c => `<th class="diff-table-col-th">${escapeHtml(c)}</th>`).join('') + '</tr>';
+  }
+
+  // Build rows with diff-cell classes
+  function buildDiffRows(rows, type) {
+    if (!rows || rows.length === 0) return '';
+    return rows.map(entry => {
+      const row = entry.row || entry.curRow || entry.refRow || [];
+      const cells = entry.cells || {};
+      return '<tr>' + row.map((cell, ci) => {
+        const cls = type === 'added' ? 'diff-added'
+          : type === 'removed' ? 'diff-removed'
+          : type === 'changed' ? 'diff-changed'
+          : 'diff-unchanged';
+        return `<td class="${cls}" title="${escapeHtml(String(cell ?? ''))}">${escapeHtml(String(cell ?? ''))}</td>`;
+      }).join('') + '</tr>';
+    }).join('');
+  }
+
+  // Build delta summary
+  let summaryHtml = '';
+  if (colCount > 0) {
+    summaryHtml += `
+      <div class="diff-summary-row">
+        <span class="col-name">SUMMARY</span>
+        <span class="delta">${formatDiffSummary(diff)}</span>
+      </div>
+    `;
+    for (let ci = 0; ci < colCount; ci++) {
+      const deltas = columnDeltas[ci] || { added: 0, removed: 0, changed: 0 };
+      const colName = curCols[ci] || refCols[ci] || `col_${ci}`;
+      summaryHtml += `
+        <div class="diff-summary-row">
+          <span class="col-name">${escapeHtml(colName)}</span>
+          ${deltas.added > 0 ? `<span class="delta delta-added">+${deltas.added}</span>` : ''}
+          ${deltas.removed > 0 ? `<span class="delta delta-removed">-${deltas.removed}</span>` : ''}
+          ${deltas.changed > 0 ? `<span class="delta delta-changed">~${deltas.changed}</span>` : ''}
+          ${deltas.added === 0 && deltas.removed === 0 && deltas.changed === 0
+            ? '<span class="delta" style="color:var(--text-dim)">—</span>' : ''}
+        </div>
+      `;
+    }
+  } else {
+    summaryHtml = '<div class="diff-summary-empty">No column data</div>';
+  }
+
+  // Build side-by-side diff view
+  const refHeader = buildColHeaders(refCols);
+  const curHeader = buildColHeaders(curCols);
+  const addedRows = buildDiffRows(added, 'added');
+  const removedRows = buildDiffRows(removed, 'removed');
+  const changedRows = buildDiffRows(changed, 'changed');
+  const unchangedRows = buildDiffRows(unchanged, 'unchanged');
+
+  const isIdentical = isSame !== false && totalAdded === 0 && totalRemoved === 0 && totalChanged === 0;
+
+  return `
+    <div class="diff-view">
+      <div class="diff-col-panel">
+        <div class="diff-col-header">Reference</div>
+        <table class="diff-table">
+          <thead>${refHeader}</thead>
+          <tbody>
+            ${removedRows || '<tr class="diff-header-row"><td colspan="99" style="color:var(--text-dim);font-size:10px;text-align:center;padding:8px">No removed rows</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+      <div class="diff-col-panel">
+        <div class="diff-col-header">Current</div>
+        <table class="diff-table">
+          <thead>${curHeader}</thead>
+          <tbody>
+            ${addedRows || '<tr class="diff-header-row"><td colspan="99" style="color:var(--text-dim);font-size:10px;text-align:center;padding:8px">No added rows</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+      <div class="diff-col-panel diff-summary-panel">
+        <div class="diff-col-header">Delta</div>
+        ${summaryHtml}
+        ${isIdentical ? '<div class="diff-summary-row"><span class="delta" style="color:var(--success)">✓ Identical</span></div>' : ''}
+      </div>
+    </div>
+  `;
 }
 
 export function showFeedback(kind, label, html) {
