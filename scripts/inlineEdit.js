@@ -2,7 +2,7 @@
 // Double-clicking a cell switches it to an input; Enter commits UPDATE; Escape cancels.
 
 import { showFeedback } from './ui.js';
-import { activeDb } from './db.js';
+import { activeDb, persistSandboxDbDebounced } from './db.js';
 import * as runtime from './runtime.js';
 import {
   getTableInfo,
@@ -84,13 +84,27 @@ export function startEditing(td) {
     return;
   }
 
-  // Check that every PK column appears in the result set headers.
+  // Check that every PK column appears in the result set headers (DOM check).
   const headerNames = Array.from(headers).map(h => h.textContent?.trim() || '');
   const missingPK = pkCols.filter(pk => !headerNames.includes(pk.name));
   if (missingPK.length > 0) {
     showFeedback('error', 'Cannot edit',
       `Result set must include primary key column(s) for UPDATE. Missing: ${missingPK.map(p => p.name).join(', ')}`);
     return;
+  }
+
+  // Cross-check: verify against lastUserResult.columns to ensure the query
+  // actually returned the PK data (not just that a column with that name exists
+  // in the table schema — it must be in the SELECT).
+  const result = runtime.cursor.lastUserResult;
+  if (result && result.columns) {
+    const resultColNames = result.columns.map(c => (typeof c === 'string' ? c : c.name || '').trim());
+    const missingFromResult = pkCols.filter(pk => !resultColNames.includes(pk.name));
+    if (missingFromResult.length > 0) {
+      showFeedback('error', 'Cannot edit',
+        `Result set must include primary key column(s) for UPDATE. Missing: ${missingFromResult.map(p => p.name).join(', ')}`);
+      return;
+    }
   }
 
   // Save the original value for restore-on-cancel.
@@ -259,6 +273,9 @@ function commitEdit(td, colName, tableName, headerNames, headers, onComplete) {
   // Success — briefly highlight then restore.
   td.classList.add('cell-modified');
   showFeedback('success', 'Updated', `${colName} = ${newValue} in ${tableName}`);
+
+  // Mark sandbox as dirty and schedule persistence.
+  persistSandboxDbDebounced(runtime.cursor.currentDbName);
 
   // Sync the cell text to the new value so it reflects immediately.
   td.textContent = newValue;
