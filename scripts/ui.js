@@ -2,7 +2,7 @@
 // Also includes streaming results grid renderer for live query mode.
 
 import * as runtime from './runtime.js';
-import { state, solved, persist, MAX_HISTORY, formatHistoryTime, clearHistory } from './state.js';
+import { state, solved, persist, MAX_HISTORY, formatHistoryTime, clearHistory, historySearch, historyFilterOk, historyFilterDb, setHistorySearch, setHistoryFilter, getHistoryFilters } from './state.js';
 import { QUESTIONS } from './questions.js';
 import { activeDb } from './db.js';
 import { escapeHtml, previewStatement, exportToCsv, exportToJson, downloadBlob } from './utils.js';
@@ -657,18 +657,45 @@ HAVING AVG(sal) > 50000;</code>
 export function renderHistory() {
   const el = document.getElementById('leftContent');
   const hist = state.history || [];
+
+  // Apply filters
+  let filtered = hist.filter(h => {
+    if (historySearch && !h.sql.toLowerCase().includes(historySearch)) return false;
+    if (historyFilterOk !== null && h.ok !== historyFilterOk) return false;
+    if (historyFilterDb && h.db !== historyFilterDb) return false;
+    return true;
+  });
+
+  // Get unique database names for filter dropdown
+  const dbNames = [...new Set(hist.map(h => h.db).filter(Boolean))];
+
   let html = `
     <h3>Query history</h3>
+    <div class="hist-search-wrap">
+      <input type="text" id="histSearch" placeholder="Search queries..." value="${escapeHtml(historySearch)}" />
+    </div>
+    <div class="hist-filter-row">
+      <button class="hist-chip ${historyFilterOk === null ? 'active' : ''}" data-filter-ok="">All</button>
+      <button class="hist-chip ${historyFilterOk === true ? 'active' : ''}" data-filter-ok="true">✓ OK</button>
+      <button class="hist-chip ${historyFilterOk === false ? 'active' : ''}" data-filter-ok="false">✗ Error</button>
+    </div>
+    <div class="hist-db-row">
+      <select id="histDbFilter" class="hist-filter-db">
+        <option value="">All databases</option>
+        ${dbNames.map(db => `<option value="${escapeHtml(db)}" ${historyFilterDb === db ? 'selected' : ''}>${escapeHtml(db)}</option>`).join('')}
+      </select>
+      ${historySearch || historyFilterOk !== null || historyFilterDb ? '<button id="histClearFilters" class="hist-clear-btn">Clear</button>' : ''}
+    </div>
     <div class="sub" style="display:flex;justify-content:space-between;align-items:center">
-      <span>${hist.length} of ${MAX_HISTORY} runs</span>
+      <span>${filtered.length} of ${hist.length} runs</span>
       ${hist.length ? `<a href="javascript:void(0)" id="clearHistBtn" style="color:var(--text-dim);font-size:10px;text-decoration:none">Clear</a>` : ''}
     </div>
     <div class="history-list" id="historyList">
   `;
-  if (hist.length === 0) {
-    html += `<div class="history-empty">No queries yet.<br><span style="font-family:var(--sans);font-style:normal;font-size:11.5px;color:var(--text-dim);letter-spacing:0.05em">Run a query — it'll appear here.</span></div>`;
+  if (filtered.length === 0) {
+    html += `<div class="history-empty">No matching queries.<br><span style="font-family:var(--sans);font-style:normal;font-size:11.5px;color:var(--text-dim);letter-spacing:0.05em">${hist.length === 0 ? 'Run a query — it\'ll appear here.' : 'Try adjusting your filters.'}</span></div>`;
   } else {
-    for (const h of hist) {
+    for (const h of filtered) {
       const execLabel = h.executionTime !== null && h.executionTime !== undefined
         ? `${h.executionTime}ms`
         : '—';
@@ -680,8 +707,8 @@ export function renderHistory() {
           <span class="ts">
             <span class="status-dot ${h.ok ? 'ok' : 'err'}"></span>
             ${h.db}.db · ${formatHistoryTime(h.ranAt)}
-            <span class="exec-time" style="font-size:10px;color:var(--text-dim);margin-left:4px">${execLabel} · ${rowsLabel}</span>
           </span>
+          <span class="exec-meta">${execLabel} · ${rowsLabel}</span>
           <div class="preview">${escapeHtml(previewStatement(h.sql, 140))}</div>
         </div>
       `;
@@ -689,9 +716,43 @@ export function renderHistory() {
   }
   html += '</div>';
   el.innerHTML = html;
+
+  // Wire search input
+  el.querySelector('#histSearch')?.addEventListener('input', (e) => {
+    setHistorySearch(e.target.value);
+    renderHistory();
+  });
+
+  // Wire filter chips
+  el.querySelectorAll('.hist-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.filterOk;
+      const okFilter = val === '' ? null : val === 'true';
+      setHistoryFilter(okFilter, historyFilterDb);
+      renderHistory();
+    });
+  });
+
+  // Wire database select
+  el.querySelector('#histDbFilter')?.addEventListener('change', (e) => {
+    const dbFilter = e.target.value || null;
+    setHistoryFilter(historyFilterOk, dbFilter);
+    renderHistory();
+  });
+
+  // Wire clear filters button
+  el.querySelector('#histClearFilters')?.addEventListener('click', () => {
+    setHistorySearch('');
+    setHistoryFilter(null, null);
+    renderHistory();
+  });
+
+  // Wire history item click
   el.querySelectorAll('.history-item').forEach(it => {
     it.addEventListener('click', () => _hooks.loadHistoryItem(it.dataset.id));
   });
+
+  // Wire clear history button
   const cb = document.getElementById('clearHistBtn');
   if (cb) cb.addEventListener('click', () => {
     if (confirm('Clear all query history?')) clearHistory(renderHistory);

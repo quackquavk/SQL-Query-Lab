@@ -218,6 +218,26 @@ export function addToHistory(sql, ok, error, onRender, { executionTime, rowCount
   if (cursor.currentMode === 'sandbox' && onRender) onRender();
 }
 
+// History panel filter state (module-level, not persisted across sessions)
+export let historySearch = '';
+export let historyFilterOk = null; // null = all, true = ok, false = error
+export let historyFilterDb = null;  // null = all, string = db name
+
+export function setHistorySearch(q) {
+  historySearch = q;
+  persist(true);
+}
+
+export function setHistoryFilter(ok, db) {
+  historyFilterOk = ok;
+  historyFilterDb = db;
+  persist(true);
+}
+
+export function getHistoryFilters() {
+  return { search: historySearch, ok: historyFilterOk, db: historyFilterDb };
+}
+
 export function clearHistory(onRender) {
   state.history = [];
   persist(true);
