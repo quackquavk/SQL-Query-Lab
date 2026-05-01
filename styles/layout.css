@@ -10,7 +10,10 @@
   min-height: 40px;
 }
 .tab-bar:empty {
-  display: none;
+  /* Don't use display:none — the grid row needs this track's height to prevent
+     the editor from collapsing to 0px (CodeMirror's height:100% needs a non-zero parent). */
+  height: 0;
+  overflow: hidden;
 }
 .tab-bar::-webkit-scrollbar { height: 4px; }
 .tab {

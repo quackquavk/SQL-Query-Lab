@@ -1,0 +1,89 @@
+- text: ·Query Lab loading databases
+- banner:
+  - text: ·Q Query Lab Practice every SQL statement
+  - tablist "Mode":
+    - button "●Practice"
+    - button "◆Sandbox"
+    - button "◈MS SQL"
+    - button "▶Live"
+  - combobox:
+    - option "hospital.db" [selected]
+    - option "company.db"
+    - option "school.db"
+  - button "Reset DB"
+  - spinbutton "Query timeout (seconds)": "30"
+  - button "▶ Cancel" [disabled]
+  - button "Format"
+  - button "Light theme":
+    - img
+  - button "Dark theme":
+    - img
+  - button "Auto (system) theme":
+    - img
+- complementary:
+  - button "Schema"
+  - button "ER Diagram"
+  - button "Resources"
+  - button "History"
+  - button "Snippets"
+  - button "Templates"
+  - button "Query Builder"
+  - button "Schema Diff"
+  - heading "Query history" [level=3]
+  - textbox "Search queries..."
+  - button "All"
+  - button "✓ OK"
+  - button "✗ Error"
+  - combobox:
+    - option "All databases" [selected]
+    - option "hospital"
+  - text: 3 of 3 runs
+  - link "Clear":
+    - /url: javascript:void(0)
+  - text: "hospital.db · 8m ago — · — -- Sandbox mode -- Run anything: SELECT, INSERT, UPDATE, DELETE, CREATE TABLE… -- Multi-statement scripts work — separate with ; SELECT nam… hospital.db · 17m ago 0ms · 7 rows -- Sandbox mode -- Run anything: SELECT, INSERT, UPDATE, DELETE, CREATE TABLE… -- Multi-statement scripts work — separate with ; SELECT nam… hospital.db · 18m ago — · — SELECT * FROM patients LIMIT 10-- All patients -- Database: hospital.db — Category: SELECT -- Press ⌘/Ctrl + Enter to run"
+  - button "+"
+  - button "−"
+  - button "⊙"
+- text: sandbox ◆ draft restored ⌘/Ctrl+⏎ run · ⌘/Ctrl+Q format · ⌘/Ctrl+Space hint hospital.db — 4 tables modified
+- textbox
+- text: "-- Sandbox mode -- Run anything: SELECT, INSERT, UPDATE, DELETE, CREATE TABLE… -- Multi-statement scripts work — separate with ; SELECT name FROM sqlite_master WHERE type='table'; SELECT * FROM patients LIMIT 5ELECT * FROM patients LIMIT 3"
+- button "Your Output 7"
+- button "Message"
+- button "Execution Plan"
+- button "Profile"
+- button "Diff"
+- text: Run a query to see results
+- complementary:
+  - text: Sandbox
+  - heading "Run anything." [level=2]
+  - paragraph:
+    - text: This is your scratchpad. Write any SQL —
+    - code: SELECT
+    - text: ","
+    - code: INSERT
+    - text: ","
+    - code: CREATE
+    - text: ", anything. Multi-statement scripts run in order. Changes are saved automatically and persist between sessions, per database."
+  - heading "Saved snippets 4 · 0 folders" [level=4]
+  - button "Save current as snippet →"
+  - button "+Folder →"
+  - textbox "Search snippets…"
+  - text: SELECT TOP 100 SELECT TOP 100 * FROM table_name WHERE condition; built-in
+  - button "→"
+  - text: INSERT Statement INSERT INTO table_name (column1, column2, column3) VALUES (v built-in
+  - button "→"
+  - text: UPDATE Statement UPDATE table_name SET column1 = value1, column2 = value2 WHE built-in
+  - button "→"
+  - text: DELETE Statement DELETE FROM table_name WHERE condition; built-in
+  - button "→"
+  - strong: Tip.
+  - text: Click
+  - emphasis: Reset DB
+  - text: in the top bar to wipe your changes and restore the seed data. The "modified" badge appears whenever your sandbox database differs from the original.
+  - strong: Multi-statement.
+  - text: Separate statements with
+  - code: ;
+  - text: — they all run. Only the last
+  - code: SELECT
+  - text: result shows in the table; everything else just executes.
+- text: From history Query loaded into editor.
