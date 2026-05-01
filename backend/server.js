@@ -18,6 +18,7 @@ import { serve } from '@hono/node-server';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { WebSocketServer } from 'ws';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Resolve frontend files relative to the project root (parent of backend/)
@@ -56,35 +57,42 @@ app.route('/api/restore', backupRestore);
 
 const port = process.env.PORT || 3000;
 
+// serve() returns an http.Server that we can attach WebSocket handling to
 const server = serve({
   fetch: app.fetch,
-  port,
-  websocket: {
-    upgradeWebSocket,
-  }
+  port
 });
 
-server.on('upgrade', (request, socket, head) => {
+// ── WebSocket server (standalone, co-located on the same port) ─────────────
+// We use the `ws` library directly for /api/query.
+// wss.handleUpgrade() is the correct way to handle WebSocket upgrades
+// co-located with an existing HTTP server.
+const wss = new WebSocketServer({ noServer: true });
+
+wss.on('connection', (ws, request) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
+  const userId = request.headers['x-user-id'] || 'anonymous';
 
-  if (url.pathname === '/api/query') {
-    const userId = request.headers['x-user-id'] || 'anonymous';
+  ws.on('message', async (msg) => {
+    try {
+      const data = JSON.parse(msg);
+      await handleQueryWebSocket(ws, data, userId);
+    } catch (err) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+    }
+  });
 
-    socket.on('message', async (msg) => {
-      try {
-        const data = JSON.parse(msg);
-        await handleQueryWebSocket(socket, data, userId);
-      } catch (err) {
-        socket.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
-      }
-    });
-  } else if (url.pathname === '/api/backup/progress') {
-    // WebSocket for backup/restore progress streaming
-    socket.on('message', async (msg) => {
+  ws.on('error', (err) => {
+    console.error(`[query.ws] WebSocket error: ${err.message}`);
+  });
+
+  if (url.pathname === '/api/backup/progress') {
+    // Backup progress WebSocket — echo back progress messages
+    ws.on('message', (msg) => {
       try {
         const data = JSON.parse(msg);
         if (data.type === 'backup_progress') {
-          socket.send(JSON.stringify({
+          ws.send(JSON.stringify({
             type: 'progress',
             percent: data.percent || 0,
             currentFile: data.currentFile || '',
@@ -94,6 +102,18 @@ server.on('upgrade', (request, socket, head) => {
       } catch (err) {
         // ignore malformed messages
       }
+    });
+  }
+});
+
+// Wire the http.Server upgrade event to the WebSocketServer.
+// This is the correct pattern for co-locating ws.Server with an existing HTTP server.
+server.on('upgrade', (request, socket, head) => {
+  const url = new URL(request.url, `http://${request.headers.host}`);
+
+  if (url.pathname === '/api/query' || url.pathname === '/api/backup/progress') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
     });
   }
 });

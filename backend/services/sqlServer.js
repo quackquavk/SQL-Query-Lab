@@ -26,13 +26,11 @@ function buildConfig(server, authType, credentials) {
 
   switch (authType) {
     case 'sql':
-      config.authentication = {
-        type: 'sql',
-        options: {
-          userName: credentials.username || '',
-          password: credentials.password || ''
-        }
-      };
+      // mssql v10: SQL Server auth uses type 'default' (not 'sql').
+      // Credentials go in the top-level config options, not authentication.type.
+      // See https://github.com/tediousjs/node-mssql#authentication
+      config.options.userName = credentials.username || '';
+      config.options.password = credentials.password || '';
       break;
     case 'windows':
       config.authentication = {
