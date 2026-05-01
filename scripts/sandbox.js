@@ -60,6 +60,7 @@ export function enterSandbox() {
   renderSchema();
   updateDirtyMark();
   renderSnippetList();
+  initSnippetSearch();
 
   // Expose runSandbox to window for inlineEdit re-render trigger.
   window._runSandbox = runSandboxQuery;
@@ -668,66 +669,227 @@ export function restoreTabs() {
 
 // ─── Snippets ─────────────────────────────────────────
 
+// ─── Snippets ─────────────────────────────────────────
+
+// Folder tree helpers
+function getRootFolders() {
+  return (state.folders || []).filter(f => !f.parentId).sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+function getChildFolders(parentId) {
+  return (state.folders || []).filter(f => f.parentId === parentId).sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+function getSnippetsInFolder(folderId) {
+  return (state.snippets || []).filter(s => (s.folderId || null) === folderId).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+function getAllSnippetIdsInFolder(folderId) {
+  // Returns snippet IDs in this folder and all descendant folders
+  const ids = [];
+  const childFolders = getChildFolders(folderId);
+  for (const cf of childFolders) {
+    ids.push(...getAllSnippetIdsInFolder(cf.id));
+  }
+  ids.push(...getSnippetsInFolder(folderId).map(s => s.id));
+  return ids;
+}
+
+function getFolderPath(folderId) {
+  // Returns array of folder IDs from root to this folder (for search expansion)
+  const path = [];
+  let cur = folderId;
+  while (cur) {
+    path.unshift(cur);
+    const f = (state.folders || []).find(f => f.id === cur);
+    cur = f ? f.parentId : null;
+  }
+  return path;
+}
+
+// Render folder name row
+function renderFolderName(folder, depth) {
+  const isCollapsed = !!(state.snippetFolders && state.snippetFolders[folder.id]);
+  const childFolders = getChildFolders(folder.id);
+  const snippets = getSnippetsInFolder(folder.id);
+  const totalCount = childFolders.length + snippets.length;
+  const colorDot = `<span class="folder-dot" style="background:${escapeHtml(folder.color || '#4a4a5a')}"></span>`;
+  const chevron = `<button class="folder-toggle" data-folder-id="${folder.id}">${isCollapsed ? '▶' : '▼'}</button>`;
+  const name = `<span class="folder-name" data-folder-name="${folder.id}">${escapeHtml(folder.name)}</span>`;
+  const count = totalCount > 0 ? `<span class="folder-count">${totalCount}</span>` : '';
+  const menuBtn = `<button class="folder-menu-btn" data-folder-menu="${folder.id}" title="Folder options">⋮</button>`;
+  return `<div class="folder-row" data-folder-id="${folder.id}" draggable="true" style="padding-left:${depth * 16}px">
+    ${chevron}${colorDot}${name}${count}${menuBtn}
+  </div>`;
+}
+
+// Render snippets under a folder
+function renderFolderSnippets(folderId, depth, searchMatch) {
+  const snippets = getSnippetsInFolder(folderId);
+  const filtered = searchMatch
+    ? snippets.filter(s => s.name.toLowerCase().includes(searchMatch.toLowerCase()) || s.sql.includes(searchMatch))
+    : snippets;
+  return filtered.map(s => {
+    const preview = escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 60));
+    return `<div class="snippet-row" data-id="${s.id}" data-snippet-folder="${folderId}" style="padding-left:${depth * 16}px">
+      <div class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
+      <div class="preview" title="${escapeHtml(s.sql.slice(0, 200))}">${preview}</div>
+      ${s.builtin ? '<span class="builtin-tag">built-in</span>' : ''}
+      <button class="ins-btn" data-ins="${s.id}" title="Insert at cursor">→</button>
+      ${!s.builtin ? `<button class="del" data-del="${s.id}" title="Delete snippet">×</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// Render folder tree recursively with cycle detection
+function renderFolderTree(folderId, depth, searchQuery, visited) {
+  if (visited.has(folderId)) return ''; // Cycle guard
+  visited.add(folderId);
+
+  const folders = getChildFolders(folderId);
+  const chunks = [];
+
+  for (const folder of folders) {
+    const isCollapsed = !!(state.snippetFolders && state.snippetFolders[folder.id]);
+    const childFolders = getChildFolders(folder.id);
+    const snippets = getSnippetsInFolder(folder.id);
+    const totalCount = childFolders.length + snippets.length;
+
+    // Filter by search
+    const hasMatchingSnippets = searchQuery
+      ? snippets.some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.sql.includes(searchQuery))
+      : true;
+    const hasMatchingChildFolders = searchQuery
+      ? childFolders.some(cf => {
+          const childSnippets = getSnippetsInFolder(cf.id);
+          const descendantIds = getAllSnippetIdsInFolder(cf.id);
+          const descendantSnippets = (state.snippets || []).filter(s => descendantIds.includes(s.id));
+          return cf.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                 descendantSnippets.some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.sql.includes(searchQuery));
+        })
+      : true;
+
+    // Skip empty non-matching folders in search mode
+    if (searchQuery && !hasMatchingSnippets && !hasMatchingChildFolders && !folder.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+      continue;
+    }
+
+    const childTree = renderFolderTree(folder.id, depth + 1, searchQuery, new Set(visited));
+    const hasChildren = childTree.length > 0 || snippets.length > 0;
+
+    const colorDot = `<span class="folder-dot" style="background:${escapeHtml(folder.color || '#4a4a5a')}"></span>`;
+    const chevron = `<button class="folder-toggle" data-folder-id="${folder.id}">${isCollapsed ? '▶' : '▼'}</button>`;
+    const name = `<span class="folder-name" data-folder-name="${folder.id}">${escapeHtml(folder.name)}</span>`;
+    const count = totalCount > 0 ? `<span class="folder-count">${totalCount}</span>` : '';
+    const menuBtn = `<button class="folder-menu-btn" data-folder-menu="${folder.id}" title="Folder options">⋮</button>`;
+
+    chunks.push(`<div class="snippet-folder" data-folder-id="${folder.id}">
+      <div class="folder-row" data-folder-id="${folder.id}" draggable="true" style="padding-left:${depth * 16}px">
+        ${chevron}${colorDot}${name}${count}${menuBtn}
+      </div>
+      <div class="folder-children${isCollapsed ? ' collapsed' : ''}" data-folder-children="${folder.id}">
+        ${!isCollapsed ? (childTree + renderFolderSnippets(folder.id, depth + 1, searchQuery ? searchQuery : null)) : ''}
+      </div>
+    </div>`);
+  }
+
+  return chunks.join('');
+}
+
+// Build inline context menu HTML for a folder
+function buildContextMenuHTML(folder) {
+  const colors = [
+    { hex: '#4a4a5a', name: 'Gray' },
+    { hex: '#e53935', name: 'Red' },
+    { hex: '#fb8c00', name: 'Orange' },
+    { hex: '#fdd835', name: 'Yellow' },
+    { hex: '#43a047', name: 'Green' },
+    { hex: '#1e88e5', name: 'Blue' }
+  ];
+  const colorSwatches = colors.map(c =>
+    `<button class="color-swatch" data-color="${c.hex}" style="background:${c.hex}" title="${c.name}"></button>`
+  ).join('');
+  return `<div class="folder-context-menu" data-menu-folder="${folder.id}">
+    <div class="ctx-rename-row">
+      <input class="ctx-rename-input" type="text" value="${escapeHtml(folder.name)}" placeholder="Folder name" data-rename-folder="${folder.id}" />
+    </div>
+    <div class="ctx-color-row">
+      ${colorSwatches}
+    </div>
+    <div class="ctx-delete-row">
+      <button class="ctx-delete-btn" data-delete-folder="${folder.id}">Delete folder</button>
+    </div>
+  </div>`;
+}
+
 export function renderSnippetList() {
   const list = document.getElementById('snippetList');
   const count = document.getElementById('snippetCount');
   if (!list) return;
 
-  const builtin = BUILTIN_SNIPPETS || [];
-  const userSnippets = state.snippets || [];
-  const allSnippets = [...builtin, ...userSnippets];
-  const snippets = allSnippets;
-  const folders = (state.folders || []).sort((a, b) => (a.order || 0) - (b.order || 0));
+  // Get search query from snippet search input (if present)
+  const searchInput = document.getElementById('snippetSearchInput');
+  const searchQuery = searchInput ? searchInput.value.trim() : '';
 
-  // Build items array: folders at top level, root snippets and folderless snippets below
-  const rootItems = [];
-  const folderSnippets = {};
+  // Built-in snippets — detected by s.builtin flag, not folderId
+  const builtinSnippets = (BUILTIN_SNIPPETS || []).filter(s => s.builtin);
 
-  // Group snippets by folderId
-  (state.snippets || []).forEach(sn => {
-    const fid = sn.folderId || '__root__';
-    if (!folderSnippets[fid]) folderSnippets[fid] = [];
-    folderSnippets[fid].push(sn);
-  });
-  if (!folderSnippets['__root__']) folderSnippets['__root__'] = [];
+  // User snippets at root (folderId null/undefined AND not built-in)
+  const rootUserSnippets = (state.snippets || []).filter(s => !s.builtin && !s.folderId);
 
-  const buildHtml = (parentId, depth) => {
-    let html = '';
-    const indent = depth * 16;
-    // Render child folders
-    folders.filter(f => f.parentId === parentId).forEach(folder => {
-      const isCollapsed = (state.snippetFolders || {})[folder.id];
-      const childHtml = buildHtml(folder.id, depth + 1);
-      const isEmpty = !childHtml && (!folderSnippets[folder.id] || folderSnippets[folder.id].length === 0);
-      html += `<div class="snippet-folder" data-folder-id="${folder.id}" style="padding-left:${indent}px" ${folder.builtin ? '' : ''}>
-        <div class="folder-row" data-folder-id="${folder.id}" draggable="true">
-          <button class="folder-toggle" data-folder-id="${folder.id}">${isCollapsed ? '▶' : '▼'}</button>
-          <span class="folder-dot" style="background:${escapeHtml(folder.color || '#4a4a5a')}"></span>
-          <span class="folder-name" title="${escapeHtml(folder.name)}">${escapeHtml(folder.name)}</span>
-          <span class="folder-count">${(folderSnippets[folder.id] || []).length}</span>
-          ${!parentId ? `<button class="folder-del" data-folder-del="${folder.id}" title="Delete folder">×</button>` : ''}
-        </div>
-        ${!isCollapsed ? childHtml : ''}
-      </div>`;
+  // Build built-in section
+  const builtinsHtml = builtinSnippets.map(s => {
+    const preview = escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 60));
+    return `<div class="snippet-row" data-id="${s.id}" style="padding-left:0px">
+      <div class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
+      <div class="preview" title="${escapeHtml(s.sql.slice(0, 200))}">${preview}</div>
+      <span class="builtin-tag">built-in</span>
+      <button class="ins-btn" data-ins="${s.id}" title="Insert at cursor">→</button>
+    </div>`;
+  }).join('');
+
+  // Build root user snippets (unfiled)
+  const rootUserHtml = searchQuery
+    ? rootUserSnippets.filter(s =>
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.sql.includes(searchQuery)
+      ).map(s => {
+        const preview = escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 60));
+        return `<div class="snippet-row" data-id="${s.id}" style="padding-left:0px">
+          <div class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
+          <div class="preview" title="${escapeHtml(s.sql.slice(0, 200))}">${preview}</div>
+          <button class="ins-btn" data-ins="${s.id}" title="Insert at cursor">→</button>
+          <button class="del" data-del="${s.id}" title="Delete snippet">×</button>
+        </div>`;
+      }).join('')
+    : '';
+
+  // Build folder tree
+  const treeHtml = renderFolderTree(null, 0, searchQuery || null, new Set());
+
+  // Handle search: force-expand all ancestor folders of matching snippets
+  let forceExpandFolders = [];
+  if (searchQuery) {
+    // Find all folders that need to be expanded (ancestors of matching snippets)
+    const matchingSnippets = (state.snippets || []).filter(s =>
+      (s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.sql.includes(searchQuery))
+    );
+    matchingSnippets.forEach(s => {
+      if (s.folderId) {
+        forceExpandFolders.push(...getFolderPath(s.folderId));
+      }
     });
-    // Render snippets in this folder (parentId null means root, stored as '__root__' key)
-    const rootKey = '__root__';
-    const folderSnipList = parentId ? (folderSnippets[parentId] || []) : (folderSnippets[rootKey] || []);
-    folderSnipList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).forEach(s => {
-      html += `<div class="snippet-row" data-id="${s.id}" data-snippet-folder="${parentId}" style="padding-left:${indent + 16}px">
-        <div class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
-        <div class="preview" title="${escapeHtml(s.sql.slice(0, 200))}">${escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 60))}</div>
-        ${s.builtin ? '<span class="builtin-tag">built-in</span>' : ''}
-        <button class="ins-btn" data-ins="${s.id}" title="Insert at cursor">→</button>
-        ${!s.builtin ? `<button class="del" data-del="${s.id}" title="Delete snippet">×</button>` : ''}
-      </div>`;
+    // Also include folders that match by name
+    (state.folders || []).forEach(f => {
+      if (f.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        forceExpandFolders.push(...getFolderPath(f.id));
+      }
     });
-    return html;
-  };
+    forceExpandFolders = [...new Set(forceExpandFolders)];
+  }
 
-  const topLevelHtml = buildHtml(null, 0);
-
-  const totalSnippets = allSnippets.length;
+  const totalSnippets = builtinSnippets.length + rootUserSnippets.length + (state.snippets || []).filter(s => s.folderId).length;
+  const folders = state.folders || [];
   count.textContent = totalSnippets + ' · ' + folders.length + ' folders';
 
   if (totalSnippets === 0 && folders.length === 0) {
@@ -735,9 +897,29 @@ export function renderSnippetList() {
     return;
   }
 
-  list.innerHTML = topLevelHtml;
+  // Compose full HTML
+  let html = '';
+  if (builtinsHtml) html += `<div class="snippet-builtins">${builtinsHtml}</div>`;
+  if (searchQuery && rootUserHtml) html += rootUserHtml;
+  else if (!searchQuery && rootUserSnippets.length > 0) {
+    html += rootUserSnippets.map(s => {
+      const preview = escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 60));
+      return `<div class="snippet-row" data-id="${s.id}" style="padding-left:0px">
+        <div class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
+        <div class="preview" title="${escapeHtml(s.sql.slice(0, 200))}">${preview}</div>
+        <button class="ins-btn" data-ins="${s.id}" title="Insert at cursor">→</button>
+        <button class="del" data-del="${s.id}" title="Delete snippet">×</button>
+      </div>`;
+    }).join('');
+  }
+  html += treeHtml;
 
-  // Folder toggle
+  list.innerHTML = html;
+
+  // Close any existing context menus
+  list.querySelectorAll('.folder-context-menu').forEach(el => el.remove());
+
+  // Folder toggle — expand all ancestors if searching
   list.querySelectorAll('.folder-toggle').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -749,45 +931,95 @@ export function renderSnippetList() {
     });
   });
 
-  // Folder right-click context menu
-  list.querySelectorAll('.folder-row').forEach(row => {
-    row.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      const fid = row.dataset.folderId;
+  // Folder context menu button (⋮)
+  list.querySelectorAll('.folder-menu-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const fid = btn.dataset.folderMenu;
+      // Close any existing menus first
+      list.querySelectorAll('.folder-context-menu').forEach(el => el.remove());
       const folder = (state.folders || []).find(f => f.id === fid);
       if (!folder) return;
-      const action = prompt('Folder options:\n1. Rename\n2. Change color\n3. Delete\n\nEnter 1, 2, or 3:');
-      if (action === '1') {
-        const newName = prompt('New folder name:', folder.name);
-        if (newName) renameFolder(fid, newName);
-      } else if (action === '2') {
-        const colors = ['#4a4a5a', '#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5', '#8e24aa'];
-        const picked = prompt('Pick a color (1-7):\n1. Gray\n2. Red\n3. Orange\n4. Yellow\n5. Green\n6. Blue\n7. Purple', '6');
-        if (picked) {
-          const idx = parseInt(picked) - 1;
-          if (idx >= 0 && idx < colors.length) setFolderColor(fid, colors[idx]);
-        }
-      } else if (action === '3') {
-        if (confirm('Delete folder "' + folder.name + '"? Snippets in this folder move to root.')) {
-          deleteFolder(fid);
-        }
+      // Build and inject context menu
+      const menu = document.createElement('div');
+      menu.innerHTML = buildContextMenuHTML(folder);
+      const menuEl = menu.firstElementChild;
+      // Position near the button
+      const btnRect = btn.getBoundingClientRect();
+      const listRect = list.getBoundingClientRect();
+      menuEl.style.position = 'absolute';
+      menuEl.style.left = (btnRect.left - listRect.left) + 'px';
+      menuEl.style.top = (btnRect.bottom - listRect.top) + 'px';
+      menuEl.style.zIndex = '1000';
+      list.style.position = 'relative';
+      list.appendChild(menuEl);
+      // Focus rename input
+      const renameInput = menuEl.querySelector('.ctx-rename-input');
+      if (renameInput) {
+        renameInput.focus();
+        renameInput.select();
       }
+      // Stop event propagation so click-outside doesn't immediately close it
+      menuEl.addEventListener('click', e => e.stopPropagation());
     });
   });
 
-  // Folder delete button (top-level only)
-  list.querySelectorAll('.folder-del').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const fid = btn.dataset.folderDel;
+  // Click-outside closes context menu
+  const closeMenuHandler = (e) => {
+    list.querySelectorAll('.folder-context-menu').forEach(menu => {
+      if (!menu.contains(e.target) && !e.target.classList.contains('folder-menu-btn')) {
+        menu.remove();
+      }
+    });
+  };
+  document.removeEventListener('click', closeMenuHandler);
+  document.addEventListener('click', closeMenuHandler);
+
+  // Context menu rename
+  list.addEventListener('keydown', (e) => {
+    if (e.target.classList.contains('ctx-rename-input')) {
+      if (e.key === 'Enter') {
+        const fid = e.target.dataset.renameFolder;
+        const newName = e.target.value.trim();
+        if (newName) {
+          renameFolder(fid, newName);
+        }
+        e.target.closest('.folder-context-menu')?.remove();
+      } else if (e.key === 'Escape') {
+        e.target.closest('.folder-context-menu')?.remove();
+      }
+    }
+  });
+
+  list.addEventListener('change', (e) => {
+    if (e.target.classList.contains('ctx-rename-input')) {
+      const fid = e.target.dataset.renameFolder;
+      const newName = e.target.value.trim();
+      if (newName) renameFolder(fid, newName);
+      e.target.closest('.folder-context-menu')?.remove();
+    }
+  });
+
+  // Context menu color swatches
+  list.addEventListener('click', (e) => {
+    if (e.target.classList.contains('color-swatch')) {
+      const fid = e.target.closest('.folder-context-menu')?.dataset.menuFolder;
+      if (fid) {
+        setFolderColor(fid, e.target.dataset.color);
+        e.target.closest('.folder-context-menu')?.remove();
+      }
+    }
+    if (e.target.classList.contains('ctx-delete-btn')) {
+      const fid = e.target.dataset.deleteFolder;
       const folder = (state.folders || []).find(f => f.id === fid);
       if (folder && confirm('Delete folder "' + folder.name + '"? Snippets will move to root.')) {
         deleteFolder(fid);
       }
-    });
+      e.target.closest('.folder-context-menu')?.remove();
+    }
   });
 
-  // Snippet rows
+  // Snippet rows — click to load, prevent drag from firing
   list.querySelectorAll('.snippet-row').forEach(r => {
     r.addEventListener('click', (e) => {
       if (e.target.classList.contains('del') || e.target.classList.contains('ins-btn')) return;
@@ -1088,4 +1320,15 @@ export function setFolderColor(id, color) {
   state.folders[idx].color = color || '#4a4a5a';
   persist(true);
   renderSnippetList();
+}
+
+// Wire search input for snippet filtering (called from enterSandbox)
+export function initSnippetSearch() {
+  const input = document.getElementById('snippetSearchInput');
+  if (!input) return;
+  let timer = null;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => renderSnippetList(), 150);
+  });
 }
