@@ -2,7 +2,7 @@
 // snippet management, MS SQL T-SQL translation.
 
 import * as runtime from './runtime.js';
-import { state, persist, addToHistory, BUILTIN_SNIPPETS } from './state.js';
+import { state, persist, addToHistory, BUILTIN_SNIPPETS, BUILTIN_TEMPLATES } from './state.js';
 import {
   cloneFromPristine, loadOrCreateSandboxDb, persistSandboxDbDebounced,
   updateDbStatus, updateHintTables
@@ -668,6 +668,60 @@ export function restoreTabs() {
 }
 
 // ─── Snippets ─────────────────────────────────────────
+
+// ─── Template CRUD ──────────────────────────────────────────────────────────
+
+// Find a template by id — checks BUILTIN_TEMPLATES first, then userTemplates
+function findTemplate(id) {
+  return BUILTIN_TEMPLATES.find(t => t.id === id)
+    || (state.userTemplates || []).find(t => t.id === id)
+    || null;
+}
+
+// Insert a template's SQL at the current editor cursor position
+export function insertTemplateAtCursor(id) {
+  const editor = runtime.editor;
+  const tpl = findTemplate(id);
+  if (!tpl) {
+    toast('Template not found.', 'Error');
+    return;
+  }
+  const from = editor.listSelections()[0];
+  editor.replaceRange(tpl.sql, from.from, from.to);
+  editor.focus();
+  toast('Inserted "' + tpl.name + '"', 'Template');
+}
+
+// Save a new user template
+export function saveUserTemplate({ name, description, sql }) {
+  if (!name || !sql) return;
+  state.userTemplates = state.userTemplates || [];
+  state.userTemplates.push({
+    id: 'tpl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    name,
+    description: description || '',
+    sql,
+    builtin: false,
+    createdAt: Date.now()
+  });
+  persist(true);
+}
+
+// Update an existing user template
+export function updateUserTemplate(id, patch) {
+  if (!id) return;
+  const idx = (state.userTemplates || []).findIndex(t => t.id === id);
+  if (idx === -1) return;
+  state.userTemplates[idx] = { ...state.userTemplates[idx], ...patch, updatedAt: Date.now() };
+  persist(true);
+}
+
+// Delete a user template (built-ins are not deletable)
+export function deleteUserTemplate(id) {
+  if (!id) return;
+  state.userTemplates = (state.userTemplates || []).filter(t => t.id !== id);
+  persist(true);
+}
 
 // ─── Snippets ─────────────────────────────────────────
 
