@@ -12,8 +12,16 @@ export function setErDiagramHooks({ onTableSelect, onTableEdit }) {
 }
 
 // Fetch schema from backend API
-export async function fetchErSchema(database) {
-  const res = await fetch(`/api/schema/${encodeURIComponent(database)}`);
+// Requires connectionId to forward auth headers for live SQL Server connections
+export async function fetchErSchema(connectionId, database) {
+  const conn = runtime.connections?.[connectionId];
+  const headers = {
+    'X-User-Id': 'browser-user',
+    'X-Server': conn?.server || '',
+    'X-Auth-Type': conn?.authType || 'default',
+    'X-Credentials': JSON.stringify(conn?.credentials || {})
+  };
+  const res = await fetch(`/api/schema/${encodeURIComponent(database)}`, { headers });
   if (!res.ok) throw new Error(`Schema fetch failed: ${res.status}`);
   return res.json();
 }

@@ -820,8 +820,9 @@ function getContextMenuItems(nodeType, nodeName, database) {
         const panel = document.getElementById('erDiagramPanel');
         const svg = panel?.querySelector('svg');
         if (!svg) { showFeedback('error', 'ER Diagram', 'ER diagram SVG element not found'); return; }
+        if (!connId) { showFeedback('error', 'ER Diagram', 'No active connection'); return; }
         try {
-          const schema = await apiClient.fetchErSchema(database);
+          const schema = await apiClient.fetchErSchema(connId, database);
           const { initErDiagram } = await import('./erDiagram.js');
           initErDiagram(svg, schema);
           document.getElementById('leftContent').style.display = 'none';
@@ -863,8 +864,9 @@ function getContextMenuItems(nodeType, nodeName, database) {
         const panel = document.getElementById('erDiagramPanel');
         const svg = panel?.querySelector('svg');
         if (!svg) { showFeedback('error', 'ER Diagram', 'ER diagram SVG element not found'); return; }
+        if (!connId) { showFeedback('error', 'ER Diagram', 'No active connection'); return; }
         try {
-          const schema = await apiClient.fetchErSchema(database);
+          const schema = await apiClient.fetchErSchema(connId, database);
           const { initErDiagram } = await import('./erDiagram.js');
           initErDiagram(svg, schema);
           document.getElementById('leftContent').style.display = 'none';

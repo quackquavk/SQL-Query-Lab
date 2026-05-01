@@ -318,9 +318,18 @@ export async function toggleConnectionFavorite(connectionId) {
 /**
  * Fetch schema for ER diagram (tables, columns, relationships).
  * GET /api/schema/:database
+ * Requires connectionId to forward auth headers for live SQL Server connections.
  */
-export async function fetchErSchema(database) {
-  const res = await fetch(`${API_BASE}/schema/${encodeURIComponent(database)}`);
+export async function fetchErSchema(connectionId, database) {
+  // Look up saved connection to forward auth headers to the backend
+  const conn = await getConnection(connectionId);
+  const headers = {
+    'X-User-Id': 'browser-user',
+    'X-Server': conn.server || '',
+    'X-Auth-Type': conn.authType || 'default',
+    'X-Credentials': JSON.stringify(conn.credentials || {})
+  };
+  const res = await fetch(`${API_BASE}/schema/${encodeURIComponent(database)}`, { headers });
   if (!res.ok) throw new Error(`Schema fetch failed: ${res.status}`);
   return res.json();
 }

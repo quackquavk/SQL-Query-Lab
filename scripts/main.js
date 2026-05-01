@@ -116,7 +116,7 @@ async function initErDiagramPanel() {
   if (!connId) return;
   try {
     const { fetchErSchema } = await import('./erDiagram.js');
-    const schema = await fetchErSchema(runtime.cursor.currentDbName);
+    const schema = await fetchErSchema(connId, runtime.cursor.currentDbName);
     const { initErDiagram } = await import('./erDiagram.js');
     initErDiagram(svg, schema);
   } catch (err) {
