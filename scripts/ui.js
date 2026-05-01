@@ -2,7 +2,7 @@
 // Also includes streaming results grid renderer for live query mode.
 
 import * as runtime from './runtime.js';
-import { state, solved, persist, MAX_HISTORY, formatHistoryTime, clearHistory, historySearch, historyFilterOk, historyFilterDb, setHistorySearch, setHistoryFilter, getHistoryFilters } from './state.js';
+import { state, solved, persist, MAX_HISTORY, formatHistoryTime, clearHistory, historySearch, historyFilterOk, historyFilterDb, setHistorySearch, setHistoryFilter, getHistoryFilters, BUILTIN_TEMPLATES, TEMPLATE_CATEGORIES } from './state.js';
 import { QUESTIONS } from './questions.js';
 import { activeDb } from './db.js';
 import { escapeHtml, previewStatement, exportToCsv, exportToJson, exportToXlsx, downloadBlob } from './utils.js';
@@ -1059,6 +1059,146 @@ export function renderSnippets() {
     getSandboxModule().then(mod => {
       mod.saveSnippet({ name, category, sql });
       renderSnippets();
+    });
+  });
+}
+
+// ─── Templates Panel ──────────────────────────────────────────────────────
+
+let _tmplSearch = '';
+let _tmplCategory = 'All';
+let _tmplModule = null;
+async function getSandboxModule() {
+  if (!_tmplModule) _tmplModule = await import('./sandbox.js');
+  return _tmplModule;
+}
+
+export function renderTemplates() {
+  const el = document.getElementById('leftContent');
+  const builtinTemplates = BUILTIN_TEMPLATES || [];
+  const userTemplates = state.userTemplates || [];
+  const allTemplates = [...builtinTemplates, ...userTemplates];
+  const categories = ['All', ...TEMPLATE_CATEGORIES];
+
+  let html = `
+    <h3>SQL Templates</h3>
+    <div class="tmpl-search-wrap">
+      <input type="text" class="tmpl-search" id="tmplSearch" placeholder="Search templates..." value="${escapeHtml(_tmplSearch)}" />
+    </div>
+    <div class="tmpl-cats">
+  `;
+
+  for (const cat of categories) {
+    html += `<button class="tmpl-cat-chip ${_tmplCategory === cat ? 'active' : ''}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`;
+  }
+  html += `</div>`;
+
+  // Filter
+  let filtered = allTemplates;
+  if (_tmplCategory !== 'All') {
+    filtered = filtered.filter(t => t.category === _tmplCategory);
+  }
+  if (_tmplSearch) {
+    const q = _tmplSearch.toLowerCase();
+    filtered = filtered.filter(t =>
+      (t.name || '').toLowerCase().includes(q) ||
+      (t.description || '').toLowerCase().includes(q)
+    );
+  }
+
+  html += `<div class="tmpl-panel-list">`;
+  if (filtered.length === 0) {
+    html += `<div class="tmpl-empty">No templates match.</div>`;
+  } else {
+    for (const t of filtered) {
+      const isBuiltin = t.builtin !== undefined;
+      html += `
+        <div class="tmpl-row" data-id="${t.id}">
+          <div class="tmpl-row-head">
+            <span class="name">${escapeHtml(t.name)}</span>
+            ${isBuiltin ? '<span class="builtin-tag">built-in</span>' : ''}
+          </div>
+          <div class="desc">${escapeHtml(t.description || '')}</div>
+          <div class="preview">${escapeHtml((t.sql || '').replace(/\s+/g, ' ').slice(0, 80))}</div>
+          <div class="s-row-actions">
+            <button class="tmpl-ins-btn" data-ins="${t.id}">Insert</button>
+            ${!isBuiltin ? `<button class="tmpl-edit-btn" data-edit="${t.id}">Edit</button>
+            <button class="tmpl-del-btn" data-del="${t.id}">Delete</button>` : ''}
+          </div>
+        </div>
+      `;
+    }
+  }
+  html += `</div>`;
+
+  html += `
+    <div class="tmpl-save-btn-wrap">
+      <button class="tmpl-save-btn" id="newTmplBtn">+ Save as Template</button>
+    </div>
+  `;
+
+  el.innerHTML = html;
+
+  // Search
+  el.querySelector('#tmplSearch')?.addEventListener('input', (e) => {
+    _tmplSearch = e.target.value;
+    renderTemplates();
+  });
+
+  // Category chips
+  el.querySelectorAll('.tmpl-cat-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _tmplCategory = btn.dataset.cat;
+      renderTemplates();
+    });
+  });
+
+  // Insert button
+  el.querySelectorAll('.tmpl-ins-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      getSandboxModule().then(mod => mod.insertTemplateAtCursor(b.dataset.ins));
+    });
+  });
+
+  // Edit button (user templates only)
+  el.querySelectorAll('.tmpl-edit-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const tpl = (state.userTemplates || []).find(x => x.id === b.dataset.edit);
+      if (!tpl) return;
+      const name = prompt('Template name:', tpl.name);
+      if (!name) return;
+      const description = prompt('Description:', tpl.description || '');
+      if (description === null) return;
+      const sql = prompt('SQL:', tpl.sql);
+      if (!sql) return;
+      getSandboxModule().then(mod => {
+        mod.updateUserTemplate(b.dataset.edit, { name, description, sql });
+        renderTemplates();
+      });
+    });
+  });
+
+  // Delete button (user templates only)
+  el.querySelectorAll('.tmpl-del-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      if (!confirm('Delete this template?')) return;
+      getSandboxModule().then(mod => {
+        mod.deleteUserTemplate(b.dataset.del);
+        renderTemplates();
+      });
+    });
+  });
+
+  // Save as Template button
+  el.querySelector('#newTmplBtn')?.addEventListener('click', () => {
+    const name = prompt('Template name:');
+    if (!name) return;
+    const description = prompt('Description:', '') || '';
+    const sql = prompt('SQL:');
+    if (!sql) return;
+    getSandboxModule().then(mod => {
+      mod.saveUserTemplate({ name, description, sql });
+      renderTemplates();
     });
   });
 }

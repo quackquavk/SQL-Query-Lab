@@ -14,7 +14,7 @@ import {
   showFeedback, switchTab, toast, renderSchema, renderResources, renderHistory,
   renderResultsTab, renderFilters, renderQuestionList, updateDirtyMark,
   setUiHooks, renderResultsStreaming, handleExportCsv, handleExportJson,
-  clearResultSets, storeResultSet, renderSnippets, initObjectExplorer
+  clearResultSets, storeResultSet, renderSnippets, renderTemplates, initObjectExplorer
 } from './ui.js';
 import { formatEditorSql } from './format.js';
 import { initEditor, injectCodemirrorFontFix } from './editor.js';
@@ -379,6 +379,7 @@ function wireUI() {
       else if (which === 'er-diagram') { showPanel('er-diagram'); initErDiagramPanel(); }
       else if (which === 'history') { showPanel('left-content'); renderHistory(); }
       else if (which === 'snippets') { showPanel('left-content'); renderSnippets(); }
+      else if (which === 'templates') { showPanel('left-content'); renderTemplates(); }
       else if (which === 'query-builder') { showPanel('query-builder'); initQueryBuilderPanel(); }
       else { showPanel('left-content'); renderResources(); }
     });
