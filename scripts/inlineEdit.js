@@ -14,9 +14,10 @@ import {
 // Track the currently active input element and its parent table.
 let _activeInput = null;
 let _activeTable = null;
+let _lastKey = null; // Track last key to guard blur handler against Tab navigation
 
 // Expose for browser-console testing / verification.
-window._inlineEdit = { getActive: () => _activeInput, getTable: () => _activeTable };
+window._inlineEdit = { getActive: () => _activeInput, getTable: () => _activeTable, activateNext: activateNextCell };
 
 /**
  * Attach double-click handlers to all <td> cells inside tableEl.
@@ -130,17 +131,30 @@ export function startEditing(td) {
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation(); // Prevent Enter from bubbling to CodeMirror.
-      commitEdit(td, colName, tableName, headerNames, headers);
+      _handleEnter(td, colName, tableName, headerNames, headers);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       cancelEdit(td);
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      e.stopPropagation(); // Prevent Tab from stealing focus from the input.
-      // Commit current, then move to next cell.
-      commitEdit(td, colName, tableName, headerNames, headers);
-      moveToNextCell(td, colIdx, rowIdx, headers);
+      e.stopPropagation();
+      _lastKey = 'Tab'; // Signal blur handler that this is a Tab, not a click-away.
+      // Commit current; only move if commit succeeds.
+      _handleTab(td, colName, tableName, headerNames, headers);
+    }
+  });
+
+  // Blur handler — clicking outside the input cancels the edit.
+  // _lastKey guard prevents cancel on Tab navigation (Tab fires blur + keydown before tab focus moves).
+  input.addEventListener('blur', () => {
+    if (_lastKey === 'Tab') {
+      // Tab navigation: blur is expected, will be handled by _handleTab → activateNextCell.
+      return;
+    }
+    // Real click-outside: cancel the edit.
+    if (_activeInput) {
+      cancelEdit(td);
     }
   });
 
@@ -152,10 +166,39 @@ export function startEditing(td) {
 }
 
 /**
- * Commit the edit: validate the new value, build and execute UPDATE, re-render results.
+ * Handle Enter key: commit the edit, then clean up on success.
+ * On validation error the input stays focused and the caller returns early.
  */
-function commitEdit(td, colName, tableName, headerNames, headers) {
-  if (!_activeInput) return;
+function _handleEnter(td, colName, tableName, headerNames, headers) {
+  let committed = false;
+  commitEdit(td, colName, tableName, headerNames, headers, (ok) => { committed = ok; });
+}
+
+/**
+ * Handle Tab key: commit the current cell, then advance to next cell.
+ * Only advances after a successful commit — validation or SQL errors keep
+ * the input focused in the current cell.
+ */
+function _handleTab(td, colName, tableName, headerNames, headers) {
+  let committed = false;
+  // Clear the input guard early so activateNextCell → startEditing can run.
+  // The 350ms cleanup timer still fires and clears CSS state.
+  _activeInput = null;
+  _activeTable = null;
+  commitEdit(td, colName, tableName, headerNames, headers, (ok) => { committed = ok; });
+  // Clear _lastKey after commit so blur can distinguish click-outside from Tab.
+  _lastKey = null;
+  if (committed) {
+    activateNextCell(td, td.dataset.col, td.dataset.row, headers);
+  }
+}
+
+/**
+ * Commit the edit: validate the new value, build and execute UPDATE, re-render results.
+ * Calls onComplete(true) on success, onComplete(false) on failure/validation error.
+ */
+function commitEdit(td, colName, tableName, headerNames, headers, onComplete) {
+  if (!_activeInput) { onComplete?.(false); return; }
 
   const input = _activeInput;
   const newValue = input.value.trim();
@@ -172,6 +215,7 @@ function commitEdit(td, colName, tableName, headerNames, headers) {
     showFeedback('error', 'Invalid value', validation.reason);
     // Keep focus on the input.
     setTimeout(() => { input.focus(); input.selectionStart = input.value.length; }, 0);
+    onComplete?.(false);
     return;
   }
 
@@ -188,6 +232,7 @@ function commitEdit(td, colName, tableName, headerNames, headers) {
   if (pkValues.some(v => v === null || v === undefined)) {
     showFeedback('error', 'Cannot update', 'Could not determine primary key values for this row.');
     cancelEdit(td);
+    onComplete?.(false);
     return;
   }
 
@@ -197,6 +242,7 @@ function commitEdit(td, colName, tableName, headerNames, headers) {
   if (!db) {
     showFeedback('error', 'Database error', 'No active database for UPDATE.');
     cancelEdit(td);
+    onComplete?.(false);
     return;
   }
 
@@ -206,6 +252,7 @@ function commitEdit(td, colName, tableName, headerNames, headers) {
     showFeedback('error', 'UPDATE failed', e.message);
     // Restore cell on error.
     restoreCell(td, originalValue);
+    onComplete?.(false);
     return;
   }
 
@@ -215,6 +262,18 @@ function commitEdit(td, colName, tableName, headerNames, headers) {
 
   // Sync the cell text to the new value so it reflects immediately.
   td.textContent = newValue;
+
+  // Clear _activeInput BEFORE calling onComplete so that activateNextCell's
+  // startEditing() check (which guards against a pre-existing input) passes.
+  // The setTimeout only handles cosmetic cleanup (cell-modified class removal).
+  _activeInput = null;
+  _activeTable = null;
+  delete td.dataset.originalValue;
+  const table = td.closest('table.result-table');
+  if (table) table.dataset.editing = 'false';
+
+  // Signal success to the keyboard handler so it can advance to the next cell.
+  onComplete?.(true);
 
   setTimeout(() => {
     td.classList.remove('cell-modified');
@@ -255,31 +314,50 @@ function restoreCell(td, originalValue) {
 }
 
 /**
- * Move to the next editable cell after committing the current one.
- * Used for Tab key navigation.
+ * Activate the next editable cell in column order (left-to-right, then wrap to next row).
+ * If the current commit failed (validation or SQL error) this function is NOT called —
+ * the input stays in place.
  */
-function moveToNextCell(currentTd, colIdx, rowIdx, headers) {
+export function activateNextCell(currentTd, colIdx, rowIdx, headers) {
   const table = currentTd.closest('table.result-table');
   if (!table) return;
 
-  const body = table.querySelector('tbody');
-  if (!body) return;
-
-  const rows = body.querySelectorAll('tr');
+  const allRows = Array.from(table.querySelectorAll('tbody tr'));
   const currentRowIdx = parseInt(rowIdx, 10);
+  const currentColIdx = parseInt(colIdx, 10);
 
-  // Move to next row in same column.
-  let nextRow = rows[currentRowIdx + 1];
-  if (!nextRow) {
-    // Wrap to first row.
-    nextRow = rows[0];
+  // Collect all cells in the current row ordered by column index.
+  const cellsInRow = allRows[currentRowIdx]
+    ? Array.from(allRows[currentRowIdx].querySelectorAll('td'))
+        .filter(td => td.dataset.col !== undefined)
+        .sort((a, b) => parseInt(a.dataset.col, 10) - parseInt(b.dataset.col, 10))
+    : [];
+
+  // Find the next cell in this row.
+  const nextIdx = currentColIdx + 1;
+  if (nextIdx < cellsInRow.length) {
+    startEditing(cellsInRow[nextIdx]);
+    return;
   }
 
-  if (nextRow) {
-    const tds = nextRow.querySelectorAll('td');
-    const nextTd = tds[colIdx];
-    if (nextTd) {
-      startEditing(nextTd);
+  // No more cells in this row — wrap to first cell of the next row.
+  const nextRowIdx = currentRowIdx + 1;
+  if (nextRowIdx < allRows.length) {
+    const nextCells = Array.from(allRows[nextRowIdx].querySelectorAll('td'))
+      .filter(td => td.dataset.col !== undefined)
+      .sort((a, b) => parseInt(a.dataset.col, 10) - parseInt(b.dataset.col, 10));
+    if (nextCells.length > 0) {
+      startEditing(nextCells[0]);
+    }
+  } else {
+    // Wrap back to first row, first cell.
+    const firstRowCells = allRows[0]
+      ? Array.from(allRows[0].querySelectorAll('td'))
+          .filter(td => td.dataset.col !== undefined)
+          .sort((a, b) => parseInt(a.dataset.col, 10) - parseInt(b.dataset.col, 10))
+      : [];
+    if (firstRowCells.length > 0) {
+      startEditing(firstRowCells[0]);
     }
   }
 }
