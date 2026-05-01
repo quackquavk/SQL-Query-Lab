@@ -355,7 +355,6 @@ export function renderSchemaDiff(svgEl, diff) {
   });
 
   setupZoom(svgEl);
-  addZoomControls(svgEl);
 }
 
 function selectDiffTable(tableName, diffEntry, cat) {

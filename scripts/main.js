@@ -38,6 +38,10 @@ import {
 import { exportToCsv, exportToJson, exportToXlsx, downloadBlob } from './utils.js';
 import { openShortcutModal, closeShortcutModal, initShortcutSearch } from './shortcuts.js';
 import { compareResultsets } from './diffTool.js';
+import {
+  renderSchemaDiff, diffSchemas, fetchLocalSchema,
+  generateAlterStatements, setupZoom, setSchemaDiffHooks
+} from './schemaDiff.js';
 
 // Wire cross-module hooks before any handler can fire
 setDbHooks({ showFeedback, switchTab, renderSchema });
@@ -101,6 +105,7 @@ function showPanel(which) {
   document.getElementById('leftContent').style.display = (which === 'left-content') ? '' : 'none';
   document.getElementById('erDiagramPanel').style.display = (which === 'er-diagram') ? '' : 'none';
   document.getElementById('queryBuilderPanel').style.display = (which === 'query-builder') ? '' : 'none';
+  document.getElementById('schemaDiffPanel').style.display = (which === 'schema-diff') ? '' : 'none';
 }
 
 async function initErDiagramPanel() {
@@ -151,6 +156,246 @@ function createQueryBuilderSvg(panel) {
   svg.setAttribute('class', 'query-builder-svg');
   panel.insertBefore(svg, panel.firstChild);
   return svg;
+}
+
+// Schema Diff state
+let _schemaDiffCurrent = null;
+let _schemaDiffSelectedTable = null;
+
+// Populate DB dropdowns and wire diff rendering
+function renderSchemaDiffPanel() {
+  const sourceSelect = document.getElementById('diffSourceDb');
+  const targetSelect = document.getElementById('diffTargetDb');
+  if (!sourceSelect || !targetSelect) return;
+
+  const dbNames = Object.keys(runtime.sandboxDb);
+  sourceSelect.innerHTML = '';
+  targetSelect.innerHTML = '';
+
+  dbNames.forEach(name => {
+    const optS = document.createElement('option');
+    optS.value = name;
+    optS.textContent = name + '.db';
+    sourceSelect.appendChild(optS);
+
+    const optT = document.createElement('option');
+    optT.value = name;
+    optT.textContent = name + '.db';
+    targetSelect.appendChild(optT);
+  });
+
+  const current = runtime.cursor.currentDbName;
+  sourceSelect.value = current;
+  if (dbNames.length > 1) {
+    const next = dbNames.find(n => n !== current) || dbNames[0];
+    targetSelect.value = next;
+  }
+
+  const handleChange = async () => {
+    const srcName = sourceSelect.value;
+    const tgtName = targetSelect.value;
+    const svgEl = document.getElementById('schemaDiffSvg');
+    const emptyEl = document.getElementById('schemaDiffEmpty');
+    const colPanel = document.getElementById('schemaDiffColPanel');
+
+    if (colPanel) colPanel.style.display = 'none';
+
+    if (srcName === tgtName) {
+      const d3 = window.d3;
+      if (d3 && svgEl) {
+        d3.select(svgEl).selectAll('*').remove();
+        const g = d3.select(svgEl).append('g');
+        const msg = 'Select different databases to compare';
+        g.append('text')
+          .attr('x', svgEl.clientWidth / 2 || 200)
+          .attr('y', 30)
+          .attr('text-anchor', 'middle')
+          .attr('class', 'er-empty-state-text')
+          .text(msg);
+      }
+      if (emptyEl) emptyEl.style.display = 'none';
+      return;
+    }
+
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    try {
+      const srcSchema = await fetchLocalSchema(runtime.sandboxDb[srcName]);
+      const tgtSchema = await fetchLocalSchema(runtime.sandboxDb[tgtName]);
+      const diff = diffSchemas(srcSchema, tgtSchema);
+      _schemaDiffCurrent = diff;
+
+      setSchemaDiffHooks({ onTableSelect: handleTableSelect });
+      renderSchemaDiff(svgEl, diff);
+    } catch (err) {
+      console.error('Schema diff error:', err);
+      showFeedback('error', 'Schema Diff', 'Failed to load schemas for comparison.');
+    }
+  };
+
+  sourceSelect.addEventListener('change', handleChange);
+  targetSelect.addEventListener('change', handleChange);
+
+  handleChange();
+}
+
+// Handle table selection in diff view — populate column diff panel
+function handleTableSelect(tableName, diffEntry, cat) {
+  _schemaDiffSelectedTable = tableName;
+  const colPanel = document.getElementById('schemaDiffColPanel');
+  if (!colPanel) return;
+
+  colPanel.style.display = 'block';
+
+  if (cat === 'sourceOnly') {
+    const cols = diffEntry.columns || [];
+    colPanel.innerHTML = `
+      <h3 style="font-family:var(--serif);font-style:italic;font-size:20px;margin-bottom:8px">${escapeHtml(tableName)}</h3>
+      <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px">Table exists only in source database.</p>
+      <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);color:var(--text-dim)">
+            <th style="text-align:left;padding:4px 8px">Column</th>
+            <th style="text-align:left;padding:4px 8px">Type</th>
+            <th style="text-align:left;padding:4px 8px">PK</th>
+            <th style="text-align:left;padding:4px 8px">Nullable</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${cols.map(c => `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:4px 8px">${escapeHtml(c.name)}</td>
+            <td style="padding:4px 8px;color:var(--text-dim)">${escapeHtml(c.type)}</td>
+            <td style="padding:4px 8px">${c.pk > 0 ? '✓' : ''}</td>
+            <td style="padding:4px 8px;color:var(--text-dim)">${c.notnull ? 'NOT NULL' : 'NULL'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } else if (cat === 'targetOnly') {
+    const cols = diffEntry.columns || [];
+    colPanel.innerHTML = `
+      <h3 style="font-family:var(--serif);font-style:italic;font-size:20px;margin-bottom:8px">${escapeHtml(tableName)}</h3>
+      <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px">Table exists only in target database.</p>
+      <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);color:var(--text-dim)">
+            <th style="text-align:left;padding:4px 8px">Column</th>
+            <th style="text-align:left;padding:4px 8px">Type</th>
+            <th style="text-align:left;padding:4px 8px">PK</th>
+            <th style="text-align:left;padding:4px 8px">Nullable</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${cols.map(c => `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:4px 8px">${escapeHtml(c.name)}</td>
+            <td style="padding:4px 8px;color:var(--text-dim)">${escapeHtml(c.type)}</td>
+            <td style="padding:4px 8px">${c.pk > 0 ? '✓' : ''}</td>
+            <td style="padding:4px 8px;color:var(--text-dim)">${c.notnull ? 'NOT NULL' : 'NULL'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } else {
+    // different — show source/target columns side by side
+    const { srcColumns, tgtColumns, columnDiffs } = diffEntry;
+    const diffMap = new Map((columnDiffs || []).map(d => [d.col, d]));
+
+    const allColNames = [...new Set([
+      ...(srcColumns || []).map(c => c.name),
+      ...(tgtColumns || []).map(c => c.name),
+    ])];
+
+    colPanel.innerHTML = `
+      <h3 style="font-family:var(--serif);font-style:italic;font-size:20px;margin-bottom:4px">${escapeHtml(tableName)}</h3>
+      <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px">Column definitions differ between source and target.</p>
+      <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);color:var(--text-dim)">
+            <th style="text-align:left;padding:4px 8px">Column</th>
+            <th style="text-align:left;padding:4px 8px">Source Def</th>
+            <th style="text-align:left;padding:4px 8px">Target Def</th>
+            <th style="text-align:left;padding:4px 8px">Difference</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${allColNames.map(name => {
+            const srcCol = (srcColumns || []).find(c => c.name === name);
+            const tgtCol = (tgtColumns || []).find(c => c.name === name);
+            const diff = diffMap.get(name);
+            let rowClass = '';
+            let diffLabel = '';
+            if (diff) {
+              if (diff.diffType === 'added') { rowClass = 'style="background:rgba(63,195,108,0.12)"'; diffLabel = 'Added in source'; }
+              else if (diff.diffType === 'removed') { rowClass = 'style="background:rgba(239,68,68,0.12)"'; diffLabel = 'Removed from source'; }
+              else { rowClass = 'style="background:rgba(251,191,36,0.12)"'; diffLabel = diff.changes?.map(c => `${c.field}: ${c.srcVal} → ${c.tgtVal}`).join(', ') || 'Modified'; }
+            }
+            return `<tr ${rowClass} style="border-bottom:1px solid var(--border)">
+              <td style="padding:4px 8px;font-weight:500">${escapeHtml(name)}</td>
+              <td style="padding:4px 8px;color:var(--text-dim)">${srcCol ? escapeHtml(srcCol.type) + (srcCol.pk > 0 ? ' PK' : '') + (srcCol.notnull ? ' NOT NULL' : '') : '<span style="color:#ef4444">—</span>'}</td>
+              <td style="padding:4px 8px;color:var(--text-dim)">${tgtCol ? escapeHtml(tgtCol.type) + (tgtCol.pk > 0 ? ' PK' : '') + (tgtCol.notnull ? ' NOT NULL' : '') : '<span style="color:#ef4444">—</span>'}</td>
+              <td style="padding:4px 8px;font-size:10.5px">${diffLabel}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      ${renderAlterSection(diffEntry)}
+      <button class="copy-btn" id="copyAlterBtn" style="margin-top:12px">Copy ALTER Script</button>`;
+
+    setTimeout(() => {
+      const copyBtn = document.getElementById('copyAlterBtn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          const alterText = buildAlterScript(diffEntry);
+          navigator.clipboard.writeText(alterText).then(() => {
+            showFeedback('info', 'Copied', 'ALTER script copied to clipboard.');
+          }).catch(() => {
+            showFeedback('error', 'Copy failed', 'Could not copy to clipboard.');
+          });
+        });
+      }
+    }, 0);
+  }
+}
+
+function renderAlterSection(diffEntry) {
+  const diff = { different: [diffEntry] };
+  const { sourceOnlyDDL, alterAdd, alterDrop, migrationNotes } = generateAlterStatements(diff);
+
+  const parts = [
+    ...sourceOnlyDDL,
+    ...alterAdd,
+    ...alterDrop,
+  ];
+
+  if (parts.length === 0 && migrationNotes.length === 0) {
+    return '';
+  }
+
+  const scriptText = parts.join('\n');
+  const notesText = migrationNotes.join('\n');
+
+  return `
+    <div style="margin-top:16px">
+      <h4 style="font-family:var(--mono);font-size:12px;color:var(--text-dim);margin-bottom:6px">ALTER Migration Script</h4>
+      <pre style="background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:10px;font-family:var(--mono);font-size:11px;white-space:pre-wrap;max-height:200px;overflow:auto">${escapeHtml(scriptText)}</pre>
+      ${notesText ? `<div style="margin-top:8px">
+        <h4 style="font-family:var(--mono);font-size:12px;color:var(--text-dim);margin-bottom:4px">Migration Notes</h4>
+        <pre style="background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:10px;font-family:var(--mono);font-size:11px;white-space:pre-wrap;color:var(--warning)">${escapeHtml(notesText)}</pre>
+      </div>` : ''}
+    </div>`;
+}
+
+function buildAlterScript(diffEntry) {
+  const diff = { different: [diffEntry] };
+  const { sourceOnlyDDL, alterAdd, alterDrop } = generateAlterStatements(diff);
+  return [...sourceOnlyDDL, ...alterAdd, ...alterDrop].join('\n');
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function wireUI() {
@@ -382,6 +627,13 @@ function wireUI() {
       else if (which === 'snippets') { showPanel('left-content'); renderSnippets(); }
       else if (which === 'templates') { showPanel('left-content'); renderTemplates(); }
       else if (which === 'query-builder') { showPanel('query-builder'); initQueryBuilderPanel(); }
+      else if (which === 'schema-diff') {
+        document.getElementById('leftContent').style.display = 'none';
+        document.getElementById('erDiagramPanel').style.display = 'none';
+        document.getElementById('queryBuilderPanel').style.display = 'none';
+        document.getElementById('schemaDiffPanel').style.display = 'block';
+        renderSchemaDiffPanel();
+      }
       else { showPanel('left-content'); renderResources(); }
     });
   });
@@ -483,6 +735,34 @@ function wireUI() {
     const panel = document.getElementById('queryBuilderPanel');
     const svg = panel?.querySelector('svg');
     if (svg) qbZoomReset(svg);
+  });
+
+  // Schema Diff zoom controls
+  document.getElementById('diffZoomIn')?.addEventListener('click', () => {
+    const svgEl = document.getElementById('schemaDiffSvg');
+    if (svgEl && window.d3) {
+      window.d3.select(svgEl).transition().duration(300).call(
+        window.d3.zoom().scaleBy, 1.3
+      );
+    }
+  });
+
+  document.getElementById('diffZoomOut')?.addEventListener('click', () => {
+    const svgEl = document.getElementById('schemaDiffSvg');
+    if (svgEl && window.d3) {
+      window.d3.select(svgEl).transition().duration(300).call(
+        window.d3.zoom().scaleBy, 0.7
+      );
+    }
+  });
+
+  document.getElementById('diffZoomReset')?.addEventListener('click', () => {
+    const svgEl = document.getElementById('schemaDiffSvg');
+    if (svgEl && window.d3) {
+      window.d3.select(svgEl).transition().duration(300).call(
+        window.d3.zoom().transform, window.d3.zoomIdentity
+      );
+    }
   });
 
   // Chart toolbar events
