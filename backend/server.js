@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { upgradeWebSocket } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
 import 'dotenv/config';
 import { handleQueryWebSocket } from './routes/query.ws.js';
 import connections from './routes/connections.js';
@@ -14,6 +15,13 @@ import optimizeRoute from './routes/optimize.js';
 import sqlAgentJobs from './routes/sqlAgentJobs.js';
 import backupRestore from './routes/backupRestore.js';
 import { serve } from '@hono/node-server';
+import { resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// Resolve frontend files relative to the project root (parent of backend/)
+const FRONTEND_ROOT = resolve(__dirname, '..');
 
 const app = new Hono();
 
@@ -25,6 +33,13 @@ app.use('*', cors({
 }));
 
 app.use('*', logger());
+
+// Serve frontend static files (only non-API routes)
+app.use('/*', serveStatic({ root: FRONTEND_ROOT, rewriteRequestPath: (path) => {
+  // If path is just / or /index.html, serve index.html
+  if (path === '/' || path === '') return '/index.html';
+  return path;
+} }));
 
 app.get('/health', (ctx) => ctx.json({ status: 'ok' }));
 

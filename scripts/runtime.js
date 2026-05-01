@@ -33,6 +33,15 @@ export const cursor = {
   connected: false,
   lastError: null,
   lastQueryTableName: null, // Table name extracted from most recent SELECT statement
+  queryState: 'idle',        // 'idle'|'running'|'done'|'error'|'timeout'|'cancelled'
+  currentResultsView: null,  // Streaming results view object returned by renderResultsStreaming
+  currentResultSetIndex: 0, // Index of current result set in resultSets array
+  livePageSize: 100,        // Rows per page in live mode results grid
+  livePage: 1,              // Current page number in live results
+  liveSort: null,           // { col: number, dir: 'asc'|'desc' } for live results sort
+  lastExecutionTime: null,  // Last query execution time in ms (live mode)
+  lastRowCount: 0,          // Last query row count (live mode)
+  activeStreamer: null,     // Current query streamer object (for cancel)
   erDiagram: { selectedTable: null, zoomLevel: 1, panOffset: { x: 0, y: 0 } },
   execPlan: { xml: null, operators: [], costThreshold: 0 },
   spEditor: { isOpen: false, targetSp: null, dirty: false },

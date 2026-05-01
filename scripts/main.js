@@ -71,11 +71,9 @@ function runQuery() {
 async function runLiveQueryFromMain() {
   const sql = runtime.editor.getValue().trim();
   try {
-    // Disable run button, enable cancel button
     document.getElementById('runBtn').disabled = true;
     const cancelBtn = document.getElementById('btn-cancel');
     if (cancelBtn) cancelBtn.disabled = false;
-    // Show loading state
     const loadingEl = document.getElementById('results-loading');
     if (loadingEl) loadingEl.classList.remove('hidden');
     const statusEl = document.getElementById('results-status');

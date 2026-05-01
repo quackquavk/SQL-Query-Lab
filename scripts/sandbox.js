@@ -242,6 +242,7 @@ export async function runLiveQuery(sql, options = {}) {
 
   return new Promise((resolve, reject) => {
     const streamer = createQueryStreamer(connId, sql, { timeout });
+    runtime.cursor.activeStreamer = streamer;
 
     streamer.addEventListener('columns', ({ columns }) => {
       const resultsView = renderResultsStreaming(columns, {
@@ -276,14 +277,14 @@ export async function runLiveQuery(sql, options = {}) {
       showFeedback('success', 'OK', `${rowCount ?? 0} rows, ${executionTime}ms`);
       switchTab('output');
 
-      addToHistory(sql, true, null, renderHistory, { executionTime, rowCount: rowsAffected });
+      addToHistory(sql, true, null, renderHistory, { executionTime, rowCount });
 
       if (isOptimizationEnabled()) {
         fetchAndShowOptimizations(sql);
       }
 
       streamer.destroy();
-      resolve({ executionTime, rowCount: rowCount ?? 0 });
+      resolve({ executionTime, rowCount });
     });
 
     streamer.addEventListener('error', ({ message }) => {
@@ -301,7 +302,7 @@ export async function runLiveQuery(sql, options = {}) {
     });
 
     streamer.connect().then(() => {
-      streamer.setTimeout(timeout, () => {
+      const _timeoutTimer = streamer.setTimeout(timeout, () => {
         runtime.cursor.queryState = 'timeout';
         runtime.cursor.lastError = 'Query timeout';
         showFeedback('error', 'Timeout', `Query timed out after ${timeout / 1000}s`);
@@ -309,6 +310,8 @@ export async function runLiveQuery(sql, options = {}) {
         streamer.destroy();
         reject(new Error('Query timeout'));
       });
+      streamer.addEventListener('done', () => clearTimeout(_timeoutTimer), { once: true });
+      streamer.addEventListener('error', () => clearTimeout(_timeoutTimer), { once: true });
     }).catch(err => {
       runtime.cursor.queryState = 'error';
       runtime.cursor.lastError = err.message;
@@ -322,6 +325,10 @@ export async function runLiveQuery(sql, options = {}) {
 export function cancelLiveQuery() {
   if (runtime.cursor.queryState !== 'running') return;
   runtime.cursor.queryState = 'cancelled';
+  if (runtime.cursor.activeStreamer) {
+    runtime.cursor.activeStreamer.cancel();
+    runtime.cursor.activeStreamer = null;
+  }
   const rv = runtime.cursor.currentResultsView;
   if (rv) rv.error('Query cancelled');
   showFeedback('warn', 'Cancelled', 'Query was cancelled');
