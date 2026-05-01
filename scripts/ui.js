@@ -1438,6 +1438,30 @@ export function updateDirtyMark() {
   else m.classList.remove('show');
 }
 
+/**
+ * Update the topbar live connection indicator to reflect current connection state.
+ * Called after a successful connection save and on live mode entry.
+ */
+export function updateConnectionUI() {
+  const indicator = document.getElementById('liveIndicator');
+  const nameEl = document.getElementById('liveConnectionName');
+  const liveStatusEl = document.getElementById('live-status');
+  const connNameEl = document.getElementById('conn-name');
+
+  if (!indicator || !nameEl) return;
+
+  if (runtime.cursor.connected && runtime.cursor.connectionName) {
+    indicator.classList.add('active');
+    nameEl.textContent = runtime.cursor.connectionName;
+    if (liveStatusEl) liveStatusEl.classList.remove('hidden');
+    if (connNameEl) connNameEl.textContent = runtime.cursor.connectionName;
+  } else {
+    indicator.classList.remove('active');
+    nameEl.textContent = 'Not connected';
+    if (liveStatusEl) liveStatusEl.classList.add('hidden');
+  }
+}
+
 export function renderConnectionDialog() {
   const existing = document.getElementById('connection-dialog');
   if (existing) existing.remove();
@@ -1546,6 +1570,7 @@ export function renderConnectionDialog() {
       runtime.cursor.connectionId = result.id;
       runtime.cursor.connectionName = result.name;
       runtime.cursor.connected = true;
+      updateConnectionUI();
       hideConnectionDialog();
       showFeedback('success', `Connected to ${result.name}`);
     } else {

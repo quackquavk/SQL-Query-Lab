@@ -11,7 +11,7 @@ import {
   showFeedback, switchTab, toast, renderSchema, renderResultsTab,
   renderHistory, updateDirtyMark, renderResultsStreaming,
   storeResultSet, getResultSet, handleExportCsv, handleExportJson,
-  clearResultSets, initObjectExplorer
+  clearResultSets, initObjectExplorer, updateConnectionUI
 } from './ui.js';
 import { renderBarChart, renderLineChart, renderPieChart, destroyChart, getChartConfig, updateChartColumnOptions } from './chartRenderer.js';
 import { enableOptimizationHints, clearOptimizationDecorations, isOptimizationEnabled } from './optimizationHighlights.js';
@@ -121,8 +121,9 @@ export async function enterLive() {
   document.querySelectorAll('.results-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'output'));
   showFeedback('info', 'Live Mode', `Connected to ${runtime.cursor.connectionName || 'SQL Server'}. Run queries against your live database.`);
 
-  // Show live-specific results UI
+  // Show live-specific results UI and update connection indicator
   showLiveResultsUI();
+  updateConnectionUI();
 
   // Initialize object explorer if connected
   if (runtime.cursor.connectionId) {
@@ -149,19 +150,6 @@ export function showLiveResultsUI() {
   if (empty) empty.classList.add('hidden');
   if (chartToolbar) chartToolbar.style.display = '';
   if (chartContainer) chartContainer.style.display = '';
-
-  // Update live status indicator
-  const liveStatus = document.getElementById('live-status');
-  const connName = document.getElementById('conn-name');
-  const liveConnName = document.getElementById('liveConnectionName');
-  if (liveStatus && runtime.cursor.connectionName) {
-    liveStatus.classList.remove('hidden');
-    if (connName) connName.textContent = runtime.cursor.connectionName;
-    if (liveConnName) liveConnName.textContent = 'Connected: ' + runtime.cursor.connectionName;
-  } else if (liveStatus) {
-    liveStatus.classList.add('hidden');
-    if (liveConnName) liveConnName.textContent = 'Not connected';
-  }
 
   window._runSandbox = runSandboxQuery;
 
