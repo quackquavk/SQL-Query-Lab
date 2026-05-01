@@ -352,3 +352,56 @@ table.results-grid {
   background: var(--accent-soft);
   border-color: rgba(224, 138, 60, 0.3);
 }
+
+/* Filter / Sort bar */
+.fs-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 2px 8px;
+}
+.fs-search {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+.fs-search:focus {
+  border-color: var(--accent);
+}
+.fs-clear {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 7px;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1;
+}
+.fs-clear:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Sort indicators for .result-table th (non-streaming renderer) */
+.result-table th {
+  cursor: pointer;
+  user-select: none;
+}
+.result-table th.sort-asc::after {
+  content: ' ▲';
+  color: var(--success);
+}
+.result-table th.sort-desc::after {
+  content: ' ▼';
+  color: var(--success);
+}
+.result-table th.sort-asc,
+.result-table th.sort-desc {
+  color: var(--accent-bright);
+}
