@@ -39,6 +39,7 @@ export const cursor = {
   queryBuilder: { isOpen: false, tables: [], selectedColumns: {}, joins: [], whereConditions: [] },
   originalResult: null,            // Deep-copy of first query result; never mutated
   filterSortState: { searchText: '', sortCol: null, sortDir: 'asc' },
+  profileVisible: false,         // Column profile panel toggle state
 };
 
 export const sandboxDirty = {

@@ -47,6 +47,138 @@ export function flashResumedNote() {
   window._rnT = setTimeout(() => n.classList.remove('show'), 2400);
 }
 
+// ─── Column Profile Panel ───────────────────────────────────────────────────
+
+const MAX_DISTINCT = 10000;
+
+/**
+ * Compute per-column statistics for a query result set.
+ * @param {string[]} columns
+ * @param {any[][]} values — 2D array of row data
+ * @returns {Array<{name, nullCount, distinctCount, min, max, avg, isNumeric, samples, truncated}>}
+ */
+export function computeColumnStats(columns, values) {
+  if (!columns || columns.length === 0 || !values) {
+    return [];
+  }
+
+  return columns.map((colName) => {
+    if (values.length === 0) {
+      return { name: colName, nullCount: 0, distinctCount: 0, min: null, max: null, avg: null, isNumeric: false, samples: [], truncated: false };
+    }
+
+    let nullCount = 0;
+    let numericSum = 0;
+    let numericCount = 0;
+    let min = null;
+    let max = null;
+    const distinctSet = new Set();
+    let truncated = false;
+    const samples = [];
+    const colIdx = columns.indexOf(colName);
+
+    for (const row of values) {
+      const cell = colIdx < row.length ? row[colIdx] : null;
+
+      if (cell === null || cell === undefined) {
+        nullCount++;
+        continue;
+      }
+
+      // Track distinct values with early break at limit
+      if (distinctSet.size < MAX_DISTINCT) {
+        if (!distinctSet.has(cell)) {
+          distinctSet.add(cell);
+          if (samples.length < 5) samples.push(cell);
+        }
+      } else if (!truncated) {
+        truncated = true;
+      }
+
+      // Track min/max on non-null string comparison
+      const cellStr = String(cell);
+      if (min === null || cellStr < min) min = cellStr;
+      if (max === null || cellStr > max) max = cellStr;
+
+      // Track numeric values
+      if (!isNaN(cell) && cell !== '' && String(cell).trim() !== '') {
+        const n = parseFloat(cell);
+        if (!isNaN(n)) {
+          numericSum += n;
+          numericCount++;
+        }
+      }
+    }
+
+    const distinctCount = distinctSet.size;
+    const avg = numericCount > 0 ? numericSum / numericCount : null;
+
+    // Determine isNumeric: >80% of non-null values are numeric
+    const nonNullCount = values.length - nullCount;
+    const isNumeric = nonNullCount > 0 && (numericCount / nonNullCount) > 0.8;
+
+    return {
+      name: colName,
+      nullCount,
+      distinctCount,
+      min,
+      max,
+      avg: isNumeric && numericCount > 0 ? avg : null,
+      isNumeric,
+      samples,
+      truncated,
+    };
+  });
+}
+
+/**
+ * Render a profile panel for a query result.
+ * Returns an HTML string for the panel.
+ */
+export function renderProfilePanel(result) {
+  if (!result) return '';
+
+  // Handle multi-result (array) by computing stats from all blocks combined
+  let columns, values;
+  if (Array.isArray(result)) {
+    if (result.length === 0) return '';
+    const first = result[0];
+    columns = first.columns || [];
+    values = first.values || [];
+  } else {
+    if (!result.columns || !result.values) return '';
+    columns = result.columns;
+    values = result.values;
+  }
+
+  const stats = computeColumnStats(columns, values);
+
+  const cardsHtml = stats.map(col => {
+    const avgStr = col.avg !== null
+      ? Number(col.avg).toFixed(2).replace(/\.?0+$/, '')
+      : null;
+    const distinctStr = col.truncated
+      ? '>10,000'
+      : String(col.distinctCount);
+
+    const fmt = (v) => v === null ? '—' : String(v);
+
+    return `
+      <div class="profile-card">
+        <div class="profile-card-name">${escapeHtml(col.name)}</div>
+        <div class="profile-stat"><span class="label">MIN</span><span class="val">${fmt(col.min)}</span></div>
+        <div class="profile-stat"><span class="label">MAX</span><span class="val">${fmt(col.max)}</span></div>
+        ${col.isNumeric && avgStr !== null ? `<div class="profile-stat"><span class="label">AVG</span><span class="val">${avgStr}</span></div>` : ''}
+        <div class="profile-stat"><span class="label">NULL</span><span class="val">${String(col.nullCount)}</span></div>
+        <div class="profile-stat"><span class="label">DISTINCT</span><span class="val">${distinctStr}</span></div>
+        <div class="profile-stat"><span class="label">SAMPLES</span><span class="val">${col.samples.slice(0, 5).map(s => escapeHtml(String(s).slice(0, 20))).join(', ') || '—'}</span></div>
+      </div>
+    `;
+  }).join('');
+
+  return `<div class="profile-panel">${cardsHtml}</div>`;
+}
+
 // ─── Tab Bar ─────────────────────────────────────────
 
 export function renderTabBar() {
@@ -160,7 +292,9 @@ export function renderResultsTab(tab) {
       } else {
         // Store original for filter/sort before rendering
         last.forEach((blk) => storeOriginal(blk));
-        body.innerHTML = last.map((blk, i) => `
+        // Prepend profile panel for multi-result using first SELECT block stats
+        const profileHtml = runtime.cursor.profileVisible ? renderProfilePanel(last) : '';
+        body.innerHTML = profileHtml + last.map((blk, i) => `
           <div class="multi-result">
             <div class="stmt-header">
               <span class="num">#${i + 1}</span>
@@ -174,7 +308,9 @@ export function renderResultsTab(tab) {
     } else {
       // Store original for filter/sort before rendering
       storeOriginal(last);
-      body.innerHTML = renderTable(last, runtime.cursor.lastQueryTableName);
+      // Prepend profile panel if visible (sibling to results content inside body)
+      const profileHtml = runtime.cursor.profileVisible ? renderProfilePanel(last) : '';
+      body.innerHTML = profileHtml + renderTable(last, runtime.cursor.lastQueryTableName);
     }
     // Wire filter/sort handlers after DOM insertion
     wireFilterSortHandlers(body);

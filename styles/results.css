@@ -405,3 +405,62 @@ table.results-grid {
 .result-table th.sort-desc {
   color: var(--accent-bright);
 }
+
+/* Column Profile Panel */
+.profile-tab {
+  margin-left: auto;
+}
+.profile-panel {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px 2px 12px;
+  max-height: 200px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+  scrollbar-width: thin;
+}
+.profile-card {
+  min-width: 130px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-bright);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.profile-card-name {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-bright);
+  margin-bottom: 5px;
+  word-break: break-all;
+}
+.profile-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.profile-stat .label {
+  font-family: var(--sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.profile-stat .val {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 90px;
+}

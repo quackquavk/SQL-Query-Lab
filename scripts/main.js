@@ -361,6 +361,13 @@ function wireUI() {
   // Results tabs
   document.querySelectorAll('.results-tab').forEach(btn => {
     btn.addEventListener('click', () => {
+      // Profile button: toggle panel, re-render output tab only, don't switch tab
+      if (btn.id === 'profileBtn') {
+        runtime.cursor.profileVisible = !runtime.cursor.profileVisible;
+        btn.classList.toggle('active', runtime.cursor.profileVisible);
+        renderResultsTab('output');
+        return;
+      }
       document.querySelectorAll('.results-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderResultsTab(btn.dataset.tab);

@@ -344,6 +344,7 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   font-weight: 600;
+  pointer-events: none;
 }
 .dirty-mark.show { display: inline-block; }
 
