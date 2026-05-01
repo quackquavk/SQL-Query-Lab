@@ -599,6 +599,9 @@ function wireUI() {
     import('./ui.js').then(m => m.renderConnectionDialog());
   });
 
+  // Expose runtime on window for browser test access
+  window.__runtime = runtime;
+
   // Expose window.openNewTab for object explorer context menu actions
   window.openNewTab = (database, connectionId, sql) => {
     const { createTab, switchTabById } = runtime.getTabApi?.() || {};
