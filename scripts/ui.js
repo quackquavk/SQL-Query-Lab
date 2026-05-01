@@ -1067,11 +1067,6 @@ export function renderSnippets() {
 
 let _tmplSearch = '';
 let _tmplCategory = 'All';
-let _tmplModule = null;
-async function getSandboxModule() {
-  if (!_tmplModule) _tmplModule = await import('./sandbox.js');
-  return _tmplModule;
-}
 
 export function renderTemplates() {
   const el = document.getElementById('leftContent');
