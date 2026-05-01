@@ -36,6 +36,7 @@ import {
   destroyChart, updateChartColumnOptions, getChartConfig
 } from './chartRenderer.js';
 import { exportToCsv, exportToJson, exportToXlsx, downloadBlob } from './utils.js';
+import { openShortcutModal, closeShortcutModal, initShortcutSearch } from './shortcuts.js';
 
 // Wire cross-module hooks before any handler can fire
 setDbHooks({ showFeedback, switchTab, renderSchema });
@@ -152,6 +153,30 @@ function createQueryBuilderSvg(panel) {
 }
 
 function wireUI() {
+  // Ctrl+/ shortcut modal — capture phase fires BEFORE CodeMirror processes the key
+  document.addEventListener('keydown', (e) => {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    if (e.key !== '/') return;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    const modal = document.getElementById('shortcutModal');
+    if (modal && modal.classList.contains('open')) {
+      closeShortcutModal();
+    } else {
+      openShortcutModal();
+    }
+  }, { capture: true });
+
+  // Shortcut modal close button
+  document.getElementById('shortcutModalClose').addEventListener('click', closeShortcutModal);
+  // Close on backdrop click
+  document.getElementById('shortcutModal').addEventListener('click', e => {
+    if (e.target.id === 'shortcutModal') closeShortcutModal();
+  });
+
+  // Initialize shortcut search input
+  initShortcutSearch();
+
   document.getElementById('runBtn').addEventListener('click', runQuery);
   document.getElementById('translateBtn').addEventListener('click', runMssqlTranslation);
   document.getElementById('resetDbBtn').addEventListener('click', resetDb);
