@@ -11,6 +11,7 @@
 // }
 
 import { QUESTIONS } from './questions.js';
+import { getShortcuts } from './shortcuts.js';
 import { cursor, sandboxDb } from './runtime.js';
 
 const STORAGE_KEY = 'querylab:v1';
@@ -36,7 +37,8 @@ export function defaultState() {
     history: [],
     mssqlDb: 'hospital',
     mssqlScript: '',
-    liveScript: ''
+    liveScript: '',
+    shortcuts: []
   };
 }
 
@@ -130,6 +132,7 @@ function loadState() {
 }
 
 export let state = loadState();
+state.shortcuts = getShortcuts();
 export let solved = new Set(state.solved);
 
 // Live mode preferences
