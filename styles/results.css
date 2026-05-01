@@ -473,6 +473,77 @@ table.results-grid {
   overflow: auto;
   max-height: 420px;
 }
+.diff-panel {
+  border-right: 1px solid var(--border);
+  overflow: auto;
+  max-height: 380px;
+}
+.diff-panel:last-of-type { border-right: none; }
+
+/* Row-level diff highlighting */
+.diff-row-added td {
+  background: rgba(34, 197, 94, 0.15);
+}
+.diff-row-added td:first-child {
+  border-left: 3px solid var(--success);
+}
+.diff-row-removed td {
+  background: rgba(239, 68, 68, 0.15);
+}
+.diff-row-removed td:first-child {
+  border-left: 3px solid var(--error);
+}
+.diff-row-changed td {
+  background: rgba(234, 179, 8, 0.12);
+}
+.diff-row-changed td:first-child {
+  border-left: 3px solid var(--warning);
+}
+
+/* Cell-level diff highlighting */
+.diff-cell-changed {
+  background: rgba(234, 179, 8, 0.25) !important;
+}
+
+/* Badge for column delta counts */
+.diff-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--mono);
+  line-height: 1;
+}
+.diff-badge.added {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--success);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+.diff-badge.removed {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--error);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+.diff-badge.changed {
+  background: rgba(234, 179, 8, 0.2);
+  color: var(--warning);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+}
+
+/* Summary bar */
+.diff-summary {
+  border-top: 1px solid var(--border);
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+}
 .diff-col-header {
   font-size: 10px;
   text-transform: uppercase;
