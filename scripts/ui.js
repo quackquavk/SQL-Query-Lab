@@ -1734,6 +1734,66 @@ async function loadSavedConnections() {
   }
 }
 
+/**
+ * Open the saved connections dropdown, fetching list from API.
+ * On item click, loads the connection and opens the dialog with it pre-filled.
+ */
+export async function openSavedConnectionsDropdown() {
+  const dropdown = document.getElementById('savedConnDropdown');
+  if (!dropdown) return;
+
+  dropdown.classList.add('open');
+  dropdown.innerHTML = '<div class="conn-dropdown-loading">Loading...</div>';
+
+  try {
+    const { listConnections, getConnection } = await import('./apiClient.js');
+    const conns = await listConnections();
+
+    if (!conns || conns.length === 0) {
+      dropdown.innerHTML = '<div class="conn-dropdown-empty">No saved connections.</div>';
+      return;
+    }
+
+    dropdown.innerHTML = conns.map(c => `
+      <div class="conn-dropdown-item" data-id="${c.id}">
+        <div>
+          <div class="conn-dropdown-name">${escapeHtml(c.name || '')}</div>
+          <div class="conn-dropdown-server">${escapeHtml(c.server || '')}</div>
+        </div>
+      </div>
+    `).join('');
+
+    // Click an item → load and pre-fill dialog
+    dropdown.querySelectorAll('.conn-dropdown-item').forEach(item => {
+      item.addEventListener('click', async () => {
+        dropdown.classList.remove('open');
+        const id = item.dataset.id;
+        try {
+          const full = await getConnection(id);
+          if (full && !full.error) {
+            runtime.cursor.connectionId = full.id;
+            runtime.cursor.connectionName = full.name;
+            runtime.cursor.connected = true;
+            updateConnectionUI();
+            showFeedback('success', 'Reconnected to', full.name);
+          } else {
+            showFeedback('error', 'Load failed', full?.error || 'Unknown error');
+          }
+        } catch (err) {
+          showFeedback('error', 'Reconnect failed', err.message);
+        }
+      });
+    });
+  } catch (err) {
+    dropdown.innerHTML = '<div class="conn-dropdown-empty">Could not load connections.</div>';
+  }
+}
+
+export function hideSavedConnectionsDropdown() {
+  const dropdown = document.getElementById('savedConnDropdown');
+  if (dropdown) dropdown.classList.remove('open');
+}
+
 // ─── Live Query Streaming Results ────────────────────────────────────────
 
 export function renderResultsStreaming(columns, options = {}) {

@@ -56,6 +56,12 @@
         <span id="liveConnectionName">Not connected</span>
         <span id="live-status" class="hidden">● <span id="conn-name"></span></span>
       </div>
+      <div class="conn-dropdown-wrap live-only" style="position:relative;display:none">
+        <button class="btn" id="savedConnBtn" title="Saved connections">▾ Connections</button>
+        <div class="conn-dropdown" id="savedConnDropdown">
+          <div class="conn-dropdown-loading">Loading...</div>
+        </div>
+      </div>
       <button class="btn live-only" id="connectBtn">Connect...</button>
       <div class="mode-toggle" role="tablist" aria-label="Mode">
         <button id="modePractice" class="active" data-mode="practice"><span class="ico">●</span>Practice</button>

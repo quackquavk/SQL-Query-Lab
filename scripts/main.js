@@ -578,6 +578,22 @@ function wireUI() {
     }
   });
 
+  // Saved connections dropdown button
+  document.getElementById('savedConnBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const { openSavedConnectionsDropdown } = ui;
+    openSavedConnectionsDropdown();
+  });
+
+  // Close saved connections dropdown when clicking elsewhere
+  document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('savedConnDropdown');
+    const btn = document.getElementById('savedConnBtn');
+    if (dropdown && !dropdown.contains(e.target) && e.target !== btn) {
+      dropdown.classList.remove('open');
+    }
+  });
+
   // Connect button for live mode
   document.getElementById('connectBtn')?.addEventListener('click', () => {
     import('./ui.js').then(m => m.renderConnectionDialog());
