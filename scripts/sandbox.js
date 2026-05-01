@@ -267,13 +267,13 @@ export async function runLiveQuery(sql, options = {}) {
       }
     });
 
-    streamer.addEventListener('done', ({ rowsAffected, executionTime }) => {
+    streamer.addEventListener('done', ({ executionTime, rowCount }) => {
       const rv = runtime.cursor.currentResultsView;
-      if (rv) rv.complete(executionTime, rowsAffected);
+      if (rv) rv.complete(executionTime, rowCount ?? 0);
       runtime.cursor.queryState = 'done';
       runtime.cursor.lastExecutionTime = executionTime;
-      runtime.cursor.lastRowCount = rowsAffected;
-      showFeedback('success', 'OK', `${rowsAffected} rows, ${executionTime}ms`);
+      runtime.cursor.lastRowCount = rowCount ?? 0;
+      showFeedback('success', 'OK', `${rowCount ?? 0} rows, ${executionTime}ms`);
       switchTab('output');
 
       addToHistory(sql, true, null, renderHistory, { executionTime, rowCount: rowsAffected });
@@ -283,7 +283,7 @@ export async function runLiveQuery(sql, options = {}) {
       }
 
       streamer.destroy();
-      resolve({ executionTime, rowCount: rowsAffected });
+      resolve({ executionTime, rowCount: rowCount ?? 0 });
     });
 
     streamer.addEventListener('error', ({ message }) => {

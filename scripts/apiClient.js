@@ -101,21 +101,24 @@ export function cancelQuery(queryId) {
 
 // Live query streaming via WebSocket.
 // Returns an object with addEventListener/removeEventListener for:
-// 'columns' → ({ columns: [{name, type}] })
-// 'rows' → ({ rows: [row...], total })
-// 'done' → ({ executionTime, rowCount })
-// 'error' → ({ message })
+// 'connect'  → ()                           — WebSocket opened, execute sent
+// 'columns'  → ({ columns: [{name, type}] })
+// 'rows'     → ({ rows: [row...], total })
+// 'done'     → ({ executionTime, rowCount })
+// 'error'    → ({ message, code })
+// 'timeout'  → ()                           — fired when server-side timeout fires
+// 'close'    → ()                           — WebSocket closed unexpectedly
 export function createQueryStreamer(connectionId, sql, options = {}) {
   const { timeout = 30000 } = options;
   const queryId = `q-${++queryIdCounter}`;
-  const listeners = { columns: [], rows: [], done: [], error: [] };
+  const listeners = { connect: [], columns: [], rows: [], done: [], error: [], timeout: [], close: [] };
   let ws = null;
-  let timeoutHandle = null;
+  let resolved = false;
 
-  function onColumns(cols) { listeners.columns.forEach(l => l({ columns: cols })); }
-  function onRows(rows, total) { listeners.rows.forEach(l => l({ rows, total })); }
-  function onDone(rowsAffected, executionTime) { listeners.done.forEach(l => l({ rowsAffected, executionTime })); }
-  function onError(message, code, qid) { listeners.error.forEach(l => l({ message, code })); }
+  function emit(event, data) {
+    console.log(`[streamer ${queryId}] ${event}`, data || '');
+    listeners[event]?.forEach(l => l(data));
+  }
 
   function connect() {
     return new Promise((resolve, reject) => {
@@ -124,17 +127,37 @@ export function createQueryStreamer(connectionId, sql, options = {}) {
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
+        emit('connect');
         ws.send(JSON.stringify({ type: 'execute', connectionId, sql, queryId, timeout }));
+        resolved = true;
         resolve();
       };
-      ws.onerror = () => reject(new Error('WebSocket connection failed'));
+      ws.onerror = (ev) => {
+        emit('error', { message: 'WebSocket connection failed', code: 'WS_ERROR' });
+        if (!resolved) { resolved = true; reject(new Error('WebSocket connection failed')); }
+      };
+      ws.onclose = () => {
+        if (!resolved) { resolved = true; reject(new Error('WebSocket closed before response')); }
+        emit('close');
+      };
       ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        const { type } = msg;
-        if (type === 'columns') onColumns(msg.columns);
-        else if (type === 'rows') onRows(msg.rows, msg.total);
-        else if (type === 'done') onDone(msg.rowsAffected, msg.executionTime);
-        else if (type === 'error') onError(msg.message, msg.code, msg.queryId);
+        try {
+          const msg = JSON.parse(event.data);
+          const { type, queryId: msgQid } = msg;
+          if (type === 'columns') emit('columns', { columns: msg.columns });
+          else if (type === 'rows') emit('rows', { rows: msg.rows, total: msg.total });
+          else if (type === 'done') emit('done', { executionTime: msg.executionTime, rowCount: msg.rowsAffected ?? msg.totalRows ?? 0 });
+          else if (type === 'error') {
+            emit('error', { message: msg.message, code: msg.code });
+            if (!resolved) { resolved = true; reject(new Error(msg.message)); }
+          } else if (type === 'timeout') {
+            emit('timeout');
+            emit('error', { message: msg.message || 'Query timed out', code: 'TIMEOUT' });
+            if (!resolved) { resolved = true; reject(new Error(msg.message || 'Query timed out')); }
+          }
+        } catch (e) {
+          emit('error', { message: 'Failed to parse server message: ' + e.message, code: 'PARSE_ERROR' });
+        }
       };
     });
   }
@@ -143,11 +166,10 @@ export function createQueryStreamer(connectionId, sql, options = {}) {
     queryId,
     connect,
     cancel() {
-      if (timeoutHandle) clearTimeout(timeoutHandle);
       if (ws) ws.send(JSON.stringify({ type: 'cancel', queryId }));
     },
     setTimeout(ms, onTimeout) {
-      timeoutHandle = setTimeout(() => {
+      return setTimeout(() => {
         onTimeout?.();
         this.cancel();
       }, ms);
@@ -159,7 +181,7 @@ export function createQueryStreamer(connectionId, sql, options = {}) {
       if (listeners[event]) listeners[event] = listeners[event].filter(h => h !== handler);
     },
     destroy() {
-      if (timeoutHandle) clearTimeout(timeoutHandle);
+      emit('destroy');
       if (ws) { ws.close(); ws = null; }
     }
   };
