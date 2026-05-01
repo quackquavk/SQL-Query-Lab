@@ -679,8 +679,13 @@ function findTemplate(id) {
 }
 
 // Insert a template's SQL at the current editor cursor position
+// Uses CodeMirror DOM element's CodeMirror property directly to avoid
+// ES module initialization order issues where runtime.editor may resolve
+// to the textarea before editor.js runs setEditor().
 export function insertTemplateAtCursor(id) {
-  const editor = runtime.editor;
+  const cmEl = document.querySelector('.CodeMirror');
+  if (!cmEl || !cmEl.CodeMirror) return;
+  const editor = cmEl.CodeMirror;
   const tpl = findTemplate(id);
   if (!tpl) {
     toast('Template not found.', 'Error');
@@ -1309,12 +1314,21 @@ export function updateSnippet(id, updates) {
 }
 
 // SNIP-02: insert snippet SQL at current cursor position
+// Uses CodeMirror DOM element's CodeMirror property directly to avoid
+// ES module initialization order issues where runtime.editor may resolve
+// to the textarea before editor.js runs setEditor().
 export function insertSnippetAtCursor(id) {
-  const editor = runtime.editor;
-  const s = (state.snippets || []).find(x => x.id === id);
+  const cmEl = document.querySelector('.CodeMirror');
+  if (!cmEl || !cmEl.CodeMirror) return;
+  const editor = cmEl.CodeMirror;
+  // Check built-ins first, then user snippets
+  const builtin = (BUILTIN_SNIPPETS || []).find(x => x.id === id);
+  const s = builtin || (state.snippets || []).find(x => x.id === id);
   if (!s) return;
   const from = editor.listSelections()[0];
   editor.replaceRange(s.sql, from.from, from.to);
+  editor.focus();
+  toast('Inserted "' + s.name + '"', 'Snippet');
 }
 
 // Get all snippets including built-ins
