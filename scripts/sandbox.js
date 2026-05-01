@@ -731,7 +731,7 @@ function renderFolderSnippets(folderId, depth, searchMatch) {
     : snippets;
   return filtered.map(s => {
     const preview = escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 60));
-    return `<div class="snippet-row" data-id="${s.id}" data-snippet-folder="${folderId}" style="padding-left:${depth * 16}px">
+    return `<div class="snippet-row" data-id="${s.id}" data-snippet-folder="${folderId}" draggable="${!s.builtin}" style="padding-left:${depth * 16}px">
       <div class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
       <div class="preview" title="${escapeHtml(s.sql.slice(0, 200))}">${preview}</div>
       ${s.builtin ? '<span class="builtin-tag">built-in</span>' : ''}
@@ -855,7 +855,7 @@ export function renderSnippetList() {
         s.sql.includes(searchQuery)
       ).map(s => {
         const preview = escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 60));
-        return `<div class="snippet-row" data-id="${s.id}" style="padding-left:0px">
+        return `<div class="snippet-row" data-id="${s.id}" style="padding-left:0px" draggable="true">
           <div class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
           <div class="preview" title="${escapeHtml(s.sql.slice(0, 200))}">${preview}</div>
           <button class="ins-btn" data-ins="${s.id}" title="Insert at cursor">→</button>
@@ -904,7 +904,7 @@ export function renderSnippetList() {
   else if (!searchQuery && rootUserSnippets.length > 0) {
     html += rootUserSnippets.map(s => {
       const preview = escapeHtml(s.sql.replace(/\s+/g, ' ').slice(0, 60));
-      return `<div class="snippet-row" data-id="${s.id}" style="padding-left:0px">
+      return `<div class="snippet-row" data-id="${s.id}" style="padding-left:0px" draggable="true">
         <div class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
         <div class="preview" title="${escapeHtml(s.sql.slice(0, 200))}">${preview}</div>
         <button class="ins-btn" data-ins="${s.id}" title="Insert at cursor">→</button>
@@ -1025,6 +1025,18 @@ export function renderSnippetList() {
       if (e.target.classList.contains('del') || e.target.classList.contains('ins-btn')) return;
       loadSnippet(r.dataset.id);
     });
+    // Snippet drag — set dataTransfer with snippetId
+    if (r.getAttribute('draggable') === 'true') {
+      r.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('snippetId', r.dataset.id);
+        e.dataTransfer.effectAllowed = 'move';
+        r.classList.add('dragging');
+      });
+      r.addEventListener('dragend', () => {
+        r.classList.remove('dragging');
+        list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      });
+    }
   });
   list.querySelectorAll('.ins-btn').forEach(b => {
     b.addEventListener('click', (e) => {
@@ -1037,6 +1049,112 @@ export function renderSnippetList() {
       e.stopPropagation();
       deleteSnippet(b.dataset.del);
     });
+  });
+
+  // Snippet drop onto folder-children or folder-row → move snippet into folder
+  list.querySelectorAll('.folder-children, .folder-row').forEach(target => {
+    target.addEventListener('dragover', (e) => {
+      if (!e.dataTransfer.types.includes('snippetId') && !e.dataTransfer.types.includes('folderId')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      target.classList.add('drag-over');
+    });
+    target.addEventListener('dragleave', (e) => {
+      if (!target.contains(e.relatedTarget)) target.classList.remove('drag-over');
+    });
+    target.addEventListener('drop', (e) => {
+      e.preventDefault();
+      target.classList.remove('drag-over');
+      const snippetId = e.dataTransfer.getData('snippetId');
+      if (snippetId) {
+        // Determine target folder ID
+        let targetFolderId = null;
+        if (target.classList.contains('folder-row')) {
+          targetFolderId = target.dataset.folderId;
+        } else if (target.classList.contains('folder-children')) {
+          targetFolderId = target.dataset.folderChildren;
+        }
+        // Move snippet into folder
+        updateSnippet(snippetId, { folderId: targetFolderId });
+        showFeedback('success', 'Moved', 'Snippet moved to folder.');
+      }
+    });
+  });
+
+  // Snippet drop onto root area (no folder) → move to root
+  list.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes('snippetId')) return;
+    // Only trigger if not over a folder element
+    const overFolder = e.target.closest('.folder-children, .folder-row');
+    if (overFolder) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  });
+  list.addEventListener('drop', (e) => {
+    const overFolder = e.target.closest('.folder-children, .folder-row');
+    if (overFolder) return;
+    const snippetId = e.dataTransfer.getData('snippetId');
+    if (snippetId) {
+      updateSnippet(snippetId, { folderId: null });
+      showFeedback('success', 'Moved', 'Snippet moved to root.');
+    }
+  });
+
+  // Folder drag-and-drop (move folder to another folder or root)
+  list.querySelectorAll('.folder-row[draggable="true"]').forEach(row => {
+    row.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('folderId', row.dataset.folderId);
+      e.dataTransfer.effectAllowed = 'move';
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    });
+  });
+
+  // Folder drop — move folder into another folder or to root
+  list.querySelectorAll('.folder-children, .folder-row').forEach(target => {
+    const handleFolderDrop = (e) => {
+      e.preventDefault();
+      target.classList.remove('drag-over');
+      const folderId = e.dataTransfer.getData('folderId');
+      if (!folderId) return;
+      let newParentId = null;
+      if (target.classList.contains('folder-row')) {
+        newParentId = target.dataset.folderId;
+      } else if (target.classList.contains('folder-children')) {
+        newParentId = target.dataset.folderChildren;
+      }
+      moveFolder(folderId, newParentId);
+    };
+    target.addEventListener('dragover', (e) => {
+      if (!e.dataTransfer.types.includes('folderId')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      target.classList.add('drag-over');
+    });
+    target.addEventListener('dragleave', (e) => {
+      if (!target.contains(e.relatedTarget)) target.classList.remove('drag-over');
+    });
+    target.addEventListener('drop', handleFolderDrop);
+  });
+
+  // Folder drop onto root area → move folder to root
+  list.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes('folderId')) return;
+    const overFolder = e.target.closest('.folder-children, .folder-row');
+    if (overFolder) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  });
+  list.addEventListener('drop', (e) => {
+    const overFolder = e.target.closest('.folder-children, .folder-row');
+    if (overFolder) return;
+    const folderId = e.dataTransfer.getData('folderId');
+    if (folderId) {
+      moveFolder(folderId, null);
+    }
   });
 }
 
