@@ -690,10 +690,25 @@ export async function disableJob(jobName) {
 /**
  * Execute a database backup.
  */
-export async function executeBackup(options) {
+/**
+ * Execute a database backup.
+ * Accepts optional connectionId to forward auth headers for live SQL Server.
+ */
+export async function executeBackup(options, connectionId) {
+  let headers = { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' };
+  if (connectionId) {
+    const conn = await getConnection(connectionId);
+    if (conn && conn.server) {
+      headers['X-Server'] = conn.server;
+      headers['X-Auth-Type'] = conn.authType || 'default';
+      headers['X-Credentials'] = typeof conn.credentials === 'string'
+        ? conn.credentials
+        : JSON.stringify(conn.credentials || {});
+    }
+  }
   const res = await fetch(`${API_BASE}/backup`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers,
     credentials: 'include',
     body: JSON.stringify(options)
   });
@@ -714,11 +729,23 @@ export async function fetchBackupHistory(dbName) {
 
 /**
  * Execute a database restore.
+ * Accepts optional connectionId to forward auth headers for live SQL Server.
  */
-export async function executeRestore(options) {
+export async function executeRestore(options, connectionId) {
+  let headers = { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' };
+  if (connectionId) {
+    const conn = await getConnection(connectionId);
+    if (conn && conn.server) {
+      headers['X-Server'] = conn.server;
+      headers['X-Auth-Type'] = conn.authType || 'default';
+      headers['X-Credentials'] = typeof conn.credentials === 'string'
+        ? conn.credentials
+        : JSON.stringify(conn.credentials || {});
+    }
+  }
   const res = await fetch(`${API_BASE}/restore`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers,
     credentials: 'include',
     body: JSON.stringify(options)
   });

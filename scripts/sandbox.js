@@ -196,7 +196,7 @@ export function showLiveResultsUI() {
       switchTab('exec-plan');
       try {
         const { fetchExecutionPlan, parseShowplanXml, computeCostPercentages, initExecPlanViewer } = await import('./execPlanViewer.js');
-        const xml = await fetchExecutionPlan(sql);
+        const xml = await fetchExecutionPlan(sql, runtime.cursor.connectionId);
         const { operators, missingIndexes } = parseShowplanXml(xml);
         computeCostPercentages(operators);
         const svgEl = document.getElementById('execPlanSvg');

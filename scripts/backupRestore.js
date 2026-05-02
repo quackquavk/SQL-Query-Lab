@@ -340,7 +340,7 @@ async function executeBackup() {
         backupSetName,
         expiration,
         encrypt: encrypt ? encryptKey : null
-      });
+      }, runtime.cursor.connectionId);
 
       if (!result.success && !result.backupSetId) {
         throw new Error(result.error || 'Backup failed to start');
@@ -416,7 +416,7 @@ function closeBackupModal() {
 
 export async function executeRestore(options) {
   const { executeRestore: apiRestore } = await import('./apiClient.js');
-  return apiRestore(options);
+  return apiRestore(options, runtime.cursor.connectionId);
 }
 
 export async function verifyBackup(backupPath) {
@@ -858,7 +858,7 @@ async function executeRestoreWizard() {
       backupPaths: _wizardState.selectedBackups.map(b => b.path),
       pointInTime: _wizardState.pointInTime,
       overwrite: _wizardState.overwrite
-    });
+    }, runtime.cursor.connectionId);
 
     if (result.success) {
       if (progressFill) progressFill.style.width = '100%';

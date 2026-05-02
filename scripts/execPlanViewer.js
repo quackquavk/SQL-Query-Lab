@@ -6,10 +6,24 @@ let _currentPlan = null;
 let _operators = [];
 
 // Fetch execution plan XML from backend
-export async function fetchExecutionPlan(query) {
+export async function fetchExecutionPlan(query, connectionId) {
+  let headers = { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' };
+  if (connectionId) {
+    const conn = await import('./apiClient.js').then(m => m.getConnection(connectionId));
+    if (conn && conn.server) {
+      headers['X-Server'] = conn.server;
+      headers['X-Auth-Type'] = conn.authType || '';
+      if (conn.credentials) {
+        headers['X-Credentials'] = typeof conn.credentials === 'string'
+          ? conn.credentials
+          : JSON.stringify(conn.credentials);
+      }
+    }
+  }
   const res = await fetch('/api/execution-plan', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
+    credentials: 'include',
     body: JSON.stringify({ query })
   });
   const data = await res.json();
