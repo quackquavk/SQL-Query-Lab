@@ -1,6 +1,8 @@
 // Backup/Restore frontend module
 // Provides modal dialogs for backup operations and multi-step restore wizard
 
+import * as runtime from './runtime.js';
+
 let _hooks = {
   showFeedback: () => {},
   toast: () => {}
@@ -92,6 +94,28 @@ function renderBackupModal() {
   });
 
   bindBackupTabEvents(backdrop);
+
+  // Populate database dropdown from live SQL Server
+  const dbSelect = backdrop.querySelector('#backupDbSelect');
+  try {
+    const { fetchObjectTree } = await import('./apiClient.js');
+    const data = await fetchObjectTree(runtime.cursor.connectionId);
+    const databases = data.databases || [];
+    if (dbSelect) {
+      for (const db of databases) {
+        const opt = document.createElement('option');
+        opt.value = db.name;
+        opt.textContent = db.name;
+        dbSelect.appendChild(opt);
+      }
+      // Pre-select current DB if set
+      if (runtime.cursor.currentDbName && dbSelect.querySelector(`option[value="${runtime.cursor.currentDbName}"]`)) {
+        dbSelect.value = runtime.cursor.currentDbName;
+      }
+    }
+  } catch (err) {
+    // Leave dropdown as-is on failure
+  }
 }
 
 function renderBackupTabContent(tab) {
@@ -176,6 +200,9 @@ function renderBackupDestinationTab() {
       <input type="number" class="backup-input" id="backupExpiration" value="0" min="0" max="365" />
       <p class="backup-hint">0 = no expiration</p>
     </div>
+    <div class="backup-history-display" id="backupHistoryDisplay">
+      <div class="backup-history-loading">Loading backup history...</div>
+    </div>
   `;
 }
 
@@ -196,6 +223,65 @@ function bindBackupTabEvents(backdrop) {
   diffRadio?.addEventListener('change', () => {
     if (pointInTimeGroup) pointInTimeGroup.style.display = 'none';
   });
+
+  // Fetch backup history when destination tab is shown
+  const activeTab = backdrop.querySelector('.backup-tab.active');
+  if (activeTab?.dataset.tab === 'destination') {
+    fetchAndRenderBackupHistory();
+  }
+}
+
+async function fetchAndRenderBackupHistory() {
+  const historyDisplay = document.getElementById('backupHistoryDisplay');
+  if (!historyDisplay) return;
+
+  // Get currently selected DB from the dropdown
+  const dbSelect = document.getElementById('backupDbSelect');
+  const dbName = dbSelect?.value || runtime.cursor.currentDbName;
+
+  if (!dbName) {
+    historyDisplay.innerHTML = '<p class="backup-history-empty">Select a database to view backup history.</p>';
+    return;
+  }
+
+  try {
+    const { fetchBackupHistory } = await import('./apiClient.js');
+    const result = await fetchBackupHistory(dbName);
+    const backups = result.backups || [];
+
+    if (backups.length === 0) {
+      historyDisplay.innerHTML = '<p class="backup-history-empty">No backup history found for this database.</p>';
+      return;
+    }
+
+    let html = `
+      <h4 class="backup-history-heading">Backup History</h4>
+      <table class="backup-history-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Size</th>
+            <th>Path</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    for (const b of backups) {
+      html += `
+        <tr>
+          <td>${escapeHtml(b.date || '')}</td>
+          <td>${escapeHtml(b.type || '')}</td>
+          <td>${escapeHtml(b.size || '')}</td>
+          <td>${escapeHtml(b.backupPath || '')}</td>
+        </tr>
+      `;
+    }
+    html += '</tbody></table>';
+    historyDisplay.innerHTML = html;
+  } catch (err) {
+    historyDisplay.innerHTML = '<p class="backup-history-empty">Failed to load backup history.</p>';
+  }
 }
 
 async function executeBackup() {

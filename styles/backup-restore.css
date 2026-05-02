@@ -263,3 +263,29 @@
   top: 8px;
   right: 8px;
 }
+
+/* Backup History Display */
+.backup-history-display {
+  margin-top: 16px;
+}
+
+.backup-history-heading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.backup-history-empty {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 12px;
+}
+
+.backup-history-loading {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 12px;
+}
