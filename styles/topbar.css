@@ -246,9 +246,41 @@
   font-size: 11px;
   color: #2ecc71;
 }
-.live-indicator.active { display: flex; }
-.live-indicator::before { content: ""; width: 6px; height: 6px; background: #2ecc71; border-radius: 50%; animation: pulse 2s infinite; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.live-indicator.active {
+  display: flex;
+  background: rgba(46, 204, 113, 0.15);
+  border-color: rgba(46, 204, 113, 0.3);
+  color: #2ecc71;
+}
+.live-indicator.active::before {
+  background: #2ecc71;
+  animation: pulse 2s infinite;
+}
+.live-indicator.disconnected {
+  display: flex;
+  background: rgba(128, 128, 128, 0.15);
+  border-color: rgba(128, 128, 128, 0.3);
+  color: #888;
+}
+.live-indicator.disconnected::before {
+  background: #888;
+  animation: none;
+}
+.live-indicator.error {
+  display: flex;
+  background: rgba(231, 76, 60, 0.15);
+  border-color: rgba(231, 76, 60, 0.3);
+  color: #e74c3c;
+}
+.live-indicator.error::before {
+  background: #e74c3c;
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
 
 /* Connect button in topbar */
 #connectBtn { display: none; }

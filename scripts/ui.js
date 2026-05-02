@@ -1598,9 +1598,10 @@ export function updateDirtyMark() {
 
 /**
  * Update the topbar live connection indicator to reflect current connection state.
- * Called after a successful connection save and on live mode entry.
+ * Called after a successful connection save, on live mode entry, and on disconnect/error.
+ * @param {'connected'|'disconnected'|'error'|undefined} state
  */
-export function updateConnectionUI() {
+export function updateConnectionUI(state) {
   const indicator = document.getElementById('liveIndicator');
   const nameEl = document.getElementById('liveConnectionName');
   const liveStatusEl = document.getElementById('live-status');
@@ -1608,15 +1609,32 @@ export function updateConnectionUI() {
 
   if (!indicator || !nameEl) return;
 
-  if (runtime.cursor.connected && runtime.cursor.connectionName) {
+  // Resolve state from runtime if not explicitly passed
+  if (state === undefined) {
+    state = runtime.cursor.connected ? 'connected' : 'disconnected';
+  }
+
+  // Remove all state classes so we can add the right one
+  indicator.classList.remove('active', 'disconnected', 'error');
+
+  if (state === 'connected') {
     indicator.classList.add('active');
-    nameEl.textContent = runtime.cursor.connectionName;
+    nameEl.textContent = runtime.cursor.connectionName || 'Connected';
     if (liveStatusEl) liveStatusEl.classList.remove('hidden');
-    if (connNameEl) connNameEl.textContent = runtime.cursor.connectionName;
-  } else {
-    indicator.classList.remove('active');
-    nameEl.textContent = 'Not connected';
+    if (connNameEl) connNameEl.textContent = runtime.cursor.connectionName || 'Connected';
+    runtime.cursor.connected = true;
+  } else if (state === 'disconnected') {
+    indicator.classList.add('disconnected');
+    nameEl.textContent = 'Disconnected';
     if (liveStatusEl) liveStatusEl.classList.add('hidden');
+    if (connNameEl) connNameEl.textContent = 'Disconnected';
+    runtime.cursor.connected = false;
+  } else if (state === 'error') {
+    indicator.classList.add('error');
+    nameEl.textContent = 'Connection error';
+    if (liveStatusEl) liveStatusEl.classList.add('hidden');
+    if (connNameEl) connNameEl.textContent = 'Connection error';
+    runtime.cursor.connected = false;
   }
 }
 

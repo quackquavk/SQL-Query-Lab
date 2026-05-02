@@ -326,7 +326,7 @@ export async function runLiveQuery(sql, options = {}) {
     streamer.addEventListener('close', () => {
       // Unexpected WebSocket close — update topbar to disconnected state
       runtime.cursor.connected = false;
-      updateConnectionUI();
+      updateConnectionUI('disconnected');
     });
 
     streamer.addEventListener('error', ({ message }) => {
