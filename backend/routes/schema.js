@@ -227,4 +227,54 @@ router.get('/:database/:table', async (c) => {
   }
 });
 
+/**
+ * GET /api/schema/:database/:table/foreign-keys
+ * Fetch foreign key constraints for a specific table
+ */
+router.get('/:database/:table/foreign-keys', async (c) => {
+  const db = c.req.param('database');
+  const table = c.req.param('table');
+  const userId = c.req.header('x-user-id') || 'anonymous';
+  const server = c.req.header('x-server') || process.env.DEFAULT_SERVER;
+  const authType = c.req.header('x-auth-type') || 'sql';
+  const credentials = JSON.parse(c.req.header('x-credentials') || '{}');
+
+  try {
+    const pool = await getPool(userId, server, authType, { ...credentials, database: db });
+
+    // Parse schema.table format
+    const parts = table.split('.');
+    const schemaName = parts.length > 1 ? parts[0] : 'dbo';
+    const tableName = parts.length > 1 ? parts[1] : parts[0];
+
+    const result = await pool.query(`
+      SELECT
+        tc.CONSTRAINT_NAME,
+        kcu.COLUMN_NAME AS from_column,
+        ccu.TABLE_NAME AS to_table,
+        ccu.COLUMN_NAME AS to_column
+      FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
+      JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+        ON rc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+        AND kcu.TABLE_SCHEMA = @schema
+        AND kcu.TABLE_NAME = @table
+      JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE ccu
+        ON rc.UNIQUE_CONSTRAINT_NAME = ccu.CONSTRAINT_NAME
+      WHERE kcu.TABLE_CATALOG = @db
+    `, { db, schema: schemaName, table: tableName });
+
+    const foreignKeys = result.recordset.map(fk => ({
+      constraintName: fk.CONSTRAINT_NAME,
+      fromColumn: fk.from_column,
+      toTable: fk.to_table,
+      toColumn: fk.to_column
+    }));
+
+    return c.json({ foreignKeys });
+
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 export default router;

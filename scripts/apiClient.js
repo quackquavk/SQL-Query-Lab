@@ -359,6 +359,43 @@ export async function executeDdl(ddl) {
 }
 
 /**
+ * Execute DDL with full connection context (server, auth, database).
+ * Passes X-Server, X-Auth-Type, X-Credentials, X-Database headers to backend
+ * so the pool lookup succeeds for live SQL Server connections.
+ *
+ * @param {string} ddl
+ * @param {{ server: string, authType: string, credentials: object, database: string }} context
+ */
+export async function executeDdlWithContext(ddl, { server, authType, credentials, database }) {
+  const res = await fetch(`${API_BASE}/execute-ddl`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-User-Id': 'browser-user',
+      'X-Server': server || '',
+      'X-Auth-Type': authType || 'sql',
+      'X-Credentials': JSON.stringify(credentials || {}),
+      'X-Database': database || 'master'
+    },
+    credentials: 'include',
+    body: JSON.stringify({ ddl })
+  });
+  return res.json();
+}
+
+/**
+ * Fetch foreign key constraints for a table.
+ * GET /api/schema/:database/:table/foreign-keys
+ * Returns { foreignKeys: [{ constraintName, fromColumn, toTable, toColumn }] }
+ */
+export async function fetchTableForeignKeys(connectionId, database, tableName) {
+  const res = await fetch(`${API_BASE}/schema/${encodeURIComponent(database)}/${encodeURIComponent(tableName)}/foreign-keys`);
+  if (!res.ok) throw new Error('Failed to fetch foreign keys');
+  const data = await res.json();
+  return { foreignKeys: data.foreignKeys || [] };
+}
+
+/**
  * Fetch execution plan XML for a query.
  * POST /api/execution-plan
  */

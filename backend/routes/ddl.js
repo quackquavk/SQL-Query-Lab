@@ -23,14 +23,22 @@ router.post('/', async (c) => {
     return c.json({ error: 'DDL statement is required' }, 400);
   }
 
+  // Extract table name from DDL for logging
+  const tableNameMatch = ddl.match(/(?:ALTER|CREATE)\s+TABLE\s+\[?dbo\]?\.\[?(\w+)\]?/i)
+    || ddl.match(/sp_rename\s+\'[^\']+\.(\w+)\'/i);
+  const tableName = tableNameMatch ? tableNameMatch[1] : 'unknown';
+  console.log(`[ddl] execute ddl for table ${tableName}`);
+
   try {
     const pool = await getPool(userId, server, authType, { ...credentials, database });
 
     await pool.query(ddl);
 
+    console.log(`[ddl] success for table ${tableName}`);
     return c.json({ success: true });
 
   } catch (err) {
+    console.error(`[ddl] error for table ${tableName}: ${err.message}`);
     return c.json({ error: err.message }, 500);
   }
 });
