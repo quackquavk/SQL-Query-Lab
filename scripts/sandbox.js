@@ -179,6 +179,36 @@ export function showLiveResultsUI() {
   const jsonBtn = document.getElementById('btn-export-json');
   if (csvBtn) csvBtn.onclick = () => handleExportCsv(0);
   if (jsonBtn) jsonBtn.onclick = () => handleExportJson(0);
+
+  // Wire Show Execution Plan button
+  const execPlanBtn = document.getElementById('showExecPlanBtn');
+  if (execPlanBtn) {
+    execPlanBtn.onclick = async () => {
+      const sql = runtime.editor.getValue().trim();
+      if (!sql) {
+        showFeedback('error', 'Empty query', 'Write a query before viewing the execution plan.');
+        return;
+      }
+      const panel = document.getElementById('execPlanPanel');
+      if (panel) panel.style.display = '';
+      // Show loading state
+      panel.innerHTML = '<div class="exec-plan-loading">Fetching execution plan…</div>';
+      switchTab('exec-plan');
+      try {
+        const { fetchExecutionPlan, parseShowplanXml, computeCostPercentages, initExecPlanViewer } = await import('./execPlanViewer.js');
+        const xml = await fetchExecutionPlan(sql);
+        const { operators, missingIndexes } = parseShowplanXml(xml);
+        computeCostPercentages(operators);
+        const svgEl = document.getElementById('execPlanSvg');
+        if (svgEl) {
+          initExecPlanViewer(svgEl, { operators, missingIndexes });
+        }
+      } catch (err) {
+        if (panel) panel.innerHTML = `<div class="exec-plan-error"><h3>Execution plan error</h3><p>${escapeHtml(err.message)}</p></div>`;
+        showFeedback('error', 'Execution plan failed', err.message);
+      }
+    };
+  }
 }
 
 export function hideLiveResultsUI() {

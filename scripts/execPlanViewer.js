@@ -392,8 +392,8 @@ function renderMissingIndexBadges(panel, missingIndexes) {
       const stmt = e.target.dataset.statement;
       if (stmt) {
         navigator.clipboard.writeText(stmt).then(() => {
-          showFeedback('info', 'Copied', 'CREATE INDEX statement copied to clipboard');
-        });
+        console.info('Copied CREATE INDEX statement to clipboard');
+      });
       }
     });
 
