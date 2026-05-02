@@ -1,7 +1,8 @@
 // Stored Procedure Editor - View, edit, create stored procedures.
 // T-SQL syntax validation, parameter extraction, GO batch separator support.
 
-import { validateTsql } from './apiClient.js';
+import { validateTsql, getConnection } from './apiClient.js';
+import * as runtime from './runtime.js';
 
 let _isOpen = false;
 let _currentSp = null;
@@ -17,6 +18,15 @@ export function openSpEditor(spName = null) {
   _currentSp = spName;
   _dirty = false;
   _isOpen = true;
+
+  // Update runtime cursor state
+  if (typeof runtime !== 'undefined' && runtime.cursor) {
+    runtime.cursor.spEditor = {
+      isOpen: true,
+      targetSp: spName,
+      dirty: false
+    };
+  }
 
   // Render the SP editor panel
   renderSpEditorPanel();
@@ -45,6 +55,15 @@ export function closeSpEditor() {
   _dirty = false;
   _batches = [];
 
+  // Update runtime cursor state
+  if (typeof runtime !== 'undefined' && runtime.cursor) {
+    runtime.cursor.spEditor = {
+      isOpen: false,
+      targetSp: null,
+      dirty: false
+    };
+  }
+
   // Clean up CodeMirror markers
   if (_editor) {
     _errorMarkers.forEach(m => m.clear());
@@ -57,7 +76,19 @@ export function closeSpEditor() {
 // Load stored procedure definition
 async function loadStoredProcedure(spName) {
   try {
-    const result = await fetchStoredProcedure(window.currentDatabase || 'master', spName);
+    const dbName = window.currentDatabase || 'master';
+    // Look up connection to forward auth headers to the backend
+    const connId = window.__runtime?.cursor?.connectionId;
+    let authHeaders = {};
+    if (connId) {
+      const conn = await getConnection(connId);
+      authHeaders = {
+        'X-Server': conn.server || '',
+        'X-Auth-Type': conn.authType || 'default',
+        'X-Credentials': JSON.stringify(conn.credentials || {})
+      };
+    }
+    const result = await fetchStoredProcedure(dbName, spName, authHeaders);
     if (result && result.definition && _editor) {
       _editor.setValue(result.definition);
       _dirty = false;
@@ -202,8 +233,20 @@ async function saveProcedure() {
   const db = window.currentDatabase || 'master';
   const name = _currentSp || 'NewProcedure';
 
+  // Look up connection to forward auth headers to the backend
+  const connId = window.__runtime?.cursor?.connectionId;
+  let authHeaders = {};
+  if (connId) {
+    const conn = await getConnection(connId);
+    authHeaders = {
+      'X-Server': conn.server || '',
+      'X-Auth-Type': conn.authType || 'default',
+      'X-Credentials': JSON.stringify(conn.credentials || {})
+    };
+  }
+
   try {
-    const result = await saveStoredProcedure(db, name, text);
+    const result = await saveStoredProcedure(db, name, text, authHeaders);
 
     if (result.error) {
       showFeedback('error', 'Save Failed', result.error);
@@ -212,6 +255,16 @@ async function saveProcedure() {
 
     _dirty = false;
     toast('Procedure saved', 'Success');
+
+    // Update runtime cursor state
+    if (typeof runtime !== 'undefined' && runtime.cursor) {
+      runtime.cursor.spEditor = {
+        isOpen: true,
+        targetSp: name,
+        dirty: false
+      };
+    }
+
     if (_hooks.onSpSave) {
       _hooks.onSpSave(name);
     }

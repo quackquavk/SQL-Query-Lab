@@ -754,14 +754,10 @@ function handleObjectClick(node, type, name) {
       renderSchema(activeDb(), name);
     }
   } else if (type === 'procedure' || type === 'function') {
-    // Open definition in new tab (D-21)
-    apiClient.fetchProcedureDefinition(runtime.cursor.connectionId, database, name)
-      .then(def => {
-        if (typeof window.openNewTab === 'function') {
-          window.openNewTab(database, runtime.cursor.connectionId, def);
-        }
-        showFeedback('info', 'Opened ' + name + ' definition');
-      });
+    // Open definition in SP Editor panel (D-21, S06)
+    import('./spEditor.js').then(m => {
+      m.openSpEditor(name);
+    });
   }
 }
 
@@ -952,6 +948,14 @@ function getContextMenuItems(nodeType, nodeName, database) {
         } catch (err) {
           showFeedback('error', 'Refresh failed', err.message);
         }
+      }}
+    );
+  } else if (nodeType === 'procedure_folder') {
+    items.push(
+      { label: 'New Stored Procedure', action: () => {
+        import('./spEditor.js').then(m => {
+          m.openSpEditor(null);
+        });
       }}
     );
   } else if (nodeType === 'group') {

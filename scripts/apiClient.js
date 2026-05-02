@@ -231,9 +231,19 @@ export async function fetchTableColumns(connectionId, database, table) {
  * Fetch stored procedure definition text.
  * GET /api/stored-procedure/:db/:name → returns { definition: "..." }
  * Returns the definition string.
+ * @param {string} connectionId - Connection ID for auth header lookup
+ * @param {string} database
+ * @param {string} procedure
+ * @param {Object} [extraHeaders] - Optional auth headers
  */
-export async function fetchProcedureDefinition(connectionId, database, procedure) {
-  const res = await fetch(`${API_BASE}/stored-procedure/${encodeURIComponent(database)}/${encodeURIComponent(procedure)}`);
+export async function fetchProcedureDefinition(connectionId, database, procedure, extraHeaders = {}) {
+  const res = await fetch(`${API_BASE}/stored-procedure/${encodeURIComponent(database)}/${encodeURIComponent(procedure)}`, {
+    credentials: 'include',
+    headers: {
+      'X-User-Id': 'browser-user',
+      ...extraHeaders
+    }
+  });
   if (!res.ok) throw new Error('Failed to fetch procedure definition');
   const data = await res.json();
   // Backend returns { definition } — extract the string
@@ -379,11 +389,17 @@ export async function fetchStoredProcedures(database) {
 /**
  * Fetch a stored procedure definition.
  * GET /api/stored-procedure/:db/:name
+ * @param {string} database
+ * @param {string} name
+ * @param {Object} [extraHeaders] - Optional auth headers (X-Server, X-Auth-Type, X-Credentials)
  */
-export async function fetchStoredProcedure(database, name) {
+export async function fetchStoredProcedure(database, name, extraHeaders = {}) {
   const res = await fetch(`${API_BASE}/stored-procedure/${encodeURIComponent(database)}/${encodeURIComponent(name)}`, {
     credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    headers: {
+      'X-User-Id': 'browser-user',
+      ...extraHeaders
+    }
   });
   return res.json();
 }
@@ -391,11 +407,19 @@ export async function fetchStoredProcedure(database, name) {
 /**
  * Save a stored procedure (CREATE or ALTER).
  * POST /api/stored-procedure/:db
+ * @param {string} database
+ * @param {string} name
+ * @param {string} definition
+ * @param {Object} [extraHeaders] - Optional auth headers (X-Server, X-Auth-Type, X-Credentials)
  */
-export async function saveStoredProcedure(database, name, definition) {
+export async function saveStoredProcedure(database, name, definition, extraHeaders = {}) {
   const res = await fetch(`${API_BASE}/stored-procedure/${encodeURIComponent(database)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-User-Id': 'browser-user',
+      ...extraHeaders
+    },
     credentials: 'include',
     body: JSON.stringify({ name, definition })
   });
