@@ -337,6 +337,10 @@ export function renderResultsTab(tab) {
     } else {
       body.innerHTML = '<div class="results-empty">No diff available. Click Compare after running two queries.</div>';
     }
+  } else if (tab === 'exec-plan') {
+    const panel = document.getElementById('execPlanPanel');
+    if (panel) panel.style.display = '';
+    body.innerHTML = '';
   } else {
     body.innerHTML = runtime.cursor.lastMessage || '<div class="results-empty">No messages yet</div>';
   }

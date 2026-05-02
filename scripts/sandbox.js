@@ -157,6 +157,7 @@ export function showLiveResultsUI() {
   const empty = document.getElementById('results-empty');
   const chartToolbar = document.getElementById('chartToolbar');
   const chartContainer = document.getElementById('chartContainer');
+  const toolbar = document.getElementById('resultsToolbar');
   if (body) body.style.display = 'none';
   if (gridWrap) gridWrap.classList.remove('hidden');
   if (exportDiv) exportDiv.classList.remove('hidden');
@@ -166,6 +167,7 @@ export function showLiveResultsUI() {
   if (empty) empty.classList.add('hidden');
   if (chartToolbar) chartToolbar.style.display = '';
   if (chartContainer) chartContainer.style.display = '';
+  if (toolbar) toolbar.style.display = '';
 
   window._runSandbox = runSandboxQuery;
 
