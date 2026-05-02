@@ -323,6 +323,12 @@ export async function runLiveQuery(sql, options = {}) {
       resolve({ executionTime, rowCount });
     });
 
+    streamer.addEventListener('close', () => {
+      // Unexpected WebSocket close — update topbar to disconnected state
+      runtime.cursor.connected = false;
+      updateConnectionUI();
+    });
+
     streamer.addEventListener('error', ({ message }) => {
       const rv = runtime.cursor.currentResultsView;
       if (rv) rv.error(message);

@@ -114,10 +114,28 @@ export function createQueryStreamer(connectionId, sql, options = {}) {
   const listeners = { connect: [], columns: [], rows: [], done: [], error: [], timeout: [], close: [] };
   let ws = null;
   let resolved = false;
+  let opened = false;
+  let retryCount = 0;
+  const maxRetries = 3;
+  let retryDelay = 1000;
+  let reconnectTimeout = null;
+  let connectionTimer = null;
 
   function emit(event, data) {
     console.log(`[streamer ${queryId}] ${event}`, data || '');
     listeners[event]?.forEach(l => l(data));
+  }
+
+  function _reconnect() {
+    if (retryCount >= maxRetries) {
+      emit('error', { message: 'WebSocket reconnect failed after ' + maxRetries + ' attempts', code: 'RECONNECT_FAILED' });
+      if (!resolved) { resolved = true; reject(new Error('WebSocket reconnect failed after ' + maxRetries + ' attempts')); }
+      return;
+    }
+    retryDelay = Math.min(retryDelay * 2, 30000);
+    retryCount++;
+    console.log(`[streamer ${queryId}] reconnect attempt ${retryCount}/${maxRetries} in ${retryDelay}ms`);
+    reconnectTimeout = setTimeout(() => { connect().catch(() => {}); }, retryDelay);
   }
 
   function connect() {
@@ -126,19 +144,40 @@ export function createQueryStreamer(connectionId, sql, options = {}) {
       const wsUrl = `${protocol}//${location.host}/api/query`;
       ws = new WebSocket(wsUrl);
 
+      // Client-side connection timeout: 10 seconds
+      connectionTimer = setTimeout(() => {
+        if (ws && ws.readyState !== WebSocket.OPEN) {
+          ws.close();
+          emit('error', { message: 'Connection timed out', code: 'CONNECTION_TIMEOUT' });
+          if (!resolved) { resolved = true; reject(new Error('Connection timed out')); }
+        }
+      }, 10000);
+
       ws.onopen = () => {
+        opened = true;
+        clearTimeout(connectionTimer);
+        clearTimeout(reconnectTimeout);
         emit('connect');
         ws.send(JSON.stringify({ type: 'execute', connectionId, sql, queryId, timeout }));
         resolved = true;
         resolve();
       };
       ws.onerror = (ev) => {
+        clearTimeout(connectionTimer);
+        clearTimeout(reconnectTimeout);
         emit('error', { message: 'WebSocket connection failed', code: 'WS_ERROR' });
         if (!resolved) { resolved = true; reject(new Error('WebSocket connection failed')); }
       };
       ws.onclose = () => {
+        clearTimeout(connectionTimer);
+        clearTimeout(reconnectTimeout);
         if (!resolved) { resolved = true; reject(new Error('WebSocket closed before response')); }
-        emit('close');
+        if (!opened) {
+          // Connection never opened — unexpected close, retry
+          _reconnect();
+        } else {
+          emit('close');
+        }
       };
       ws.onmessage = (event) => {
         try {
@@ -182,6 +221,8 @@ export function createQueryStreamer(connectionId, sql, options = {}) {
     },
     destroy() {
       emit('destroy');
+      clearTimeout(connectionTimer);
+      clearTimeout(reconnectTimeout);
       if (ws) { ws.close(); ws = null; }
     }
   };
