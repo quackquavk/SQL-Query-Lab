@@ -499,38 +499,65 @@ function renderWizardStep() {
 }
 
 async function renderWizardStep1() {
-  // Fetch backup history
+  // Fetch database list from server
+  let databases = [];
+  let dbFetchError = false;
+  try {
+    const { fetchObjectTree } = await import('./apiClient.js');
+    const data = await fetchObjectTree(runtime.cursor.connectionId);
+    databases = data.databases || [];
+  } catch (err) {
+    dbFetchError = true;
+  }
+
+  // Fetch backup history for the current target DB
+  const initialDb = _wizardState.targetDb || runtime.cursor.currentDbName || 'master';
   let backups = [];
   try {
     const { fetchBackupHistory } = await import('./apiClient.js');
-    const result = await fetchBackupHistory(_wizardState.targetDb || 'master');
+    const result = await fetchBackupHistory(initialDb);
     backups = result.backups || [];
   } catch (err) {
     // Ignore — show empty state
   }
 
-  if (backups.length === 0) {
+  if (databases.length === 0) {
     return `
       <div class="wizard-step-content">
         <h3>Select Backup Files</h3>
-        <p class="wizard-hint">No backup history found for the selected database.</p>
+        ${dbFetchError ? '<p class="wizard-hint">Could not load database list. Enter the database name manually.</p>' : '<p class="wizard-hint">No databases found.</p>'}
         <div class="backup-form-group">
           <label class="backup-label">Database</label>
           <input type="text" class="backup-input" id="wizardDbName" value="${_wizardState.targetDb}" placeholder="Database name" />
         </div>
+        ${renderBackupHistoryTable(initialDb, backups)}
       </div>
     `;
   }
 
-  let html = `
+  return `
     <div class="wizard-step-content">
       <h3>Select Backup Files</h3>
       <p class="wizard-hint">Select one or more backup files to restore. Differential backups require their full backup to also be selected.</p>
       <div class="backup-form-group">
         <label class="backup-label">Database</label>
-        <input type="text" class="backup-input" id="wizardDbName" value="${_wizardState.targetDb}" placeholder="Database name" />
+        <select class="backup-select" id="wizardDbSelect">
+          ${databases.map(db => `<option value="${escapeHtml(db.name)}" ${db.name === initialDb ? 'selected' : ''}>${escapeHtml(db.name)}</option>`).join('\n          ')}
+        </select>
       </div>
-      <table class="backup-history-table">
+      ${renderBackupHistoryTable(initialDb, backups)}
+    </div>
+  `;
+}
+
+/**
+ * Render the backup history table for a given database.
+ * Used both in step 1 (restore wizard) and the destination tab.
+ */
+function renderBackupHistoryTable(dbName, backups) {
+  if (backups.length === 0) {
+    return `<p class="wizard-hint" id="wizardBackupHint">No backup history found for <strong>${escapeHtml(dbName)}</strong>.</p>
+      <table class="backup-history-table" id="wizardBackupTable" style="display:none">
         <thead>
           <tr>
             <th></th>
@@ -541,7 +568,24 @@ async function renderWizardStep1() {
             <th>Last LSN</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody></tbody>
+      </table>`;
+  }
+
+  let html = `
+    <p class="wizard-hint" id="wizardBackupHint" style="display:none">No backup history found for this database.</p>
+    <table class="backup-history-table" id="wizardBackupTable">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Size</th>
+          <th>First LSN</th>
+          <th>Last LSN</th>
+        </tr>
+      </thead>
+      <tbody>
   `;
   for (const b of backups) {
     html += `
@@ -555,15 +599,25 @@ async function renderWizardStep1() {
       </tr>
     `;
   }
-  html += '</tbody></table></div>';
+  html += '</tbody></table>';
   return html;
 }
 
 function bindStep1Events() {
+  // Text input fallback
   const dbInput = document.getElementById('wizardDbName');
   dbInput?.addEventListener('change', () => {
     _wizardState.targetDb = dbInput.value;
   });
+
+  // Dropdown selector — re-fetch backup history on change
+  const dbSelect = document.getElementById('wizardDbSelect');
+  if (dbSelect) {
+    dbSelect.addEventListener('change', async () => {
+      _wizardState.targetDb = dbSelect.value;
+      await reFetchBackupHistory(_wizardState.targetDb);
+    });
+  }
 
   document.querySelectorAll('.backup-select-check').forEach(cb => {
     cb.addEventListener('change', () => {
@@ -573,6 +627,71 @@ function bindStep1Events() {
       }));
     });
   });
+}
+
+/**
+ * Re-fetch backup history for a given database and re-render the history table.
+ * Called when user changes the database selector in step 1.
+ */
+async function reFetchBackupHistory(dbName) {
+  const hint = document.getElementById('wizardBackupHint');
+  const table = document.getElementById('wizardBackupTable');
+
+  if (hint) hint.textContent = 'Loading backup history...';
+  if (table) table.style.display = 'none';
+
+  try {
+    const { fetchBackupHistory } = await import('./apiClient.js');
+    const result = await fetchBackupHistory(dbName);
+    const backups = result.backups || [];
+
+    if (backups.length === 0) {
+      if (hint) {
+        hint.textContent = `No backup history found for ${dbName}.`;
+        hint.style.display = '';
+      }
+      if (table) table.style.display = 'none';
+      return;
+    }
+
+    // Populate the table body
+    if (table) {
+      table.style.display = '';
+      const tbody = table.querySelector('tbody');
+      if (tbody) {
+        let html = '';
+        for (const b of backups) {
+          html += `
+            <tr>
+              <td><input type="checkbox" class="backup-select-check" data-lsn="${b.lastLsn}" value="${escapeHtml(b.backupPath || '')}" /></td>
+              <td>${escapeHtml(b.date || '')}</td>
+              <td>${escapeHtml(b.type || '')}</td>
+              <td>${escapeHtml(b.size || '')}</td>
+              <td>${escapeHtml(b.firstLsn || '')}</td>
+              <td>${escapeHtml(b.lastLsn || '')}</td>
+            </tr>
+          `;
+        }
+        tbody.innerHTML = html;
+
+        // Re-bind checkbox events
+        tbody.querySelectorAll('.backup-select-check').forEach(cb => {
+          cb.addEventListener('change', () => {
+            _wizardState.selectedBackups = Array.from(document.querySelectorAll('.backup-select-check:checked')).map(c => ({
+              path: c.value,
+              lsn: c.dataset.lsn
+            }));
+          });
+        });
+      }
+    }
+    if (hint) hint.style.display = 'none';
+  } catch (err) {
+    if (hint) {
+      hint.textContent = 'Failed to load backup history.';
+      hint.style.display = '';
+    }
+  }
 }
 
 function renderWizardStep2() {
