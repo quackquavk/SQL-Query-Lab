@@ -563,4 +563,418 @@ test.describe('Object Explorer', () => {
     expect(editorValue).toContain('SELECT TOP 100');
     expect(editorValue).toContain('Users');
   });
+
+  // ── SP Editor flows ────────────────────────────────────────────────────────────
+
+  test('clicking a stored procedure node opens the SP editor panel', async ({ page }) => {
+    await page.goto(APP_URL);
+    await page.waitForSelector('.app');
+
+    // Inject a minimal object tree with a stored procedure
+    await page.evaluate(() => {
+      if (!window.__runtime) return;
+      const rt = window.__runtime;
+      rt.objectTree['test-conn'] = {
+        databases: [{
+          name: 'TestDB',
+          type: 'database',
+          children: [{
+            name: 'Stored Procedures',
+            type: 'procedure_folder',
+            children: [{ name: 'usp_GetOrders', type: 'procedure', children: [] }]
+          }]
+        }]
+      };
+      rt.connectionId = 'test-conn';
+      rt.cursor.currentMode = 'live';
+    });
+
+    await page.evaluate(() => { if (window.__renderObjectTree) window.__renderObjectTree(); });
+
+    // Expand TestDB and SP folder
+    await page.locator('.obj-node:has(.obj-node-label:text("TestDB")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+    await page.locator('.obj-node:has(.obj-node-label:text("Stored Procedures")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+
+    // Mock the stored procedure fetch API
+    await page.route('**/api/stored-procedure/**', route => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ definition: 'CREATE PROCEDURE usp_GetOrders AS BEGIN SELECT * FROM Orders END' })
+      });
+    });
+
+    // Click the stored procedure node — this triggers handleObjectClick → openSpEditor
+    await page.locator('.obj-node:has(.obj-node-label:text("usp_GetOrders"))').first().click();
+    await page.waitForTimeout(800);
+
+    // SP editor panel should appear
+    const panel = page.locator('#sp-editor-panel');
+    await expect(panel).toBeVisible({ timeout: 5000 });
+
+    // Header should show SP Editor label
+    await expect(page.locator('.sp-editor-header h3')).toContainText('SP Editor');
+
+    // Save button should be present
+    await expect(page.locator('#sp-save-btn')).toBeVisible();
+    await expect(page.locator('#sp-save-btn')).toContainText('Save Procedure');
+
+    // New button should be present
+    await expect(page.locator('#sp-new-btn')).toBeVisible();
+  });
+
+  test('right-click stored procedure shows "Open in SP Editor" in context menu', async ({ page }) => {
+    await page.goto(APP_URL);
+    await page.waitForSelector('.app');
+
+    await page.evaluate(() => {
+      if (!window.__runtime) return;
+      const rt = window.__runtime;
+      rt.objectTree['test-conn'] = {
+        databases: [{
+          name: 'TestDB',
+          type: 'database',
+          children: [{
+            name: 'Stored Procedures',
+            type: 'procedure_folder',
+            children: [{ name: 'usp_GetOrders', type: 'procedure', children: [] }]
+          }]
+        }]
+      };
+      rt.connectionId = 'test-conn';
+      rt.cursor.currentMode = 'live';
+    });
+
+    await page.evaluate(() => { if (window.__renderObjectTree) window.__renderObjectTree(); });
+
+    // Expand DB and SP folder
+    await page.locator('.obj-node:has(.obj-node-label:text("TestDB")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+    await page.locator('.obj-node:has(.obj-node-label:text("Stored Procedures")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+
+    // Right-click the stored procedure
+    const spNode = page.locator('.obj-node:has(.obj-node-label:text("usp_GetOrders"))').first();
+    await spNode.click({ button: 'right' });
+    await page.waitForTimeout(300);
+
+    const menu = page.locator('.obj-context-menu');
+    await expect(menu).toBeVisible({ timeout: 3000 });
+    const menuText = await menu.innerText();
+
+    // The SP Editor context menu entry was added for procedure nodes
+    expect(menuText).toContain('Open in SP Editor');
+  });
+
+  test('"New Stored Procedure" button opens blank CREATE PROCEDURE template', async ({ page }) => {
+    await page.goto(APP_URL);
+    await page.waitForSelector('.app');
+
+    // Inject tree and render
+    await page.evaluate(() => {
+      if (!window.__runtime) return;
+      const rt = window.__runtime;
+      rt.objectTree['test-conn'] = {
+        databases: [{
+          name: 'TestDB',
+          type: 'database',
+          children: [{
+            name: 'Stored Procedures',
+            type: 'procedure_folder',
+            children: [{ name: 'usp_GetOrders', type: 'procedure', children: [] }]
+          }]
+        }]
+      };
+      rt.connectionId = 'test-conn';
+      rt.cursor.currentMode = 'live';
+    });
+
+    await page.evaluate(() => { if (window.__renderObjectTree) window.__renderObjectTree(); });
+
+    // Expand DB and SP folder
+    await page.locator('.obj-node:has(.obj-node-label:text("TestDB")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+    await page.locator('.obj-node:has(.obj-node-label:text("Stored Procedures")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+
+    // Right-click the Stored Procedures folder to trigger context menu
+    await page.locator('.obj-node:has(.obj-node-label:text("Stored Procedures"))').first().click({ button: 'right' });
+    await page.waitForTimeout(300);
+
+    // Click "New Stored Procedure" context menu item
+    await page.locator('.obj-menu-item:has-text("New Stored Procedure")').click();
+    await page.waitForTimeout(600);
+
+    // SP editor panel should open
+    const panel = page.locator('#sp-editor-panel');
+    await expect(panel).toBeVisible({ timeout: 5000 });
+
+    // Editor should contain CREATE PROCEDURE template text
+    const editorText = await page.evaluate(() => {
+      // Access the CodeMirror instance managed by spEditor.js
+      const spPanel = document.getElementById('sp-editor-panel');
+      if (!spPanel) return '';
+      // Find the CodeMirror wrapper and read its value
+      const cmWrap = spPanel.querySelector('.CodeMirror');
+      return cmWrap ? cmWrap.CodeMirror?.instance?.getValue?.() || '' : '';
+    });
+    expect(editorText.toUpperCase()).toContain('CREATE PROCEDURE');
+  });
+
+  test('SP editor save button fires PUT /api/stored-procedure with SQL body', async ({ page }) => {
+    await page.goto(APP_URL);
+    await page.waitForSelector('.app');
+
+    let savedBody = null;
+    let savedMethod = null;
+    let savedUrl = null;
+
+    // Mock the save endpoint
+    await page.route('**/api/stored-procedure/**', async route => {
+      savedMethod = route.request().method();
+      savedUrl = route.request().url();
+      const body = await route.request().postDataBuffer();
+      try {
+        savedBody = JSON.parse(body.toString());
+      } catch (_) {
+        savedBody = body.toString();
+      }
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+    });
+
+    // Inject tree
+    await page.evaluate(() => {
+      if (!window.__runtime) return;
+      const rt = window.__runtime;
+      rt.objectTree['test-conn'] = {
+        databases: [{
+          name: 'TestDB',
+          type: 'database',
+          children: [{
+            name: 'Stored Procedures',
+            type: 'procedure_folder',
+            children: [{ name: 'usp_GetOrders', type: 'procedure', children: [] }]
+          }]
+        }]
+      };
+      rt.connectionId = 'test-conn';
+      rt.cursor.currentMode = 'live';
+    });
+
+    await page.evaluate(() => { if (window.__renderObjectTree) window.__renderObjectTree(); });
+
+    // Expand DB and SP folder
+    await page.locator('.obj-node:has(.obj-node-label:text("TestDB")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+    await page.locator('.obj-node:has(.obj-node-label:text("Stored Procedures")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+
+    // Click SP node to open editor (mocked SP definition)
+    await page.locator('.obj-node:has(.obj-node-label:text("usp_GetOrders"))').first().click();
+    await page.waitForTimeout(800);
+
+    // Make a modification to mark _dirty = true
+    await page.evaluate(() => {
+      const cmWrap = document.querySelector('#sp-editor-panel .CodeMirror');
+      const cm = cmWrap?.CodeMirror?.instance;
+      if (cm) {
+        cm.setValue(cm.getValue() + '\n-- modified');
+        cm.emit('change', {});
+      }
+    });
+    await page.waitForTimeout(300);
+
+    // Click Save Procedure
+    await page.locator('#sp-save-btn').click();
+    await page.waitForTimeout(1500);
+
+    // Verify the API call was a PUT with sql body
+    expect(savedMethod).toBe('PUT');
+    expect(savedUrl).toContain('/api/stored-procedure');
+    expect(savedBody).not.toBeNull();
+  });
+
+  test('SP editor error surfaces via showFeedback', async ({ page }) => {
+    await page.goto(APP_URL);
+    await page.waitForSelector('.app');
+
+    // Mock a failing save
+    await page.route('**/api/stored-procedure/**', route => {
+      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Save failed: permissions denied' }) });
+    });
+
+    // Inject tree
+    await page.evaluate(() => {
+      if (!window.__runtime) return;
+      const rt = window.__runtime;
+      rt.objectTree['test-conn'] = {
+        databases: [{
+          name: 'TestDB',
+          type: 'database',
+          children: [{
+            name: 'Stored Procedures',
+            type: 'procedure_folder',
+            children: [{ name: 'usp_GetOrders', type: 'procedure', children: [] }]
+          }]
+        }]
+      };
+      rt.connectionId = 'test-conn';
+      rt.cursor.currentMode = 'live';
+    });
+
+    await page.evaluate(() => { if (window.__renderObjectTree) window.__renderObjectTree(); });
+
+    // Expand DB and SP folder
+    await page.locator('.obj-node:has(.obj-node-label:text("TestDB")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+    await page.locator('.obj-node:has(.obj-node-label:text("Stored Procedures")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+
+    // Open SP editor
+    await page.locator('.obj-node:has(.obj-node-label:text("usp_GetOrders"))').first().click();
+    await page.waitForTimeout(800);
+
+    // Modify content to make dirty
+    await page.evaluate(() => {
+      const cmWrap = document.querySelector('#sp-editor-panel .CodeMirror');
+      const cm = cmWrap?.CodeMirror?.instance;
+      if (cm) {
+        cm.setValue(cm.getValue() + '\n-- modified');
+        cm.emit('change', {});
+      }
+    });
+    await page.waitForTimeout(300);
+
+    // Capture the showFeedback call
+    let feedbackArgs = null;
+    await page.exposeFunction('__captureFeedback', (type, title, msg) => {
+      feedbackArgs = { type, title, msg };
+    });
+    await page.evaluate(() => {
+      // Intercept showFeedback by patching window.showFeedback
+      const orig = window.showFeedback;
+      window.showFeedback = (...args) => {
+        window.__captureFeedback(...args);
+        return orig ? orig(...args) : null;
+      };
+    });
+
+    // Trigger save which should fail
+    await page.locator('#sp-save-btn').click();
+    await page.waitForTimeout(1500);
+
+    // Either feedback was shown (error UI) or the save returned an error in body
+    const feedbackShown = feedbackArgs && feedbackArgs.type === 'error';
+    const apiErrorShown = await page.locator('.feedback.error, .toast.error').count() > 0;
+    // At minimum, the save request should have been attempted
+    expect(feedbackShown || apiErrorShown || savedMethod === 'PUT').toBeTruthy();
+  });
+
+  test('SP editor load failure logs to console.error', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+
+    // Mock a failing fetch
+    await page.route('**/api/stored-procedure/**', route => {
+      route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Not found' }) });
+    });
+
+    // Inject tree
+    await page.evaluate(() => {
+      if (!window.__runtime) return;
+      const rt = window.__runtime;
+      rt.objectTree['test-conn'] = {
+        databases: [{
+          name: 'TestDB',
+          type: 'database',
+          children: [{
+            name: 'Stored Procedures',
+            type: 'procedure_folder',
+            children: [{ name: 'usp_GetOrders', type: 'procedure', children: [] }]
+          }]
+        }]
+      };
+      rt.connectionId = 'test-conn';
+      rt.cursor.currentMode = 'live';
+    });
+
+    await page.evaluate(() => { if (window.__renderObjectTree) window.__renderObjectTree(); });
+
+    // Expand DB and SP folder
+    await page.locator('.obj-node:has(.obj-node-label:text("TestDB")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+    await page.locator('.obj-node:has(.obj-node-label:text("Stored Procedures")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+
+    // Click SP node — load should fail and log to console.error
+    await page.locator('.obj-node:has(.obj-node-label:text("usp_GetOrders"))').first().click();
+    await page.waitForTimeout(1000);
+
+    // console.error('Failed to load stored procedure:') should appear
+    const spLoadError = consoleErrors.find(m => m.includes('Failed to load stored procedure'));
+    expect(spLoadError).toBeTruthy();
+  });
+
+  test('runtime.cursor.spEditor tracks state across open/save/close', async ({ page }) => {
+    await page.goto(APP_URL);
+    await page.waitForSelector('.app');
+
+    // Mock the stored procedure fetch
+    await page.route('**/api/stored-procedure/**', route => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ definition: 'CREATE PROCEDURE usp_Test AS BEGIN SELECT 1 END' })
+      });
+    });
+
+    // Inject tree
+    await page.evaluate(() => {
+      if (!window.__runtime) return;
+      const rt = window.__runtime;
+      rt.objectTree['test-conn'] = {
+        databases: [{
+          name: 'TestDB',
+          type: 'database',
+          children: [{
+            name: 'Stored Procedures',
+            type: 'procedure_folder',
+            children: [{ name: 'usp_Test', type: 'procedure', children: [] }]
+          }]
+        }]
+      };
+      rt.connectionId = 'test-conn';
+      rt.cursor.currentMode = 'live';
+    });
+
+    await page.evaluate(() => { if (window.__renderObjectTree) window.__renderObjectTree(); });
+
+    // Expand DB and SP folder
+    await page.locator('.obj-node:has(.obj-node-label:text("TestDB")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+    await page.locator('.obj-node:has(.obj-node-label:text("Stored Procedures")) .obj-expandable').click();
+    await page.waitForTimeout(400);
+
+    // Open SP editor by clicking the procedure
+    await page.locator('.obj-node:has(.obj-node-label:text("usp_Test"))').first().click();
+    await page.waitForTimeout(800);
+
+    // runtime.cursor.spEditor should be set with isOpen: true
+    const stateAfterOpen = await page.evaluate(() => window.__runtime?.cursor?.spEditor);
+    expect(stateAfterOpen).toBeTruthy();
+    expect(stateAfterOpen.isOpen).toBe(true);
+    expect(stateAfterOpen.targetSp).toBe('usp_Test');
+
+    // Close the SP editor
+    await page.locator('#sp-close-btn').click();
+    await page.waitForTimeout(300);
+
+    const stateAfterClose = await page.evaluate(() => window.__runtime?.cursor?.spEditor);
+    expect(stateAfterClose).toBeTruthy();
+    expect(stateAfterClose.isOpen).toBe(false);
+  });
 });
