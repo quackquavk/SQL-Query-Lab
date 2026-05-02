@@ -14,7 +14,8 @@ import {
   showFeedback, switchTab, toast, renderSchema, renderResources, renderHistory,
   renderResultsTab, renderFilters, renderQuestionList, updateDirtyMark,
   setUiHooks, renderResultsStreaming, handleExportCsv, handleExportJson,
-  clearResultSets, storeResultSet, renderSnippets, renderTemplates, initObjectExplorer
+  clearResultSets, storeResultSet, renderSnippets, renderTemplates, initObjectExplorer,
+  updateConnectionUI
 } from './ui.js';
 import { formatEditorSql } from './format.js';
 import { initEditor, injectCodemirrorFontFix } from './editor.js';
@@ -601,6 +602,7 @@ function wireUI() {
 
   // Expose runtime on window for browser test access
   window.__runtime = runtime;
+  window.__updateConnectionUI = updateConnectionUI;
 
   // Expose window.openNewTab for object explorer context menu actions
   window.openNewTab = (database, connectionId, sql) => {
