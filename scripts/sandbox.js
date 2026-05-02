@@ -180,8 +180,8 @@ export function showLiveResultsUI() {
   if (csvBtn) csvBtn.onclick = () => handleExportCsv(0);
   if (jsonBtn) jsonBtn.onclick = () => handleExportJson(0);
 
-  // Wire Show Execution Plan button
-  const execPlanBtn = document.getElementById('showExecPlanBtn');
+  // Wire Show Execution Plan button to onclick handler
+  const execPlanBtn = document.getElementById('showExecPlanBtn'); // showExecPlanBtn onclick
   if (execPlanBtn) {
     execPlanBtn.onclick = async () => {
       const sql = runtime.editor.getValue().trim();

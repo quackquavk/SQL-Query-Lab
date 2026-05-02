@@ -2,42 +2,66 @@
 // Generates CREATE/ALTER TABLE statements from form input.
 
 import { formatSql } from './format.js';
+import { fetchTableColumns } from './apiClient.js';
 
 let _isOpen = false;
 let _currentTable = null;
+let _currentDatabase = null;
+let _connectionId = null;
 let _dirty = false;
 let _columns = [];
+let _originalColumns = []; // deep copy snapshot for change detection
 let _hooks = {};
 
-// Column type options
+// Column type options — covers both base types and typed variants with params.
+// The dropdown shows common types; users may also type custom types directly.
 const COLUMN_TYPES = [
-  'int', 'bigint', 'smallint', 'tinyint', 'bit', 'decimal', 'numeric',
-  'float', 'real', 'char', 'varchar', 'nvarchar', 'text', 'ntext',
+  'int', 'bigint', 'smallint', 'tinyint', 'bit',
+  'decimal', 'decimal(p,s)', 'numeric', 'numeric(p,s)',
+  'float', 'real',
+  'char', 'char(n)', 'varchar', 'varchar(n)', 'nvarchar', 'nvarchar(n)', 'text', 'ntext',
   'datetime', 'date', 'time', 'uniqueidentifier'
 ];
 
-// Open table designer
-export function openTableDesigner(tableName = null) {
+// Open table designer — async internally so it can await column loading.
+export async function openTableDesigner(tableName = null, database = null, connectionId = null) {
   _currentTable = tableName;
+  _currentDatabase = database;
+  _connectionId = connectionId;
   _dirty = false;
 
+  console.log('[tableDesigner] modal open', { tableName, database, connectionId });
+
   if (tableName) {
-    // Load existing table columns
-    _columns = loadExistingColumns(tableName);
+    try {
+      _columns = await loadExistingColumns(tableName);
+      _originalColumns = _columns.map(col => ({ ...col }));
+      console.log(`[tableDesigner] columns loaded ${_columns.length}`);
+    } catch (err) {
+      console.error('[tableDesigner] load error', err);
+      _columns = [];
+      _originalColumns = [];
+    }
   } else {
-    // New table - start with one default INT column
     _columns = [{ name: '', type: 'int', nullable: true, isPK: false, defaultVal: null }];
+    _originalColumns = [];
   }
 
   _isOpen = true;
   renderTableDesignerModal();
 }
 
-// Load existing columns for a table
-function loadExistingColumns(tableName) {
-  // This would fetch from the backend API
-  // For now, return a default column structure
-  return [{ name: '', type: 'int', nullable: true, isPK: false, defaultVal: null }];
+// Load existing columns from the backend via apiClient.
+async function loadExistingColumns(tableName) {
+  const result = await fetchTableColumns(_connectionId, _currentDatabase, tableName);
+  // Map backend shape: { name, dataType, isNullable, isPrimaryKey } → internal shape.
+  return (result.columns || []).map(col => ({
+    name: col.name || '',
+    type: col.dataType || 'int',
+    nullable: col.isNullable ?? true,
+    isPK: col.isPrimaryKey ?? false,
+    defaultVal: col.defaultValue ?? null
+  }));
 }
 
 // Close table designer
@@ -49,8 +73,11 @@ export function closeTableDesigner() {
   }
   _isOpen = false;
   _currentTable = null;
+  _currentDatabase = null;
+  _connectionId = null;
   _dirty = false;
   _columns = [];
+  _originalColumns = [];
   removeTableDesignerModal();
 }
 
@@ -75,6 +102,21 @@ export function updateColumn(index, field, value) {
   _columns[index][field] = value;
   _dirty = true;
   renderDDLPreview();
+}
+
+// Get column at index (for external queries)
+export function getColumn(index) {
+  return _columns[index] || null;
+}
+
+// Get all columns (for external queries)
+export function getColumns() {
+  return _columns;
+}
+
+// Get original column snapshot (for change detection)
+export function getOriginalColumns() {
+  return _originalColumns;
 }
 
 // Generate DDL statement
@@ -112,11 +154,9 @@ function renderDDLPreview() {
   const previewEl = document.getElementById('td-ddl-preview');
   if (previewEl) {
     previewEl.textContent = ddl;
-    // Apply syntax highlighting classes
     highlightDdl(previewEl);
   }
 
-  // Enable/disable execute button
   const executeBtn = document.getElementById('td-execute-btn');
   if (executeBtn) {
     executeBtn.disabled = !ddl.trim();
@@ -131,7 +171,6 @@ function highlightDdl(el) {
   keywords.forEach(kw => {
     html = html.replace(new RegExp(`\\b${kw}\\b`, 'g'), `<span class="kw">${kw}</span>`);
   });
-  // Note: We'll just use text for now, CSS handles coloring via .kw
 }
 
 // Execute DDL against backend
@@ -159,10 +198,9 @@ async function handleExecute() {
       return;
     }
 
-    // Success
     _dirty = false;
     if (typeof toast === 'function') {
-      toast('Table created/altered successfully', 'Success');
+      toast('Table created/altered successfully', 'success');
     }
     if (_hooks.onSuccess) {
       _hooks.onSuccess();
@@ -200,13 +238,14 @@ function renderTableDesignerModal() {
 
   renderTableDesignerForm();
 
-  // Show modal
   requestAnimationFrame(() => {
     document.getElementById('td-backdrop').classList.add('open');
   });
 }
 
-// Render the form content
+// Render the form content — uses _columns as the source of truth.
+// When _currentTable is already set (existing table), _columns is
+// pre-populated from the backend load; the form renders those values.
 function renderTableDesignerForm() {
   const content = document.getElementById('td-content');
   if (!content) return;
@@ -239,7 +278,7 @@ function renderTableDesignerForm() {
     </div>
   `;
 
-  // Render columns
+  // Render columns (already populated in _columns from loadExistingColumns or default)
   const grid = document.getElementById('td-columns-grid');
   _columns.forEach((col, i) => {
     const row = document.createElement('div');
@@ -292,7 +331,6 @@ function renderTableDesignerForm() {
 
   document.getElementById('td-execute-btn').addEventListener('click', handleExecute);
 
-  // Update table name if new table
   const tableNameInput = document.getElementById('td-table-name');
   if (tableNameInput && !_currentTable) {
     tableNameInput.addEventListener('input', (e) => {
@@ -320,4 +358,13 @@ export function setTableDesignerHooks({ onSuccess, onTableEdit }) {
 // Check if modal is open
 export function isTableDesignerOpen() {
   return _isOpen;
+}
+
+// Re-export current context for callers that need to know the active database/connection
+export function getTableDesignerContext() {
+  return {
+    table: _currentTable,
+    database: _currentDatabase,
+    connectionId: _connectionId
+  };
 }
