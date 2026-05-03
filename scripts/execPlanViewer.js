@@ -322,6 +322,9 @@ export function initExecPlanViewer(svgElement, data) {
     .append('path')
     .attr('d', 'M 0 0 L 10 5 L 0 10 z')
     .attr('class', 'exec-plan-arrow');
+
+  // Setup pan/zoom after rendering is complete
+  setupZoom(svgElement);
 }
 
 // Setup pan/zoom
