@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Query Lab — Practice every SQL statement</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css" />
+
+<!-- D3.js and dagre for ER diagrams and execution plans -->
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+
+<link rel="stylesheet" href="../styles/base.css" />
+<link rel="stylesheet" href="../styles/topbar.css" />
+<link rel="stylesheet" href="../styles/sandbox.css" />
+<link rel="stylesheet" href="../styles/templates.css" />
+<link rel="stylesheet" href="../styles/layout.css" />
+<link rel="stylesheet" href="../styles/editor.css" />
+<link rel="stylesheet" href="../styles/results.css" />
+<link rel="stylesheet" href="../styles/right-panel.css" />
+<link rel="stylesheet" href="../styles/modal.css" />
+<link rel="stylesheet" href="../styles/er-diagram.css" />
+<link rel="stylesheet" href="../styles/table-designer.css" />
+<link rel="stylesheet" href="../styles/exec-plan.css" />
+<link rel="stylesheet" href="../styles/sp-editor.css" />
+<link rel="stylesheet" href="../styles/query-builder.css" />
+<link rel="stylesheet" href="../styles/chart.css" />
+<link rel="stylesheet" href="../styles/optimization.css" />
+<link rel="stylesheet" href="../styles/job-browser.css" />
+<link rel="stylesheet" href="../styles/backup-restore.css" />
+</head>
+<body>
+
+<div class="splash" id="splash">
+  <div class="logo">Query Lab</div>
+  <div class="sub">loading databases</div>
+  <div class="bar"></div>
+</div>
+
+<div class="app">
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark">Q</span>
+      <span class="name">Query Lab</span>
+      <span class="tag">Practice every SQL statement</span>
+    </div>
+    <div class="controls">
+      <div class="live-indicator" id="liveIndicator">
+        <span id="liveConnectionName">Not connected</span>
+        <span id="live-status" class="hidden">● <span id="conn-name"></span></span>
+      </div>
+      <div class="conn-dropdown-wrap live-only" style="position:relative;display:none">
+        <button class="btn" id="savedConnBtn" title="Saved connections">▾ Connections</button>
+        <div class="conn-dropdown" id="savedConnDropdown">
+          <div class="conn-dropdown-loading">Loading...</div>
+        </div>
+      </div>
+      <button class="btn live-only" id="connectBtn">Connect...</button>
+      <div class="mode-toggle" role="tablist" aria-label="Mode">
+        <button id="modePractice" class="active" data-mode="practice"><span class="ico">●</span>Practice</button>
+        <button id="modeSandbox" data-mode="sandbox"><span class="ico">◆</span>Sandbox</button>
+        <button id="modeMssql" data-mode="mssql"><span class="ico">◈</span>MS SQL</button>
+        <button id="modeLive" data-mode="live"><span class="ico">▶</span>Live</button>
+      </div>
+      <div class="progress practice-only" title="Your solved count">
+        <span><span class="count" id="progressCount">0</span> <span style="color:var(--text-dim)">of</span> <span id="progressTotal">0</span></span>
+        <span class="track"><span class="fill" id="progressFill"></span></span>
+      </div>
+      <select class="select" id="dbSelect">
+        <option value="hospital">hospital.db</option>
+        <option value="company">company.db</option>
+        <option value="school">school.db</option>
+      </select>
+      <button class="btn" id="resetDbBtn" title="Restore the database to its original seed state">Reset DB</button>
+      <input type="number" id="query-timeout" value="30" min="1" max="300" title="Query timeout (seconds)" style="width:60px;background:var(--surface-2);border:1px solid var(--border-bright);color:var(--text);padding:3px 6px;border-radius:3px;font-family:var(--mono);font-size:11px" />
+      <button class="btn btn-primary" id="btn-cancel" disabled>Cancel</button>
+      <button class="btn" id="formatBtn" title="Format SQL — ⌘/Ctrl + Q">Format</button>
+      <button class="btn btn-ghost practice-only" id="browseBtn">All Questions</button>
+      <button class="btn btn-primary mssql-only" id="translateBtn">Translate to MS SQL<span class="kbd">⌘ ⏎</span></button>
+      <button class="btn btn-primary practice-only" id="runBtn">Run<span class="kbd">⌘ ⏎</span></button>
+      <div class="theme-toggle">
+        <button class="theme-btn" data-theme="light" title="Light theme">
+          <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="1" x2="12" y2="4" stroke="currentColor" stroke-width="2"/><line x1="12" y1="20" x2="12" y2="23" stroke="currentColor" stroke-width="2"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34" stroke="currentColor" stroke-width="2"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2"/><line x1="1" y1="12" x2="4" y2="12" stroke="currentColor" stroke-width="2"/><line x1="20" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2"/><line x1="4.22" y1="19.78" x2="6.34" y2="17.66" stroke="currentColor" stroke-width="2"/><line x1="17.66" y1="6.34" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <button class="theme-btn" data-theme="dark" title="Dark theme">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <button class="theme-btn" data-theme="auto" title="Auto (system) theme">
+          <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+      </div>
+      <div class="menu-wrap practice-only">
+        <button class="btn" id="menuBtn" title="More">⋯</button>
+        <div class="menu-dropdown" id="menuDropdown">
+          <div class="menu-item" id="menuClearDraft">Clear current draft<span class="muted">this question</span></div>
+          <div class="menu-separator"></div>
+          <div class="menu-item" id="menuBackupDb">Backup Database...<span class="muted">live only</span></div>
+          <div class="menu-item" id="menuRestoreDb">Restore Database...<span class="muted">live only</span></div>
+          <div class="menu-separator"></div>
+          <div class="menu-item danger" id="menuResetProgress">Reset all progress<span class="muted">everything</span></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- LEFT: Schema + Resources -->
+    <aside class="left">
+      <div class="left-tabs">
+        <button class="left-tab active" data-left="schema">Schema</button>
+        <button class="left-tab" data-left="er-diagram">ER Diagram</button>
+        <button class="left-tab" data-left="resources">Resources</button>
+        <button class="left-tab sandbox-only" data-left="history">History</button>
+        <button class="left-tab sandbox-only" data-left="snippets">Snippets</button>
+        <button class="left-tab sandbox-only" data-left="templates">Templates</button>
+        <button class="left-tab" data-left="query-builder">Query Builder</button>
+        <button class="left-tab sandbox-only" data-left="schema-diff">Schema Diff</button>
+      </div>
+      <div class="left-content" id="leftContent"></div>
+      <div id="erDiagramPanel" class="er-diagram-panel" style="display:none">
+        <div class="er-empty-state">
+          <h3>No database selected</h3>
+          <p>Connect to a SQL Server instance to explore your database schema visually.</p>
+        </div>
+      </div>
+      <div id="objExplorer" class="obj-explorer">
+        <div class="obj-tree"></div>
+      </div>
+      <div id="queryBuilderPanel" class="query-builder-panel" style="display:none">
+        <svg id="queryBuilderSvg" class="query-builder-svg"></svg>
+        <div class="query-builder-toolbar">
+          <button class="query-builder-gen-btn" id="queryBuilderGenBtn">Generate SQL</button>
+          <button class="query-builder-clear-btn" id="queryBuilderClearBtn">Clear</button>
+        </div>
+        <div id="queryBuilderEmpty" class="query-empty-state">
+          <h3>Query Builder</h3>
+          <p>Drag tables from the Object Explorer to build queries visually.</p>
+        </div>
+      </div>
+      <div id="schemaDiffPanel" class="schema-diff-panel" style="display:none">
+        <div class="diff-selector-row">
+          <label>Source</label>
+          <select id="diffSourceDb"></select>
+          <label>Target</label>
+          <select id="diffTargetDb"></select>
+        </div>
+        <div class="diff-legend">
+          <span class="diff-legend-item"><span class="diff-legend-swatch" style="background:#3fc36c"></span>Source only</span>
+          <span class="diff-legend-item"><span class="diff-legend-swatch" style="background:#ef4444"></span>Target only</span>
+          <span class="diff-legend-item"><span class="diff-legend-swatch" style="background:#fbbf24"></span>Different</span>
+        </div>
+        <svg id="schemaDiffSvg" class="schema-diff-svg" style="width:100%;height:300px"></svg>
+        <div id="schemaDiffControls" class="er-zoom-controls">
+          <button class="er-zoom-btn" id="diffZoomIn">+</button>
+          <button class="er-zoom-btn" id="diffZoomOut">−</button>
+          <button class="er-zoom-btn" id="diffZoomReset">⊙</button>
+        </div>
+        <div id="schemaDiffEmpty" class="er-empty-state">
+          <h3>Schema Diff</h3>
+          <p>Select two databases to compare their schemas.</p>
+        </div>
+        <div id="schemaDiffColPanel" class="columns-panel" style="display:none">
+          <!-- populated on table click -->
+        </div>
+      </div>
+      <div id="queryOutputPanel" class="query-output-panel">
+        <div class="query-output-header">
+          <h4>Generated SQL</h4>
+          <button class="query-output-close" id="queryOutputClose">×</button>
+        </div>
+        <pre class="query-output-sql" id="queryOutputSql"></pre>
+        <button class="query-output-apply" id="queryOutputApply">Apply to Editor</button>
+      </div>
+      <div class="query-zoom-controls">
+        <button class="query-zoom-btn" id="queryBuilderZoomIn">+</button>
+        <button class="query-zoom-btn" id="queryBuilderZoomOut">−</button>
+        <button class="query-zoom-btn" id="queryBuilderZoomReset">⊙</button>
+      </div>
+    </aside>
+
+    <!-- CENTER: Editor + Results -->
+    <section class="center">
+      <div id="tabBar" class="tab-bar"></div>
+      <div class="editor-wrap">
+        <div class="editor-toolbar">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div><span class="state-dot" id="dbDot"></span><span id="dbStatusLabel">initializing</span></div>
+            <span class="resumed-note" id="resumedNote">draft restored</span>
+          </div>
+          <div style="display:flex;gap:18px;align-items:center">
+            <span style="color:var(--text-dim);font-size:10.5px;letter-spacing:0.14em">
+              <span style="color:var(--text-muted)">⌘/Ctrl+⏎</span> run &nbsp;·&nbsp;
+              <span style="color:var(--text-muted)">⌘/Ctrl+Q</span> format &nbsp;·&nbsp;
+              <span style="color:var(--text-muted)">⌘/Ctrl+Space</span> hint
+            </span>
+            <span id="dbInfo">—</span>
+            <span class="dirty-mark" id="dirtyMark">modified</span>
+          </div>
+        </div>
+        <div class="editor-container">
+          <textarea id="editor"></textarea>
+        </div>
+      </div>
+
+      <div class="results">
+        <div class="results-tabs">
+          <button class="results-tab active" data-tab="output">Your Output<span class="badge" id="outCount">0</span></button>
+          <button class="results-tab practice-only-tab" data-tab="expected">Expected<span class="badge" id="expCount">0</span></button>
+          <button class="results-tab" data-tab="message">Message</button>
+          <button class="results-tab live-only-tab" data-tab="exec-plan">Execution Plan</button>
+          <button class="results-tab profile-tab" id="profileBtn" data-profile="true" title="Toggle column profile panel">Profile</button>
+          <button class="results-tab diff-tab" data-tab="diff">Diff</button>
+        </div>
+        <div class="results-toolbar" id="resultsToolbar" style="display:none">
+          <button class="btn" id="showExecPlanBtn">Show Execution Plan</button>
+        </div>
+        <div class="chart-toolbar" id="chartToolbar" style="display:none">
+          <label>Type:</label>
+          <select id="chartTypeSelect">
+            <option value="bar">Bar</option>
+            <option value="line">Line</option>
+            <option value="pie">Pie</option>
+          </select>
+          <label>X:</label>
+          <select id="chartXCol"></select>
+          <label>Y:</label>
+          <select id="chartYCol"></select>
+          <button class="chart-render-btn" id="chartRenderBtn">Chart</button>
+        </div>
+        <div class="results-body" id="resultsBody">
+          <div class="results-empty">Run a query to see results</div>
+        </div>
+        <div id="execPlanPanel" class="exec-plan-panel" style="display:none">
+          <svg id="execPlanSvg" class="exec-plan-svg"></svg>
+          <div class="exec-plan-empty">
+            <h3>No execution plan</h3>
+            <p>Run a query with <code>SET SHOWPLAN_XML ON</code> to view the execution plan.</p>
+          </div>
+        </div>
+        <!-- Live mode streaming results -->
+        <div id="results-status" class="results-status hidden"></div>
+        <div id="results-export" class="results-export hidden">
+          <button class="btn-export btn-compare" id="btn-compare">Compare</button>
+          <button class="btn-export" id="btn-export-csv">CSV</button>
+          <button class="btn-export" id="btn-export-json">JSON</button>
+          <button class="btn-export" id="btn-export-xlsx">XLSX</button>
+          <button class="btn-export" id="btn-export-wizard">Export Wizard</button>
+        </div>
+        <div id="results-pagination" class="results-pagination"></div>
+        <div id="results-grid-wrap" class="results-scroll-container hidden">
+          <table id="results-grid" class="results-grid">
+            <thead id="results-header"></thead>
+            <tbody id="results-body-live"></tbody>
+          </table>
+        </div>
+        <div id="chartContainer" class="chart-container" style="display:none">
+          <div class="chart-empty" id="chartEmpty">Run a query with numeric data to see a chart</div>
+        </div>
+        <div id="results-loading" class="results-loading hidden">Streaming results…</div>
+        <div id="results-empty" class="results-empty hidden">No results returned.</div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Question (Practice mode) -->
+    <aside class="right practice-only" id="practiceRight">
+      <div class="right-head">
+        <div class="meta">
+          <span class="diff" id="qDiff">easy</span>
+          <span class="cat" id="qCat">select</span>
+          <span id="qNumLabel">Q1 of 1</span>
+        </div>
+        <h2 id="qTitle">Loading…</h2>
+      </div>
+      <div class="right-body" id="qBody"></div>
+      <div class="right-foot">
+        <button id="prevBtn">← Prev</button>
+        <button id="nextBtn">Next →</button>
+      </div>
+    </aside>
+
+    <!-- RIGHT: Sandbox panel (Sandbox mode) -->
+    <aside class="right sandbox-only sandbox-panel" id="sandboxRight">
+      <div class="sandbox-head">
+        <div class="meta">Sandbox</div>
+        <h2>Run anything.</h2>
+      </div>
+      <div class="sandbox-body">
+        <p>This is your scratchpad. Write any SQL — <code style="font-family:var(--mono);font-size:11.5px;color:var(--accent-bright);background:var(--surface-2);padding:1px 5px;border-radius:2px">SELECT</code>, <code style="font-family:var(--mono);font-size:11.5px;color:var(--accent-bright);background:var(--surface-2);padding:1px 5px;border-radius:2px">INSERT</code>, <code style="font-family:var(--mono);font-size:11.5px;color:var(--accent-bright);background:var(--surface-2);padding:1px 5px;border-radius:2px">CREATE</code>, anything. Multi-statement scripts run in order. Changes are saved automatically and persist between sessions, per database.</p>
+
+        <div class="snippet-section">
+          <h4>Saved snippets <span id="snippetCount">0</span></h4>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <button class="copy-btn" id="saveSnippetBtn" style="flex:1">Save current as snippet</button>
+            <button class="copy-btn" id="addFolderBtn" title="Create a new folder">+Folder</button>
+          </div>
+          <input type="text" id="snippetSearchInput" class="snippet-search" placeholder="Search snippets…" style="width:100%;margin-bottom:8px;box-sizing:border-box" />
+          <div class="snippet-list" id="snippetList"></div>
+        </div>
+
+        <div class="sandbox-tip">
+          <strong>Tip.</strong> Click <em>Reset DB</em> in the top bar to wipe your changes and restore the seed data. The "modified" badge appears whenever your sandbox database differs from the original.
+        </div>
+
+        <div class="sandbox-tip" style="border-left-color: var(--accent)">
+          <strong>Multi-statement.</strong> Separate statements with <code>;</code> — they all run. Only the last <code>SELECT</code> result shows in the table; everything else just executes.
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT: MS SQL translation panel -->
+    <aside class="right mssql-only mssql-panel" id="mssqlRight">
+      <div class="sandbox-head">
+        <div class="meta">MS SQL</div>
+        <h2>Translate SQL.</h2>
+      </div>
+      <div class="sandbox-body">
+        <p>Write SQLite SQL in the editor, then click <strong>Translate to MS SQL</strong> to see the equivalent T-SQL. The translation handles syntax differences between SQLite and Microsoft SQL Server.</p>
+
+        <div class="snippet-section">
+          <h4>Translation Output</h4>
+          <div id="mssqlOutput" class="mssql-output" style="display:none"></div>
+          <div id="mssqlEmpty" class="mssql-empty">No translation yet. Write some SQLite SQL and click "Translate to MS SQL".</div>
+        </div>
+
+        <div class="sandbox-tip">
+          <strong>Note.</strong> This translates SQLite syntax to MS SQL Server T-SQL. The output is for reference and migration purposes — it doesn't execute against a real database.
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Question browser modal -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>All Questions</h2>
+      <button class="close-btn" id="modalClose">×</button>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Keyboard Shortcuts modal -->
+<div class="modal-backdrop" id="shortcutModal">
+  <div class="modal shortcut-modal">
+    <div class="modal-head">
+      <h2>Keyboard Shortcuts</h2>
+      <button class="close-btn" id="shortcutModalClose">×</button>
+    </div>
+    <div class="shortcut-search-wrap">
+      <input type="text" id="shortcutSearch" placeholder="Search shortcuts…" />
+    </div>
+    <div class="modal-body shortcut-modal-body" id="shortcutList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <div class="t-title">Correct</div>
+  <div id="toastMsg">Nicely done. Onward.</div>
+</div>
+
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/sql-hint.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+
+<script type="module" src="../scripts/main.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.20.0/xlsx.full.min.js"></script>
+
+</body>
+</html>
