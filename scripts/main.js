@@ -705,6 +705,9 @@ function wireUI() {
         document.getElementById('schemaDiffPanel').style.display = 'block';
         renderSchemaDiffPanel();
       }
+      else if (which === 'sql-agent') {
+        import('./jobBrowser.js').then(m => m.initJobBrowser());
+      }
       else { showPanel('left-content'); renderResources(); }
     });
   });
