@@ -1,6 +1,8 @@
 // SQL Agent Jobs browser module
 // Displays jobs in tree + list layout with status indicators, tabbed details, and job controls
 
+import * as runtime from './runtime.js';
+
 let _hooks = {
   showFeedback: () => {},
   switchTab: () => {}
@@ -83,7 +85,7 @@ async function loadJobTree() {
 
   try {
     const { fetchSqlAgentJobs } = await import('./apiClient.js');
-    const data = await fetchSqlAgentJobs();
+    const data = await fetchSqlAgentJobs(runtime.cursor.connectionId);
     _currentJobs = data.jobs || [];
     renderJobTree(_currentJobs);
   } catch (err) {
@@ -189,7 +191,7 @@ export async function renderJobDetails(jobName) {
   // Load job details
   try {
     const { fetchJobDetails } = await import('./apiClient.js');
-    const data = await fetchJobDetails(jobName);
+    const data = await fetchJobDetails(runtime.cursor.connectionId, jobName);
     renderJobTab('overview', data);
   } catch (err) {
     _hooks.showFeedback('error', 'Job Details', err.message);
@@ -411,7 +413,7 @@ async function renderJobAlerts(el, data) {
   if (!data) {
     try {
       const { fetchJobDetails } = await import('./apiClient.js');
-      data = await fetchJobDetails(_currentJobName);
+      data = await fetchJobDetails(runtime.cursor.connectionId, _currentJobName);
     } catch (err) {
       el.innerHTML = `<div class="job-error">Failed to load: ${escapeHtml(err.message)}</div>`;
       return;
@@ -503,16 +505,16 @@ export async function executeJobAction(jobName, action) {
     let result;
     switch (action) {
       case 'start':
-        result = await startJob(jobName);
+        result = await startJob(runtime.cursor.connectionId, jobName);
         break;
       case 'stop':
-        result = await stopJob(jobName);
+        result = await stopJob(runtime.cursor.connectionId, jobName);
         break;
       case 'enable':
-        result = await enableJob(jobName);
+        result = await enableJob(runtime.cursor.connectionId, jobName);
         break;
       case 'disable':
-        result = await disableJob(jobName);
+        result = await disableJob(runtime.cursor.connectionId, jobName);
         break;
       default:
         return;

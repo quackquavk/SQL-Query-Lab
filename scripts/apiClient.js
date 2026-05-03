@@ -588,18 +588,20 @@ export async function fetchMissingIndexes(query, database) {
 // SQL Agent Jobs API
 // ============================================================
 
-function currentDb() {
-  return window.__runtime?.cursor?.currentDbName || 'master';
-}
-
 /**
  * List all SQL Agent jobs with category hierarchy.
+ * @param {string} connectionId - Connection ID for auth header lookup
  */
-export async function fetchSqlAgentJobs() {
-  const db = currentDb();
-  const res = await fetch(`${API_BASE}/sql-agent/jobs/${encodeURIComponent(db)}`, {
-    credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+export async function fetchSqlAgentJobs(connectionId) {
+  const conn = await getConnection(connectionId);
+  const headers = {
+    'X-User-Id': 'browser-user',
+    'X-Server': conn.server || '',
+    'X-Auth-Type': conn.authType || 'default',
+    'X-Credentials': JSON.stringify(conn.credentials || {})
+  };
+  const res = await fetch(`${API_BASE}/sql-agent/jobs/${encodeURIComponent(conn.database || 'master')}`, {
+    credentials: 'include', headers
   });
   if (!res.ok) throw new Error('Failed to fetch jobs');
   return res.json();
@@ -607,12 +609,19 @@ export async function fetchSqlAgentJobs() {
 
 /**
  * Get job details (overview, steps, schedules, alerts).
+ * @param {string} connectionId - Connection ID for auth header lookup
+ * @param {string} jobName
  */
-export async function fetchJobDetails(jobName) {
-  const db = currentDb();
-  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}`, {
-    credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+export async function fetchJobDetails(connectionId, jobName) {
+  const conn = await getConnection(connectionId);
+  const headers = {
+    'X-User-Id': 'browser-user',
+    'X-Server': conn.server || '',
+    'X-Auth-Type': conn.authType || 'default',
+    'X-Credentials': JSON.stringify(conn.credentials || {})
+  };
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(conn.database || 'master')}/${encodeURIComponent(jobName)}`, {
+    credentials: 'include', headers
   });
   if (!res.ok) throw new Error('Failed to fetch job details');
   return res.json();
@@ -620,12 +629,20 @@ export async function fetchJobDetails(jobName) {
 
 /**
  * Get paginated job history.
+ * @param {string} connectionId - Connection ID for auth header lookup
+ * @param {string} jobName
+ * @param {number} [page=0]
  */
-export async function fetchJobHistory(jobName, page = 0) {
-  const db = currentDb();
-  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}/history?page=${page}&pageSize=50`, {
-    credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+export async function fetchJobHistory(connectionId, jobName, page = 0) {
+  const conn = await getConnection(connectionId);
+  const headers = {
+    'X-User-Id': 'browser-user',
+    'X-Server': conn.server || '',
+    'X-Auth-Type': conn.authType || 'default',
+    'X-Credentials': JSON.stringify(conn.credentials || {})
+  };
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(conn.database || 'master')}/${encodeURIComponent(jobName)}/history?page=${page}&pageSize=50`, {
+    credentials: 'include', headers
   });
   if (!res.ok) throw new Error('Failed to fetch job history');
   return res.json();
@@ -633,52 +650,80 @@ export async function fetchJobHistory(jobName, page = 0) {
 
 /**
  * Start a SQL Agent job.
+ * @param {string} connectionId - Connection ID for auth header lookup
+ * @param {string} jobName
  */
-export async function startJob(jobName) {
-  const db = currentDb();
-  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}/start`, {
+export async function startJob(connectionId, jobName) {
+  const conn = await getConnection(connectionId);
+  const headers = {
+    'X-User-Id': 'browser-user',
+    'X-Server': conn.server || '',
+    'X-Auth-Type': conn.authType || 'default',
+    'X-Credentials': JSON.stringify(conn.credentials || {})
+  };
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(conn.database || 'master')}/${encodeURIComponent(jobName)}/start`, {
     method: 'POST',
-    credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    credentials: 'include', headers
   });
   return res.json();
 }
 
 /**
  * Stop a SQL Agent job.
+ * @param {string} connectionId - Connection ID for auth header lookup
+ * @param {string} jobName
  */
-export async function stopJob(jobName) {
-  const db = currentDb();
-  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}/stop`, {
+export async function stopJob(connectionId, jobName) {
+  const conn = await getConnection(connectionId);
+  const headers = {
+    'X-User-Id': 'browser-user',
+    'X-Server': conn.server || '',
+    'X-Auth-Type': conn.authType || 'default',
+    'X-Credentials': JSON.stringify(conn.credentials || {})
+  };
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(conn.database || 'master')}/${encodeURIComponent(jobName)}/stop`, {
     method: 'POST',
-    credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    credentials: 'include', headers
   });
   return res.json();
 }
 
 /**
  * Enable a SQL Agent job.
+ * @param {string} connectionId - Connection ID for auth header lookup
+ * @param {string} jobName
  */
-export async function enableJob(jobName) {
-  const db = currentDb();
-  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}/enable`, {
+export async function enableJob(connectionId, jobName) {
+  const conn = await getConnection(connectionId);
+  const headers = {
+    'X-User-Id': 'browser-user',
+    'X-Server': conn.server || '',
+    'X-Auth-Type': conn.authType || 'default',
+    'X-Credentials': JSON.stringify(conn.credentials || {})
+  };
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(conn.database || 'master')}/${encodeURIComponent(jobName)}/enable`, {
     method: 'POST',
-    credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    credentials: 'include', headers
   });
   return res.json();
 }
 
 /**
  * Disable a SQL Agent job.
+ * @param {string} connectionId - Connection ID for auth header lookup
+ * @param {string} jobName
  */
-export async function disableJob(jobName) {
-  const db = currentDb();
-  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(db)}/${encodeURIComponent(jobName)}/disable`, {
+export async function disableJob(connectionId, jobName) {
+  const conn = await getConnection(connectionId);
+  const headers = {
+    'X-User-Id': 'browser-user',
+    'X-Server': conn.server || '',
+    'X-Auth-Type': conn.authType || 'default',
+    'X-Credentials': JSON.stringify(conn.credentials || {})
+  };
+  const res = await fetch(`${API_BASE}/sql-agent/job/${encodeURIComponent(conn.database || 'master')}/${encodeURIComponent(jobName)}/disable`, {
     method: 'POST',
-    credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    credentials: 'include', headers
   });
   return res.json();
 }
