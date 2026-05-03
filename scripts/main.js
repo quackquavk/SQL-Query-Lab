@@ -836,6 +836,34 @@ function wireUI() {
     }
   });
 
+  // Execution Plan zoom controls
+  document.getElementById('execPlanZoomIn')?.addEventListener('click', () => {
+    const svgEl = document.getElementById('execPlanSvg');
+    if (svgEl && window.d3) {
+      window.d3.select(svgEl).transition().duration(300).call(
+        window.d3.zoom().scaleBy, 1.3
+      );
+    }
+  });
+
+  document.getElementById('execPlanZoomOut')?.addEventListener('click', () => {
+    const svgEl = document.getElementById('execPlanSvg');
+    if (svgEl && window.d3) {
+      window.d3.select(svgEl).transition().duration(300).call(
+        window.d3.zoom().scaleBy, 0.7
+      );
+    }
+  });
+
+  document.getElementById('execPlanZoomReset')?.addEventListener('click', () => {
+    const svgEl = document.getElementById('execPlanSvg');
+    if (svgEl && window.d3) {
+      window.d3.select(svgEl).transition().duration(300).call(
+        window.d3.zoom().transform, window.d3.zoomIdentity
+      );
+    }
+  });
+
   // Chart toolbar events
   document.getElementById('chartRenderBtn')?.addEventListener('click', () => {
     const data = runtime.cursor.lastUserResult;
