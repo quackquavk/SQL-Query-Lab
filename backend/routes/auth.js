@@ -116,19 +116,39 @@ auth.post('/logout', async (ctx) => {
 });
 
 // GET /me — return the authenticated user
+// Inline check (not ctx.get('userId')) because authRoutes is a sub-app mounted
+// at /api/auth, giving its own handlers higher priority than sibling app.use()
+// middleware in server.js. This matches requireAuth's cookie validation logic.
 auth.get('/me', async (ctx) => {
-  const userId = ctx.get('userId');
+  const cookies = (ctx.req.header('Cookie') || '').split('; ')
+    .reduce((acc, part) => {
+      const [key, ...valParts] = part.split('=');
+      if (key) acc[key.trim()] = valParts.join('=');
+      return acc;
+    }, {});
+  const sessionId = cookies.session;
 
-  if (!userId) {
+  if (!sessionId) {
     console.log('[auth] Unauthorized: /api/auth/me — no session');
     return ctx.json({ error: 'Unauthorized' }, 401);
   }
 
-  // userId was set by requireAuth middleware — look up the user directly by ID
+  const { getSession } = await import('../services/auth.js');
+  const session = await getSession(sessionId);
+
+  if (!session) {
+    console.log('[auth] Unauthorized: /api/auth/me — invalid or expired session');
+    return ctx.json({ error: 'Unauthorized' }, 401);
+  }
+
+  ctx.set('userId', session.userId);
+  ctx.set('sessionId', session.id);
+
+  // Look up the user by ID (already validated by session)
   const { getDb } = await import('../services/db.js');
   const db = getDb();
   const stmt = db.prepare('SELECT id, username FROM users WHERE id = ?');
-  const user = stmt.get(userId);
+  const user = stmt.get(session.userId);
 
   if (!user) {
     return ctx.json({ error: 'User not found' }, 404);

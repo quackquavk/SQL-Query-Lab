@@ -65,6 +65,8 @@ app.get('/health', (ctx) => ctx.json({ status: 'ok' }));
 
 // Auth routes — only /me requires authentication
 app.route('/api/auth', authRoutes);
+// Protect /api/auth/me — requires active session (login/register are public)
+app.use('/api/auth/me', requireAuth());
 
 // Protected routes — require authentication
 app.use('/api/connections', requireAuth());
