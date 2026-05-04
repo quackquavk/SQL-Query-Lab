@@ -12,6 +12,13 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css" />
 
+<script>
+  // API_BASE set at build/deploy time by Vercel env vars (VITE_API_BASE_URL).
+  // Falls back to relative /api for local development against a same-origin server.
+  window.API_BASE = (typeof VITE_API_BASE_URL !== 'undefined' && VITE_API_BASE_URL)
+    || window.API_BASE
+    || '/api';
+</script>
 <!-- D3.js and dagre for ER diagrams and execution plans -->
 <script src="https://d3js.org/d3.v5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>

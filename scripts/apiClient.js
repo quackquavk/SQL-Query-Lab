@@ -1,4 +1,4 @@
-const API_BASE = '/api';
+const API_BASE = (typeof window !== 'undefined' && window.API_BASE) || '/api';
 let ws = null;
 let wsCallbacks = {};
 let queryIdCounter = 0;
@@ -51,29 +51,25 @@ export async function deleteConnection(id) {
 export function connectQuerySocket({ onColumns, onRows, onDone, onError }) {
   return new Promise((resolve, reject) => {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${location.host}/api/query`;
-    ws = new WebSocket(wsUrl);
+    // Extract host from API_BASE so WebSocket connects to the right server
+    // e.g. 'https://api.example.com/api' → 'api.example.com'
+    const apiBase = API_BASE || '/api';
+    const wsHost = apiBase.startsWith('http')
+      ? apiBase.replace(/^\w+:\/\//, '').split('/')[0]
+      : location.host;
+    const wsUrl = `${protocol}//${wsHost}/api/query`;
 
+    ws = new WebSocket(wsUrl);
     ws.onopen = () => resolve();
     ws.onerror = () => reject(new Error('WebSocket connection failed'));
-
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);
       const { type, queryId } = msg;
-
       switch (type) {
-        case 'columns':
-          onColumns?.(msg.columns);
-          break;
-        case 'rows':
-          onRows?.(msg.rows, msg.total);
-          break;
-        case 'done':
-          onDone?.(msg.rowsAffected, msg.executionTime);
-          break;
-        case 'error':
-          onError?.(msg.message, msg.code, queryId);
-          break;
+        case 'columns': onColumns?.(msg.columns); break;
+        case 'rows': onRows?.(msg.rows, msg.total); break;
+        case 'done': onDone?.(msg.rowsAffected, msg.executionTime); break;
+        case 'error': onError?.(msg.message, msg.code, queryId); break;
       }
     };
   });
@@ -141,7 +137,10 @@ export function createQueryStreamer(connectionId, sql, options = {}) {
   function connect() {
     return new Promise((resolve, reject) => {
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${location.host}/api/query`;
+      const wsHost = API_BASE.startsWith('http')
+        ? API_BASE.replace(/^\w+:\/\//, '').split('/')[0]
+        : location.host;
+      const wsUrl = `${protocol}//${wsHost}/api/query`;
       ws = new WebSocket(wsUrl);
 
       // Client-side connection timeout: 10 seconds
