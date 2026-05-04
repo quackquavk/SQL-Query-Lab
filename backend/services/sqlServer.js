@@ -10,7 +10,7 @@ function buildConfig(server, authType, credentials) {
     },
     options: {
       encrypt: true,
-      trustServerCertificate: false,
+      trustServerCertificate: true,
       port: 1433
     },
     pool: {

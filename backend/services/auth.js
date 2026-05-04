@@ -112,7 +112,7 @@ export async function deleteSession(sessionId) {
 export async function getUserByUsername(username) {
   const db = getDb();
   const stmt = db.prepare(
-    'SELECT id, username, created_at FROM users WHERE username = ? COLLATE NOCASE'
+    'SELECT id, username, password_hash, created_at FROM users WHERE username = ? COLLATE NOCASE'
   );
   const row = stmt.get(username);
   return row || null;

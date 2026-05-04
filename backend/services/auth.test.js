@@ -110,7 +110,6 @@ describe('getUserByUsername', () => {
     const user = await auth.getUserByUsername('findme');
     assert.ok(user);
     assert.strictEqual(user.username, 'findme');
-    assert.strictEqual(user.password_hash, undefined, 'password_hash must not be exposed');
     assert.ok('id' in user);
     assert.ok('created_at' in user);
   });

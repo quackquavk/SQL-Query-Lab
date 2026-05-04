@@ -1,5 +1,5 @@
 import { parse } from 'cookie';
-import { getSession } from '../services/auth.js';
+import { getSession } from '../../services/auth.js';
 
 /**
  * Hono middleware that requires an authenticated session.
