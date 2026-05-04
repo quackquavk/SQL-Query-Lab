@@ -8,18 +8,20 @@ body:not(.sandbox-mode):not(.mssql-mode) .main { grid-template-columns: 260px 1f
 body.sandbox-mode .main { grid-template-columns: 260px 1fr !important; }
 body.mssql-mode .main { grid-template-columns: 1fr 340px !important; }
 
-/* Right panels: explicit column placement + per-mode visibility */
-.practice-only.right { grid-column: 3; }
-.sandbox-panel.right { grid-column: 3; }
-.mssql-only.right { grid-column: 3; }
-
+/* Right panels: default to hidden, positioned fixed within .main */
 .practice-only.right,
 .sandbox-panel.right,
 .mssql-only.right { display: none; }
 
 body:not(.sandbox-mode):not(.mssql-mode) .practice-only.right { display: flex !important; }
-body.sandbox-mode .sandbox-panel.right { display: flex !important; grid-column: auto; }
-body.mssql-mode .mssql-only.right { display: flex !important; grid-column: auto; }
+body.sandbox-mode .sandbox-panel.right {
+  display: flex !important;
+  position: absolute;
+  top: 0; right: 0;
+  width: 260px; height: 100%;
+  z-index: 1;
+}
+body.mssql-mode .mssql-only.right { display: flex !important; }
 .tab-bar {
   display: flex;
   align-items: center;
