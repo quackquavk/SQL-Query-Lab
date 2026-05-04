@@ -95,7 +95,12 @@ function renderBackupModal() {
 
   bindBackupTabEvents(backdrop);
 
-  // Populate database dropdown from live SQL Server
+  // Populate database dropdown from live SQL Server (async, non-blocking)
+  populateBackupDbDropdown(backdrop);
+}
+
+// Populate database dropdown asynchronously
+async function populateBackupDbDropdown(backdrop) {
   const dbSelect = backdrop.querySelector('#backupDbSelect');
   try {
     const { fetchObjectTree } = await import('./apiClient.js');
@@ -613,9 +618,9 @@ function bindStep1Events() {
   // Dropdown selector — re-fetch backup history on change
   const dbSelect = document.getElementById('wizardDbSelect');
   if (dbSelect) {
-    dbSelect.addEventListener('change', async () => {
-      _wizardState.targetDb = dbSelect.value;
-      await reFetchBackupHistory(_wizardState.targetDb);
+    dbSelect.addEventListener('change', (e) => {
+      _wizardState.targetDb = e.target.value;
+      reFetchBackupHistory(_wizardState.targetDb); // fire-and-forget, errors logged inside
     });
   }
 
