@@ -101,9 +101,7 @@ async function handleQueryWebSocket(socket, data, userId) {
   try {
     // 1. Fetch decrypted connection credentials from the backend
     const apiBase = process.env.API_BASE_URL || 'http://localhost:3000';
-    const connRes = await fetch(`${apiBase}/api/connections/${connectionId}`, {
-      headers: { 'X-User-Id': userId }
-    });
+    const connRes = await fetch(`${apiBase}/api/connections/${connectionId}`);
 
     if (!connRes.ok) {
       const errText = await connRes.text();
