@@ -1,6 +1,6 @@
 /* Sandbox right panel */
 .sandbox-panel {
-  display: flex; flex-direction: column;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
 }
@@ -352,11 +352,10 @@ body.sandbox-mode .tab-bar {
   overflow: visible !important;
 }
 
-body.sandbox-mode .right { display: none !important; }
-body.sandbox-mode .main { grid-template-columns: 260px 1fr; }
+/* Sandbox mode: adjust results height */
 body.sandbox-mode .results { max-height: 50%; }
 body.mssql-mode .right { }
-body.mssql-mode .main { grid-template-columns: 1fr 340px; }
+body.mssql-mode .main { grid-template-columns: 1fr 340px !important; }
 body.mssql-mode .left { display: none; }
 body.mssql-mode .center { grid-column: 1; }
 
