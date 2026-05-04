@@ -55,12 +55,13 @@ cd /opt/sqlquerylab
 # Build the image
 docker build -t sqlquerylab-api .
 
-# Run the container
+# Run the container with data persistence volume
 docker run -d \
   --name sqlquerylab-api \
   -p 3000:3000 \
   --restart unless-stopped \
   --env-file .env \
+  -v /opt/sqlquerylab/data:/app/data \
   sqlquerylab-api
 ```
 
@@ -167,6 +168,109 @@ const API_BASE = (typeof window !== 'undefined' && window.ENV_API_BASE) || '/api
 
 ---
 
+## Authentication
+
+### Session Management
+- Sessions are stored in a SQLite database (`$SQLITE_PATH`, default `./data/auth.db`)
+- The session cookie is `httpOnly`, `SameSite=Lax`, and `Secure` (in production)
+- Session lifetime: 7 days (configurable via `SESSION_TTL`)
+
+### Auth Endpoints
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| POST   | `/api/auth/register` | Register a new user | No |
+| POST   | `/api/auth/login` | Login and get session | No |
+| POST   | `/api/auth/logout` | Invalidate session | Yes |
+| GET    | `/api/auth/me` | Get current user info | Yes |
+
+### Protected Routes
+All `/api/connections/*` routes require a valid session cookie. Requests without a session cookie receive a `401 Unauthorized` response.
+
+### Register / Login Flow
+```bash
+# Register
+curl -X POST https://api.learn-sql-practice.com/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"secret123"}'
+
+# Login
+curl -X POST https://api.learn-sql-practice.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"secret123"}' \
+  -c cookies.txt   # session cookie saved
+
+# Access protected endpoint
+curl https://api.learn-sql-practice.com/api/connections \
+  -b cookies.txt  # session cookie sent
+```
+
+---
+
+## Data Persistence
+
+### SQLite Location
+The SQLite database file is stored at `$SQLITE_PATH` (default `./data/auth.db`). This file contains:
+- User accounts and password hashes
+- Active sessions
+
+### Volume Mount Requirement
+**Important:** SQLite uses file-level locking (`flock`). It must be stored on a **local Docker volume**, NOT on NFS or shared network storage, as network filesystems do not support reliable file locking.
+
+```bash
+# Correct: mount a local directory
+docker run -v /opt/sqlquerylab/data:/app/data ...
+
+# Incorrect: NFS or remote volume
+docker run -v nfs-volume:/app/data ...   # will cause corruption
+```
+
+### Persisting Sessions Across Restarts
+By mounting `/app/data` to a persistent host directory, sessions and user accounts survive container restarts:
+
+```bash
+docker run -d \
+  --name sqlquerylab-api \
+  -v /opt/sqlquerylab/data:/app/data \
+  sqlquerylab-api
+```
+
+### Docker Compose Reference
+For production use, a `docker-compose.yml` is recommended:
+
+```yaml
+version: '3.8'
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - backend/.env
+    volumes:
+      - ./data:/app/data    # persisted SQLite DB
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PORT` | Yes | `3000` | HTTP server port |
+| `ALLOWED_ORIGIN` | Yes | — | CORS origin (frontend URL) |
+| `SESSION_SECRET` | Yes | — | Secret for signing session cookies. Generate with: `openssl rand -hex 32` |
+| `SQLITE_PATH` | No | `./data/auth.db` | Path to SQLite database |
+| `BCRYPT_ROUNDS` | No | `12` | Cost factor for password hashing (higher = slower but more secure) |
+| `MASTER_PASSWORD` | No | — | Optional master password for admin access |
+
+---
+
 ## Updating the Backend
 
 ```bash
@@ -180,10 +284,9 @@ docker run -d \
   -p 3000:3000 \
   --restart unless-stopped \
   --env-file .env \
+  -v /opt/sqlquerylab/data:/app/data \
   sqlquerylab-api
 ```
-
-Or use a `docker-compose.yml` for easier management (can be added on request).
 
 ---
 
@@ -202,3 +305,7 @@ docker logs sqlquerylab-api
 **502 Bad Gateway:**
 - Nginx isn't proxying correctly. Check `sudo nginx -t` and `docker logs sqlquerylab-api`
 - Container may be crashed — restart with `docker restart sqlquerylab-api`
+
+**Session not persisting across restarts:**
+- Verify the `-v /opt/sqlquerylab/data:/app/data` volume mount is present
+- Check the mounted host directory exists and is writable: `ls -la /opt/sqlquerylab/data`
