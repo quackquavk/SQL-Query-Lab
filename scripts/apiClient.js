@@ -6,7 +6,7 @@ let queryIdCounter = 0;
 export async function testConnection({ server, database, authType, credentials }) {
   const res = await fetch(`${API_BASE}/connections/test`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ server, database, authType, credentials })
   });
@@ -16,7 +16,7 @@ export async function testConnection({ server, database, authType, credentials }
 export async function saveConnection({ name, server, database, authType, credentials }) {
   const res = await fetch(`${API_BASE}/connections`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers: { 'Content-Type': 'application/json',  },
     credentials: 'include',
     body: JSON.stringify({ name, server, database, authType, credentials })
   });
@@ -26,7 +26,7 @@ export async function saveConnection({ name, server, database, authType, credent
 export async function listConnections() {
   const res = await fetch(`${API_BASE}/connections`, {
     credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    headers: {  }
   });
   return res.json();
 }
@@ -34,7 +34,7 @@ export async function listConnections() {
 export async function getConnection(id) {
   const res = await fetch(`${API_BASE}/connections/${id}`, {
     credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    headers: {  }
   });
   return res.json();
 }
@@ -43,7 +43,7 @@ export async function deleteConnection(id) {
   const res = await fetch(`${API_BASE}/connections/${id}`, {
     method: 'DELETE',
     credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    headers: {  }
   });
   return res.json();
 }
@@ -237,7 +237,7 @@ export function disconnectQuerySocket() {
 export async function decryptConnection(id, masterPassword) {
   const res = await fetch(`${API_BASE}/connections/decrypt/${id}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers: { 'Content-Type': 'application/json',  },
     credentials: 'include',
     body: JSON.stringify({ masterPassword })
   });
@@ -280,7 +280,7 @@ export async function fetchProcedureDefinition(connectionId, database, procedure
   const res = await fetch(`${API_BASE}/stored-procedure/${encodeURIComponent(database)}/${encodeURIComponent(procedure)}`, {
     credentials: 'include',
     headers: {
-      'X-User-Id': 'browser-user',
+      
       ...extraHeaders
     }
   });
@@ -310,7 +310,7 @@ export async function refreshObjectNode(connectionId, database, nodeType, nodeNa
 export async function fetchConnectionGroups() {
   const res = await fetch(`${API_BASE}/connections`, {
     credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    headers: {  }
   });
   return res.json();
 }
@@ -321,7 +321,7 @@ export async function fetchConnectionGroups() {
 export async function createConnectionGroup(name) {
   const res = await fetch(`${API_BASE}/connections/groups`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers: { 'Content-Type': 'application/json',  },
     credentials: 'include',
     body: JSON.stringify({ name })
   });
@@ -334,7 +334,7 @@ export async function createConnectionGroup(name) {
 export async function updateConnectionGroup(groupId, updates) {
   const res = await fetch(`${API_BASE}/connections/groups/${groupId}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers: { 'Content-Type': 'application/json',  },
     credentials: 'include',
     body: JSON.stringify(updates)
   });
@@ -348,7 +348,7 @@ export async function deleteConnectionGroup(groupId) {
   const res = await fetch(`${API_BASE}/connections/groups/${groupId}`, {
     method: 'DELETE',
     credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    headers: {  }
   });
   return res.json();
 }
@@ -360,7 +360,7 @@ export async function toggleConnectionFavorite(connectionId) {
   const res = await fetch(`${API_BASE}/connections/${connectionId}/favorite`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    headers: {  }
   });
   return res.json();
 }
@@ -374,7 +374,7 @@ export async function fetchErSchema(connectionId, database) {
   // Look up saved connection to forward auth headers to the backend
   const conn = await getConnection(connectionId);
   const headers = {
-    'X-User-Id': 'browser-user',
+    
     'X-Server': conn.server || '',
     'X-Auth-Type': conn.authType || 'default',
     'X-Credentials': JSON.stringify(conn.credentials || {})
@@ -391,7 +391,7 @@ export async function fetchErSchema(connectionId, database) {
 export async function executeDdl(ddl) {
   const res = await fetch(`${API_BASE}/execute-ddl`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers: { 'Content-Type': 'application/json',  },
     credentials: 'include',
     body: JSON.stringify({ ddl })
   });
@@ -411,7 +411,7 @@ export async function executeDdlWithContext(ddl, { server, authType, credentials
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-User-Id': 'browser-user',
+      
       'X-Server': server || '',
       'X-Auth-Type': authType || 'sql',
       'X-Credentials': JSON.stringify(credentials || {}),
@@ -442,7 +442,7 @@ export async function fetchTableForeignKeys(connectionId, database, tableName) {
 export async function fetchExecutionPlan(query) {
   const res = await fetch(`${API_BASE}/execution-plan`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers: { 'Content-Type': 'application/json',  },
     credentials: 'include',
     body: JSON.stringify({ query })
   });
@@ -458,7 +458,7 @@ export async function fetchExecutionPlan(query) {
 export async function fetchStoredProcedures(database) {
   const res = await fetch(`${API_BASE}/stored-procedures/${encodeURIComponent(database)}`, {
     credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    headers: {  }
   });
   return res.json();
 }
@@ -474,7 +474,7 @@ export async function fetchStoredProcedure(database, name, extraHeaders = {}) {
   const res = await fetch(`${API_BASE}/stored-procedure/${encodeURIComponent(database)}/${encodeURIComponent(name)}`, {
     credentials: 'include',
     headers: {
-      'X-User-Id': 'browser-user',
+      
       ...extraHeaders
     }
   });
@@ -494,7 +494,7 @@ export async function saveStoredProcedure(database, name, definition, extraHeade
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-User-Id': 'browser-user',
+      
       ...extraHeaders
     },
     credentials: 'include',
@@ -510,7 +510,7 @@ export async function saveStoredProcedure(database, name, definition, extraHeade
 export async function validateTsql(spText) {
   const res = await fetch(`${API_BASE}/validate-tsql`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers: { 'Content-Type': 'application/json',  },
     credentials: 'include',
     body: JSON.stringify({ sql: spText })
   });
@@ -524,7 +524,7 @@ export async function validateTsql(spText) {
 export async function fetchOptimizationSuggestions(sql, database) {
   const res = await fetch(`${API_BASE}/optimize`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user', 'X-database': database || 'master' },
+    headers: { 'Content-Type': 'application/json',  'X-database': database || 'master' },
     credentials: 'include',
     body: JSON.stringify({ sql })
   });
@@ -538,7 +538,7 @@ export async function fetchOptimizationSuggestions(sql, database) {
 export async function fetchMissingIndexes(query, database) {
   const res = await fetch(`${API_BASE}/execution-plan`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user', 'X-database': database || 'master' },
+    headers: { 'Content-Type': 'application/json',  'X-database': database || 'master' },
     credentials: 'include',
     body: JSON.stringify({ query })
   });
@@ -594,7 +594,7 @@ export async function fetchMissingIndexes(query, database) {
 export async function fetchSqlAgentJobs(connectionId) {
   const conn = await getConnection(connectionId);
   const headers = {
-    'X-User-Id': 'browser-user',
+    
     'X-Server': conn.server || '',
     'X-Auth-Type': conn.authType || 'default',
     'X-Credentials': JSON.stringify(conn.credentials || {})
@@ -614,7 +614,7 @@ export async function fetchSqlAgentJobs(connectionId) {
 export async function fetchJobDetails(connectionId, jobName) {
   const conn = await getConnection(connectionId);
   const headers = {
-    'X-User-Id': 'browser-user',
+    
     'X-Server': conn.server || '',
     'X-Auth-Type': conn.authType || 'default',
     'X-Credentials': JSON.stringify(conn.credentials || {})
@@ -635,7 +635,7 @@ export async function fetchJobDetails(connectionId, jobName) {
 export async function fetchJobHistory(connectionId, jobName, page = 0) {
   const conn = await getConnection(connectionId);
   const headers = {
-    'X-User-Id': 'browser-user',
+    
     'X-Server': conn.server || '',
     'X-Auth-Type': conn.authType || 'default',
     'X-Credentials': JSON.stringify(conn.credentials || {})
@@ -655,7 +655,7 @@ export async function fetchJobHistory(connectionId, jobName, page = 0) {
 export async function startJob(connectionId, jobName) {
   const conn = await getConnection(connectionId);
   const headers = {
-    'X-User-Id': 'browser-user',
+    
     'X-Server': conn.server || '',
     'X-Auth-Type': conn.authType || 'default',
     'X-Credentials': JSON.stringify(conn.credentials || {})
@@ -675,7 +675,7 @@ export async function startJob(connectionId, jobName) {
 export async function stopJob(connectionId, jobName) {
   const conn = await getConnection(connectionId);
   const headers = {
-    'X-User-Id': 'browser-user',
+    
     'X-Server': conn.server || '',
     'X-Auth-Type': conn.authType || 'default',
     'X-Credentials': JSON.stringify(conn.credentials || {})
@@ -695,7 +695,7 @@ export async function stopJob(connectionId, jobName) {
 export async function enableJob(connectionId, jobName) {
   const conn = await getConnection(connectionId);
   const headers = {
-    'X-User-Id': 'browser-user',
+    
     'X-Server': conn.server || '',
     'X-Auth-Type': conn.authType || 'default',
     'X-Credentials': JSON.stringify(conn.credentials || {})
@@ -715,7 +715,7 @@ export async function enableJob(connectionId, jobName) {
 export async function disableJob(connectionId, jobName) {
   const conn = await getConnection(connectionId);
   const headers = {
-    'X-User-Id': 'browser-user',
+    
     'X-Server': conn.server || '',
     'X-Auth-Type': conn.authType || 'default',
     'X-Credentials': JSON.stringify(conn.credentials || {})
@@ -739,7 +739,7 @@ export async function disableJob(connectionId, jobName) {
  * Accepts optional connectionId to forward auth headers for live SQL Server.
  */
 export async function executeBackup(options, connectionId) {
-  let headers = { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' };
+  let headers = { 'Content-Type': 'application/json',  };
   if (connectionId) {
     const conn = await getConnection(connectionId);
     if (conn && conn.server) {
@@ -765,7 +765,7 @@ export async function executeBackup(options, connectionId) {
 export async function fetchBackupHistory(dbName) {
   const res = await fetch(`${API_BASE}/backup/history/${encodeURIComponent(dbName)}`, {
     credentials: 'include',
-    headers: { 'X-User-Id': 'browser-user' }
+    headers: {  }
   });
   if (!res.ok) throw new Error('Failed to fetch backup history');
   return res.json();
@@ -776,7 +776,7 @@ export async function fetchBackupHistory(dbName) {
  * Accepts optional connectionId to forward auth headers for live SQL Server.
  */
 export async function executeRestore(options, connectionId) {
-  let headers = { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' };
+  let headers = { 'Content-Type': 'application/json',  };
   if (connectionId) {
     const conn = await getConnection(connectionId);
     if (conn && conn.server) {
@@ -802,7 +802,7 @@ export async function executeRestore(options, connectionId) {
 export async function verifyBackup(backupPath) {
   const res = await fetch(`${API_BASE}/restore/verify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': 'browser-user' },
+    headers: { 'Content-Type': 'application/json',  },
     credentials: 'include',
     body: JSON.stringify({ backupPath })
   });

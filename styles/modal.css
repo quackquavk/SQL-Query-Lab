@@ -520,3 +520,67 @@
   color: var(--text-dim);
   font-size: 13px;
 }
+
+/* ─── Auth Modal ───────────────────────────────────── */
+.auth-modal-box {
+  width: min(400px, 100%);
+  min-height: unset;
+}
+.auth-error {
+  background: rgba(239,68,68,0.12);
+  border: 1px solid rgba(239,68,68,0.4);
+  color: var(--error);
+  border-radius: 4px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+.auth-field {
+  margin-bottom: 16px;
+}
+.auth-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.auth-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.auth-field input:focus {
+  border-color: var(--accent);
+}
+.auth-actions {
+  margin-bottom: 16px;
+}
+.auth-actions .btn {
+  width: 100%;
+  padding: 11px;
+  font-size: 14px;
+}
+.auth-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.auth-toggle .btn {
+  padding: 4px 10px;
+  font-size: 12.5px;
+}

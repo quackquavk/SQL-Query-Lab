@@ -51,6 +51,7 @@ export const cursor = {
   profileVisible: false,         // Column profile panel toggle state
   diffResult: null,              // Result of compareResultsets()
   diffReference: null,           // Reference result set for diff comparison
+  loggedInUser: null,           // { id, username } from /api/auth/me session cookie
 };
 
 export const sandboxDirty = {

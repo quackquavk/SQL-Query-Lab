@@ -55,6 +55,28 @@ setJobBrowserHooks({ showFeedback, switchTab });
 const { setBackupRestoreHooks } = await import('./backupRestore.js');
 setBackupRestoreHooks({ showFeedback, toast });
 
+// ── Session check on boot ─────────────────────────────────────────────────────
+  {
+    const { initAuthModal } = await import('./authModal.js');
+    initAuthModal();
+
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        runtime.cursor.loggedInUser = { id: data.id, username: data.username };
+        console.log(`[auth] Session restored: ${data.username}`);
+      } else if (res.status === 401) {
+        runtime.cursor.loggedInUser = null;
+      } else {
+        // Network or server error — log but don't crash
+        console.error('[auth] /api/auth/me failed with status', res.status);
+      }
+    } catch (err) {
+      console.error('[auth] /api/auth/me network error:', err.message);
+    }
+  }
+
 function runQuery() {
   const sql = runtime.editor.getValue().trim();
   if (!sql) {
@@ -572,6 +594,10 @@ function wireUI() {
   document.getElementById('modeSandbox').addEventListener('click', () => setMode('sandbox'));
   document.getElementById('modeMssql').addEventListener('click', () => setMode('mssql'));
   document.getElementById('modeLive').addEventListener('click', () => {
+    if (!runtime.cursor.loggedInUser) {
+      import('./authModal.js').then(m => m.showAuthModal());
+      return;
+    }
     if (!runtime.cursor.connectionId) {
       import('./ui.js').then(m => m.renderConnectionDialog());
     } else {
@@ -599,6 +625,32 @@ function wireUI() {
   document.getElementById('connectBtn')?.addEventListener('click', () => {
     import('./ui.js').then(m => m.renderConnectionDialog());
   });
+
+  // Logout button
+  document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+    const { logout } = await import('./authModal.js');
+    await logout();
+    runtime.cursor.loggedInUser = null;
+    updateAuthUI();
+    showFeedback('info', 'Signed out', 'Session cleared.');
+  });
+
+  // Auth UI refresh — call after login/logout or on boot
+  function updateAuthUI() {
+    const user = runtime.cursor.loggedInUser;
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) logoutBtn.style.display = user ? '' : 'none';
+
+    const liveIndicator = document.getElementById('liveIndicator');
+    if (liveIndicator) {
+      const nameEl = document.getElementById('liveConnectionName');
+      if (user && nameEl) {
+        nameEl.textContent = user.username;
+      } else if (!runtime.cursor.connectionId && nameEl) {
+        nameEl.textContent = 'Not connected';
+      }
+    }
+  }
 
   // Expose runtime on window for browser test access
   window.__runtime = runtime;
@@ -958,6 +1010,31 @@ function wireUI() {
   });
 }
 
+// Auth UI refresh — call after login/logout or on boot
+function updateAuthUI() {
+  const user = runtime.cursor.loggedInUser;
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) logoutBtn.style.display = user ? '' : 'none';
+
+  const liveIndicator = document.getElementById('liveIndicator');
+  if (liveIndicator) {
+    const nameEl = document.getElementById('liveConnectionName');
+    if (user && nameEl && !runtime.cursor.connectionId) {
+      nameEl.textContent = user.username;
+    }
+  }
+}
+
+// Listen for auth events to keep UI in sync
+window.addEventListener('auth:logged-in', (e) => {
+  runtime.cursor.loggedInUser = e.detail;
+  updateAuthUI();
+});
+window.addEventListener('auth:logged-out', () => {
+  runtime.cursor.loggedInUser = null;
+  updateAuthUI();
+});
+
 async function boot() {
   const SQL = await initSqlJs({
     locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`
@@ -1029,6 +1106,7 @@ async function boot() {
   renderFilters();
   updateProgressUI();
   if (typeof renderTabBar === 'function') renderTabBar();
+  updateAuthUI(); // show/hide logout button based on session state
 
   setTimeout(() => {
     document.getElementById('splash').classList.add('hide');

@@ -103,6 +103,7 @@
           <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
         </button>
       </div>
+      <button class="btn btn-ghost" id="logoutBtn" style="display:none">Sign Out</button>
       <div class="menu-wrap practice-only">
         <button class="btn" id="menuBtn" title="More">⋯</button>
         <div class="menu-dropdown" id="menuDropdown">
@@ -360,6 +361,34 @@
     </div>
     <div class="filters" id="filters"></div>
     <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Auth modal -->
+<div class="modal-backdrop" id="auth-modal">
+  <div class="modal auth-modal-box">
+    <div class="modal-head">
+      <h2 id="auth-modal-title">Sign In</h2>
+      <button class="close-btn" id="auth-modal-close">×</button>
+    </div>
+    <div class="modal-body" style="padding:24px">
+      <div id="auth-error" class="auth-error hidden"></div>
+      <div class="auth-field">
+        <label for="auth-username">Username</label>
+        <input type="text" id="auth-username" placeholder="your username" autocomplete="username" />
+      </div>
+      <div class="auth-field">
+        <label for="auth-password">Password</label>
+        <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <div class="auth-actions">
+        <button class="btn btn-primary" id="auth-submit">Sign In</button>
+      </div>
+      <div class="auth-toggle">
+        <span id="auth-toggle-label">Don't have an account?</span>
+        <button class="btn btn-ghost" id="auth-toggle-btn">Register</button>
+      </div>
+    </div>
   </div>
 </div>
 
