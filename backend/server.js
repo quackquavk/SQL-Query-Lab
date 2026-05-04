@@ -68,7 +68,8 @@ app.route('/api/auth', authRoutes);
 // Protect /api/auth/me — requires active session (login/register are public)
 app.use('/api/auth/me', requireAuth());
 
-// Protected routes — require authentication
+
+// Protected routes — use app.route() after app.use() for proper middleware chaining
 app.use('/api/connections', requireAuth());
 app.route('/api/connections', connections);
 app.use('/api/schema', requireAuth());

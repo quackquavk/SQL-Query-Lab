@@ -36,7 +36,7 @@ export function getDb() {
   if (!_db) {
     _db = new BetterSqlite3(SQLITE_PATH);
     // Enable WAL mode for better concurrent read performance
-    _db.pragma('journal_mode = WAL');
+    _db.pragma('journal_mode = DELETE');
     _db.pragma('foreign_keys = ON');
   }
   return _db;
@@ -48,7 +48,7 @@ export async function initDb() {
   // Create users table
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       username TEXT UNIQUE COLLATE NOCASE NOT NULL,
       password_hash TEXT NOT NULL,
       created_at INTEGER DEFAULT (unixepoch())
@@ -58,7 +58,7 @@ export async function initDb() {
   // Create sessions table
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
-      id TEXT PRIMARY KEY,
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       expires_at INTEGER NOT NULL,
       data TEXT DEFAULT '{}'
@@ -72,7 +72,7 @@ export async function initDb() {
   // Create connections table (per-user encrypted SQL connection profiles)
   db.exec(`
     CREATE TABLE IF NOT EXISTS connections (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       server TEXT NOT NULL,

@@ -76,6 +76,10 @@ connections.get('/', async (ctx) => {
 });
 
 connections.get('/:id', async (ctx) => {
+  // Debug: log everything
+  console.log('[DEBUG GET /:id] headers:', ctx.req.header('cookie')?.substring(0, 80));
+  console.log('[DEBUG GET /:id] ctx.state:', JSON.stringify(ctx.state));
+  console.log('[DEBUG GET /:id] ctx.get userId:', ctx.get('userId'));
   try {
     const userId = ctx.get('userId');
     const { id } = ctx.req.param();
