@@ -15,7 +15,6 @@
   height: 0;
   overflow: hidden;
 }
-.tab-bar::-webkit-scrollbar { height: 4px; }
 .tab {
   display: flex;
   align-items: center;

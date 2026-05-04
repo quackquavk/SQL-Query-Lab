@@ -4,6 +4,8 @@
   grid-template-rows: auto 1fr auto;
   min-height: 0;
   min-width: 0;
+  background: var(--bg-elev);
+  align-content: start; /* Don't stretch rows — content determines each row's height */
 }
 .tab-bar { grid-row: 1; }
 .editor-wrap {

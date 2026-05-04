@@ -326,12 +326,6 @@
 :not(.sandbox-active) .sandbox-only-tab { display: none; }
 .sandbox-active .practice-only-tab { display: none; }
 
-/* Fix CSS specificity bug: :not(.sandbox-active) .sandbox-only in topbar.css
-   incorrectly hides sandbox-only elements even when body has .sandbox-active.
-   The button does not have .sandbox-active on itself, so the :not() matches.
-   Use positive .sandbox-active check to correctly show in sandbox mode. */
-.sandbox-active .sandbox-only { display: flex !important; }
-
 /* The "DB modified" indicator */
 .dirty-mark {
   display: none;
@@ -358,7 +352,7 @@ body.sandbox-mode .tab-bar {
   overflow: visible !important;
 }
 
-body.sandbox-mode .right { display: none; }
+body.sandbox-mode .right { display: none !important; }
 body.sandbox-mode .main { grid-template-columns: 260px 1fr; }
 body.sandbox-mode .results { max-height: 50%; }
 body.mssql-mode .right { }
