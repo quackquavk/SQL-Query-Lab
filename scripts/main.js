@@ -758,7 +758,7 @@ function wireUI() {
         renderSchemaDiffPanel();
       }
       else if (which === 'sql-agent') {
-        import('./jobBrowser.js').then(m => m.initJobBrowser());
+        import('./agent.js').then(m => m.initAgent());
       }
       else { showPanel('left-content'); renderResources(); }
     });

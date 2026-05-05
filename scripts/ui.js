@@ -2183,3 +2183,35 @@ export function handleExportJson(resultSetIndex) {
   const ts = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
   downloadBlob(json, `results_${ts}.json`, 'application/json');
 }
+
+// ─── Agent Panel ─────────────────────────────────────────────────────────────
+export function renderAgentPanel() {
+  return `
+    <div class="agent-panel">
+      <div class="agent-status">
+        <span class="agent-status-dot disconnected" id="agentStatusDot"></span>
+        <span class="agent-status-label" id="agentStatusLabel">Connecting…</span>
+      </div>
+      <div class="agent-messages" id="agentMessages">
+        <div class="agent-empty">
+          <div class="agent-empty-icon">🤖</div>
+          <div>SQL Agent is ready</div>
+          <div class="agent-empty-hint">
+            Ask about SQL syntax, schema, performance, or best practices.
+            Web search augments responses when live context is needed.
+          </div>
+        </div>
+      </div>
+      <div class="agent-input-wrap">
+        <textarea
+          class="agent-input"
+          id="agentInput"
+          placeholder="Ask about SQL…"
+          rows="1"
+          maxlength="4000"
+        ></textarea>
+        <button class="agent-send-btn" id="agentSendBtn" title="Send (Enter)" disabled>↑</button>
+      </div>
+    </div>
+  `;
+}
