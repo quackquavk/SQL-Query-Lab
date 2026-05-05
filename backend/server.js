@@ -9,13 +9,22 @@ import 'dotenv/config';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { parse as parseCookie } from 'cookie';
+import { randomUUID } from 'crypto';
 
-import { initDb } from './services/db.js';
+import { initDb, getDb } from './services/db.js';
 import { requireAuth } from './middleware/auth/index.js';
 import { getSession } from './services/auth.js';
 import authRoutes from './routes/auth.js';
 import { handleQueryWebSocket } from './routes/query.ws.js';
-import connections from './routes/connections.js';
+import { handleSqlAgentWebSocket, getSqlAgentStatus } from './routes/sqlAgent.js';
+// Inline auth helper (uses existing getSession from auth.js)
+async function requireAuthInline(ctx) {
+  const cookies = parseCookie(ctx.req.header('Cookie') || '');
+  const sessionId = cookies.session;
+  if (!sessionId) return null;
+  const session = await getSession(sessionId);
+  return session ? session.userId : null;
+}
 import schemaRoute from './routes/schema.js';
 import executionPlanRoute from './routes/executionPlan.js';
 import ddlRoute from './routes/ddl.js';
@@ -23,6 +32,7 @@ import spRoute from './routes/storedProcedures.js';
 import validateRoute from './routes/validateTsql.js';
 import optimizeRoute from './routes/optimize.js';
 import sqlAgentJobs from './routes/sqlAgentJobs.js';
+import minimaxMcp from './services/minimaxMcp.js';
 import backupRestore from './routes/backupRestore.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -69,9 +79,62 @@ app.route('/api/auth', authRoutes);
 app.use('/api/auth/me', requireAuth());
 
 
-// Protected routes — use app.route() after app.use() for proper middleware chaining
-app.use('/api/connections', requireAuth());
-app.route('/api/connections', connections);
+// Connections routes — flat handler pattern (no sub-app) for proper auth propagation
+app.post('/api/connections', async (ctx) => {
+  const userId = await requireAuthInline(ctx);
+  if (!userId) return ctx.json({ error: 'Unauthorized' }, 401);
+  const { name, server, database, authType, credentials } = await ctx.req.json();
+  if (!name || !server || !authType) return ctx.json({ success: false, error: 'Missing required fields' }, 400);
+  const masterPassword = process.env.MASTER_PASSWORD;
+  if (!masterPassword) return ctx.json({ success: false, error: 'Server not configured with MASTER_PASSWORD' }, 500);
+  const connData = { server, database, authType, credentials };
+  const { encryptConnection } = await import('./services/crypto.js');
+  const encryptedBlob = await encryptConnection(connData, masterPassword);
+  const id = randomUUID();
+  const db = getDb();
+  db.prepare('INSERT INTO connections (id, user_id, name, server, database_name, auth_type, username, password_encrypted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, userId, name, server, database || '', authType, credentials?.username || null, JSON.stringify(encryptedBlob));
+  console.log(`[connections] Connection saved: id=${id} userId=${userId} name=${name}`);
+  return ctx.json({ id, name });
+});
+
+app.get('/api/connections', async (ctx) => {
+  const userId = await requireAuthInline(ctx);
+  if (!userId) return ctx.json({ error: 'Unauthorized' }, 401);
+  const db = getDb();
+  const list = db.prepare('SELECT id, name, created_at FROM connections WHERE user_id = ? ORDER BY created_at DESC').all(userId);
+  console.log(`[connections] List connections: userId=${userId} count=${list.length}`);
+  return ctx.json(list);
+});
+
+app.get('/api/connections/:id', async (ctx) => {
+  const userId = await requireAuthInline(ctx);
+  if (!userId) return ctx.json({ error: 'Unauthorized' }, 401);
+  const { id } = ctx.req.param();
+  const db = getDb();
+  const conn = db.prepare('SELECT * FROM connections WHERE id = ? AND user_id = ?').get(id, userId);
+  if (!conn) {
+    const exists = db.prepare('SELECT id FROM connections WHERE id = ?').get(id);
+    if (exists) { console.log(`[connections] GET /:id access denied: id=${id} userId=${userId}`); return ctx.json({ success: false, error: 'Connection not found' }, 404); }
+    return ctx.json({ success: false, error: 'Connection not found' }, 404);
+  }
+  const encryptedBlob = JSON.parse(conn.password_encrypted || '{}');
+  const { decryptConnectionServer } = await import('./services/crypto.js');
+  const decrypted = await decryptConnectionServer(encryptedBlob);
+  if (!decrypted) return ctx.json({ success: false, error: 'Decryption failed' }, 400);
+  console.log(`[connections] Get connection: id=${id} userId=${userId} name=${conn.name}`);
+  return ctx.json({ id: conn.id, name: conn.name, server: decrypted.server, database: decrypted.database, authType: decrypted.authType, credentials: decrypted.credentials });
+});
+
+app.delete('/api/connections/:id', async (ctx) => {
+  const userId = await requireAuthInline(ctx);
+  if (!userId) return ctx.json({ error: 'Unauthorized' }, 401);
+  const { id } = ctx.req.param();
+  const db = getDb();
+  const result = db.prepare('DELETE FROM connections WHERE id = ? AND user_id = ?').run(id, userId);
+  if (result.changes === 0) { console.log(`[connections] DELETE /:id not found: id=${id} userId=${userId}`); return ctx.json({ success: false, error: 'Connection not found' }, 404); }
+  console.log(`[connections] Delete connection: id=${id} userId=${userId}`);
+  return ctx.json({ success: true });
+});
 app.use('/api/schema', requireAuth());
 app.route('/api/schema', schemaRoute);
 app.use('/api/execution-plan', requireAuth());
@@ -86,6 +149,14 @@ app.use('/api/optimize', requireAuth());
 app.route('/api/optimize', optimizeRoute);
 app.use('/api/sql-agent', requireAuth());
 app.route('/api/sql-agent', sqlAgentJobs);
+
+// GET /api/sql-agent/status — MCP availability (auth-protected, no sub-app)
+app.get('/api/sql-agent/status', async (ctx) => {
+  const userId = await requireAuthInline(ctx);
+  if (!userId) return ctx.json({ error: 'Unauthorized' }, 401);
+  console.log(`[sql-agent] Status check userId=${userId} mcpAvailable=${minimaxMcp.isAvailable()}`);
+  return ctx.json({ mcpAvailable: minimaxMcp.isAvailable() });
+});
 app.use('/api/backup', requireAuth());
 app.route('/api/backup', backupRestore);
 app.use('/api/restore', requireAuth());
@@ -115,26 +186,27 @@ wss.on('connection', (ws, request) => {
     const session = getSession(sessionId);
     if (session) {
       userId = String(session.userId);
-      console.log(`[query.ws] Authenticated connection: userId=${userId}`);
+      console.log(`[ws] Authenticated connection: userId=${userId} path=${url.pathname}`);
     } else {
       console.log('[auth] WebSocket auth: invalid session cookie — using anonymous');
     }
   }
 
-  ws.on('message', async (msg) => {
-    try {
-      const data = JSON.parse(msg);
-      await handleQueryWebSocket(ws, data, userId);
-    } catch (err) {
-      ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
-    }
-  });
-
   ws.on('error', (err) => {
-    console.error(`[query.ws] WebSocket error: ${err.message}`);
+    console.error(`[ws] WebSocket error (${url.pathname}): ${err.message}`);
   });
 
-  if (url.pathname === '/api/backup/progress') {
+  if (url.pathname === '/api/sql-agent/chat') {
+    // SQL Agent WebSocket — handle with sqlAgent handler
+    ws.on('message', async (msg) => {
+      try {
+        const data = JSON.parse(msg);
+        await handleSqlAgentWebSocket(ws, data, userId);
+      } catch (err) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+      }
+    });
+  } else if (url.pathname === '/api/backup/progress') {
     // Backup progress WebSocket — echo back progress messages
     ws.on('message', (msg) => {
       try {
@@ -151,6 +223,16 @@ wss.on('connection', (ws, request) => {
         // ignore malformed messages
       }
     });
+  } else {
+    // Default: query WebSocket
+    ws.on('message', async (msg) => {
+      try {
+        const data = JSON.parse(msg);
+        await handleQueryWebSocket(ws, data, userId);
+      } catch (err) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+      }
+    });
   }
 });
 
@@ -158,7 +240,7 @@ wss.on('connection', (ws, request) => {
 server.on('upgrade', (request, socket, head) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
 
-  if (url.pathname === '/api/query' || url.pathname === '/api/backup/progress') {
+  if (url.pathname === '/api/query' || url.pathname === '/api/backup/progress' || url.pathname === '/api/sql-agent/chat') {
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit('connection', ws, request);
     });

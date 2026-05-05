@@ -26,17 +26,24 @@ async function freshDb() {
 }
 
 // Helper: create a user directly via the db module so tests are self-contained.
+// Uses Math.random() to generate a unique id (UUID-like string) for the users table.
 function createUser(db, username, passwordHash = 'fakehash') {
-  return db.getDb().prepare(
-    'INSERT INTO users (username, password_hash) VALUES (?, ?)'
-  ).run(username, passwordHash).lastInsertRowid;
+  const id = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  db.getDb().prepare(
+    'INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)'
+  ).run(id, username, passwordHash);
+  return id;
 }
 
 // Helper: insert a connection row directly via db module.
+// Returns the generated id (a UUID-like string from SQLite's randomblob default).
 function insertConnection(db, userId, name, server = 'localhost', database = 'mydb', authType = 'sql', username = 'sa', passwordEnc = 'encrypted') {
-  return db.getDb().prepare(
+  db.getDb().prepare(
     'INSERT INTO connections (user_id, name, server, database_name, auth_type, username, password_encrypted) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(userId, name, server, database, authType, username, passwordEnc).lastInsertRowid;
+  ).run(userId, name, server, database, authType, username, passwordEnc);
+  // connections.id is TEXT with a randomblob default — query by user_id to get the id.
+  const row = db.getDb().prepare('SELECT id FROM connections WHERE user_id = ? ORDER BY rowid DESC LIMIT 1').get(userId);
+  return row ? row.id : null;
 }
 
 describe('connections table: initDb() creates table', () => {
@@ -79,12 +86,13 @@ describe('connections table: initDb() creates table', () => {
 });
 
 describe('connections table: INSERT returns an id', () => {
-  it('INSERT INTO connections returns a numeric lastInsertRowid', async () => {
+  it('INSERT INTO connections returns a string id (UUID from randomblob)', async () => {
     const dbMod = await freshDb();
     const userId = createUser(dbMod, 'user1');
     const id = insertConnection(dbMod, userId, 'My Azure SQL');
-    assert.ok(typeof id === 'bigint' || typeof id === 'number', `expected numeric ID, got ${typeof id}`);
-    assert.ok(Number(id) > 0, 'id should be positive');
+    assert.ok(typeof id === 'string', `expected string ID, got ${typeof id}`);
+    assert.ok(id.length > 0, 'id should be non-empty string');
+    assert.ok(/^[a-f0-9]+$/.test(id), `id should be lowercase hex UUID: ${id}`);
   });
 
   it('INSERT stores all connection fields correctly', async () => {

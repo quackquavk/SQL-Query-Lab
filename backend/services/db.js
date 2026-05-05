@@ -59,7 +59,7 @@ export async function initDb() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       expires_at INTEGER NOT NULL,
       data TEXT DEFAULT '{}'
     )
@@ -73,7 +73,7 @@ export async function initDb() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS connections (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       server TEXT NOT NULL,
       database_name TEXT NOT NULL,

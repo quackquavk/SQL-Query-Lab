@@ -67,11 +67,21 @@ describe('Auth routes integration', { concurrency: false }, () => {
     app.get('/health', (ctx) => ctx.json({ status: 'ok' }));
     app.route('/api/auth', authRoutes);
 
-    // Mock connections route for protected endpoint tests
+    // Mock connections route with inline auth (mirrors server.js flat handler pattern)
     const mockConnections = new Hono();
-    mockConnections.delete('/:id', (ctx) => {
-      const userId = ctx.get('userId');
-      if (!userId) return ctx.json({ error: 'Unauthorized' }, 401);
+    mockConnections.delete('/:id', async (ctx) => {
+      // Inline auth matching server.js requireAuthInline — avoid ctx.get() in sub-apps
+      const cookieHeader = ctx.req.header('Cookie') || '';
+      const cookies = {};
+      for (const part of cookieHeader.split('; ')) {
+        const [key, ...val] = part.split('=');
+        if (key) cookies[key.trim()] = val.join('=');
+      }
+      const sessionId = cookies.session;
+      if (!sessionId) return ctx.json({ error: 'Unauthorized' }, 401);
+      const { getSession } = await import('../services/auth.js');
+      const session = await getSession(sessionId);
+      if (!session) return ctx.json({ error: 'Unauthorized' }, 401);
       return ctx.json({ success: true });
     });
     app.use('/api/connections', requireAuth());
@@ -162,7 +172,8 @@ describe('Auth routes integration', { concurrency: false }, () => {
   // ── GET /api/auth/me ────────────────────────────────────────────────────
   describe('GET /api/auth/me', () => {
     it('returns 200 with user info when session cookie is valid', async () => {
-      const username = 'me_test_' + Date.now();
+      // Username in registerAndLogin: `${prefix}_${Date.now()}` → "metest_<timestamp>"
+      const username = 'metest_' + Date.now();
       const sessionCookie = await registerAndLogin('metest', 'testpass123');
       assert.ok(sessionCookie);
       const res = await makeRequest('GET', '/api/auth/me', null, { Cookie: sessionCookie });

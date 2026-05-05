@@ -1,8 +1,19 @@
 import { Hono } from 'hono';
+import { parse as parseCookie } from 'cookie';
 import { randomUUID } from 'crypto';
 import { encryptConnection, decryptConnection, decryptConnectionServer } from '../services/crypto.js';
 import { testConnection } from '../services/sqlServer.js';
 import { getDb } from '../services/db.js';
+import { getSession } from '../services/auth.js';
+
+// Middleware: validate session cookie and set userId inline
+async function requireAuthInline(ctx) {
+  const cookies = parseCookie(ctx.req.header('Cookie') || '');
+  const sessionId = cookies.session;
+  if (!sessionId) return null;
+  const session = await getSession(sessionId);
+  return session ? session.userId : null;
+}
 
 const connections = new Hono();
 
@@ -18,7 +29,8 @@ function decodeError(err) {
 
 connections.post('/', async (ctx) => {
   try {
-    const userId = ctx.get('userId');
+    const userId = await requireAuthInline(ctx);
+    if (!userId) return ctx.json({ error: 'Unauthorized' }, 401);
     const { name, server, database, authType, credentials } = await ctx.req.json();
 
     if (!name || !server || !authType) {
@@ -51,6 +63,7 @@ connections.post('/', async (ctx) => {
     );
 
     console.log(`[connections] Connection saved: id=${id} userId=${userId} name=${name}`);
+    // Debug: verify insert
 
     return ctx.json({ id, name });
   } catch (err) {
@@ -76,13 +89,7 @@ connections.get('/', async (ctx) => {
 });
 
 connections.get('/:id', async (ctx) => {
-  // Debug: log everything
-  console.log('[DEBUG GET /:id] headers:', ctx.req.header('cookie')?.substring(0, 80));
-  console.log('[DEBUG GET /:id] ctx.state:', JSON.stringify(ctx.state));
-  console.log('[DEBUG GET /:id] ctx.get userId:', ctx.get('userId'));
-  try {
-    const userId = ctx.get('userId');
-    const { id } = ctx.req.param();
+  try { const userId = ctx.get('userId'); const { id } = ctx.req.param();
     const db = getDb();
     const stmt = db.prepare('SELECT * FROM connections WHERE id = ? AND user_id = ?');
     const conn = stmt.get(id, userId);
@@ -123,7 +130,8 @@ connections.get('/:id', async (ctx) => {
 
 connections.delete('/:id', async (ctx) => {
   try {
-    const userId = ctx.get('userId');
+    const userId = await requireAuthInline(ctx);
+    if (!userId) return ctx.json({ error: 'Unauthorized' }, 401);
     const { id } = ctx.req.param();
     const db = getDb();
     // DELETE with both user_id and id conditions — only deletes if owned by this user
@@ -145,6 +153,8 @@ connections.delete('/:id', async (ctx) => {
 
 connections.post('/test', async (ctx) => {
   try {
+    const userId = await requireAuthInline(ctx);
+    if (!userId) return ctx.json({ error: 'Unauthorized' }, 401);
     const { server, database, authType, credentials } = await ctx.req.json();
 
     if (!server || !authType) {
@@ -165,7 +175,8 @@ connections.post('/test', async (ctx) => {
 
 connections.post('/decrypt/:id', async (ctx) => {
   try {
-    const userId = ctx.get('userId');
+    const userId = await requireAuthInline(ctx);
+    if (!userId) return ctx.json({ error: 'Unauthorized' }, 401);
     const { id } = ctx.req.param();
     const { masterPassword } = await ctx.req.json();
 

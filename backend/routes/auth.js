@@ -38,11 +38,11 @@ auth.post('/register', async (ctx) => {
     }
 
     const passwordHash = await hashPassword(password);
-    const userId = await createUser(username.trim(), passwordHash);
+    const user = await createUser(username.trim(), passwordHash);
 
     console.log(`[auth] User registered: ${username}`);
 
-    return ctx.json({ id: userId, username: username.trim() }, 201);
+    return ctx.json({ id: user.id, username: user.username }, 201);
   } catch (err) {
     // Duplicate username (SQLite constraint violation)
     if (err.message && err.message.includes('UNIQUE constraint failed')) {

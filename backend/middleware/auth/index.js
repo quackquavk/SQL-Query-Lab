@@ -3,26 +3,28 @@ import { getSession } from '../../services/auth.js';
 
 export function requireAuth() {
   return async (ctx, next) => {
+    console.log('[requireAuth] called for path:', ctx.req.path);
     const cookies = parse(ctx.req.header('Cookie') || '');
-    console.log('[DEBUG requireAuth] cookies:', JSON.stringify(cookies));
+    console.log('[requireAuth] cookies:', JSON.stringify(cookies));
     const sessionId = cookies.session;
-    console.log('[DEBUG requireAuth] sessionId:', sessionId);
 
     if (!sessionId) {
-      console.log('[DEBUG requireAuth] no session cookie');
+      console.log('[requireAuth] no session — 401');
       return ctx.json({ error: 'Unauthorized' }, 401);
     }
 
     const session = await getSession(sessionId);
-    console.log('[DEBUG requireAuth] session:', JSON.stringify(session));
+    console.log('[requireAuth] session:', JSON.stringify(session));
 
     if (!session) {
-      console.log('[DEBUG requireAuth] invalid session');
+      console.log('[auth] Invalid or expired session');
       return ctx.json({ error: 'Unauthorized' }, 401);
     }
 
     ctx.set('userId', session.userId);
-    console.log('[DEBUG requireAuth] set userId:', session.userId);
+    ctx.set('sessionId', session.id);
+    console.log('[requireAuth] set userId:', session.userId);
     await next();
+    console.log('[requireAuth] next() completed');
   };
 }

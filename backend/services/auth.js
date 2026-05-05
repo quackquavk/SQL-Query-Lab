@@ -107,7 +107,7 @@ export async function deleteSession(sessionId) {
 /**
  * Get a user by username (case-insensitive).
  * @param {string} username
- * @returns {Promise<{id: number, username: string, created_at: number}|null>} User without password_hash
+ * @returns {Promise<{id: string, username: string, created_at: number}|null>} User without password_hash
  */
 export async function getUserByUsername(username) {
   const db = getDb();
@@ -122,13 +122,14 @@ export async function getUserByUsername(username) {
  * Create a new user.
  * @param {string} username
  * @param {string} passwordHash - Pre-hashed password
- * @returns {Promise<number>} User ID
+ * @returns {Promise<{id: string, username: string}>} User object with actual UUID id
  */
 export async function createUser(username, passwordHash) {
   const db = getDb();
+  const id = randomUUID();
   const stmt = db.prepare(
-    'INSERT INTO users (username, password_hash) VALUES (?, ?)'
+    'INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)'
   );
-  const result = stmt.run(username, passwordHash);
-  return result.lastInsertRowid;
+  stmt.run(id, username, passwordHash);
+  return { id, username };
 }
