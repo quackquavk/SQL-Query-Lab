@@ -1,6 +1,6 @@
 // SQL Agent WebSocket route + REST health endpoint
 import { randomUUID } from 'crypto';
-import { minimaxMcp } from '../services/minimaxMcp.js';
+import { isAvailable, callTool } from '../services/minimaxMcp.js';
 
 // Keyword list that triggers a web search via MiniMax MCP
 const WEB_SEARCH_KEYWORDS = [
@@ -54,10 +54,10 @@ export async function handleSqlAgentWebSocket(ws, userId) {
 
     // Build context: add web search results if keywords match and MCP is available
     let enhancedContext = context || '';
-    if (promptNeedsWebSearch(prompt) && minimaxMcp.isAvailable()) {
+    if (promptNeedsWebSearch(prompt) && isAvailable()) {
       console.log('[sql-agent-ws] Prompt contains keywords — calling web_search via MiniMax MCP');
       try {
-        const searchResult = await minimaxMcp.callTool('web_search', { query: prompt });
+        const searchResult = await callTool('web_search', { query: prompt });
         if (searchResult && searchResult.web_search_results) {
           const results = searchResult.web_search_results;
           const snippets = Array.isArray(results)
@@ -169,8 +169,5 @@ export async function handleSqlAgentWebSocket(ws, userId) {
 
 // Export the status endpoint handler (used by server.js flat handler)
 export async function getSqlAgentStatus(ctx) {
-  return ctx.json({ mcpAvailable: minimaxMcp.isAvailable() });
+  return ctx.json({ mcpAvailable: isAvailable() });
 }
-
-// Re-export minimaxMcp for convenience
-export { minimaxMcp } from '../services/minimaxMcp.js';

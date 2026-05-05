@@ -32,7 +32,7 @@ import spRoute from './routes/storedProcedures.js';
 import validateRoute from './routes/validateTsql.js';
 import optimizeRoute from './routes/optimize.js';
 import sqlAgentJobs from './routes/sqlAgentJobs.js';
-import minimaxMcp from './services/minimaxMcp.js';
+import { isAvailable as mcpIsAvailable } from './services/minimaxMcp.js';
 import backupRestore from './routes/backupRestore.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -154,8 +154,8 @@ app.route('/api/sql-agent', sqlAgentJobs);
 app.get('/api/sql-agent/status', async (ctx) => {
   const userId = await requireAuthInline(ctx);
   if (!userId) return ctx.json({ error: 'Unauthorized' }, 401);
-  console.log(`[sql-agent] Status check userId=${userId} mcpAvailable=${minimaxMcp.isAvailable()}`);
-  return ctx.json({ mcpAvailable: minimaxMcp.isAvailable() });
+  console.log(`[sql-agent] Status check userId=${userId} mcpAvailable=${mcpIsAvailable()}`);
+  return ctx.json({ mcpAvailable: mcpIsAvailable() });
 });
 app.use('/api/backup', requireAuth());
 app.route('/api/backup', backupRestore);
