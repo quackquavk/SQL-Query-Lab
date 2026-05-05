@@ -37,10 +37,12 @@ SSH in and create `/opt/sqlquerylab/.env`:
 ```bash
 PORT=3000
 ALLOWED_ORIGIN=https://learn-sql-practice.vercel.app
+SESSION_SECRET=generate-with-openssl-rand-hex-32   # REQUIRED in production
+SESSION_TTL=604800                                  # optional, 7 days in seconds
 MASTER_PASSWORD=generate-a-strong-random-string-here
 ```
 
-Generate the master password on your local machine:
+Generate a strong session secret on your local machine:
 ```bash
 openssl rand -hex 32
 ```
@@ -63,6 +65,12 @@ docker run -d \
   --env-file .env \
   -v /opt/sqlquerylab/data:/app/data \
   sqlquerylab-api
+```
+
+Or use `docker-compose` (recommended for production):
+
+```bash
+docker compose up -d
 ```
 
 Check it's running:
@@ -264,10 +272,10 @@ services:
 |----------|----------|---------|-------------|
 | `PORT` | Yes | `3000` | HTTP server port |
 | `ALLOWED_ORIGIN` | Yes | — | CORS origin (frontend URL) |
-| `SESSION_SECRET` | Yes | — | Secret for signing session cookies. Generate with: `openssl rand -hex 32` |
+| `SESSION_SECRET` | Yes | — | Secret for signing session cookies. **MUST be set in production.** Generate with: `openssl rand -hex 32` |
 | `SQLITE_PATH` | No | `./data/auth.db` | Path to SQLite database |
 | `BCRYPT_ROUNDS` | No | `12` | Cost factor for password hashing (higher = slower but more secure) |
-| `MASTER_PASSWORD` | No | — | Optional master password for admin access |
+| `MASTER_PASSWORD` | No | — | Encryption key for SQL Server credentials at rest (Entra ID tokens, SQL Auth passwords). NOT a user login password. Generate with `openssl rand -hex 32` |
 
 ---
 
@@ -309,3 +317,7 @@ docker logs sqlquerylab-api
 **Session not persisting across restarts:**
 - Verify the `-v /opt/sqlquerylab/data:/app/data` volume mount is present
 - Check the mounted host directory exists and is writable: `ls -la /opt/sqlquerylab/data`
+
+**Server throws `'SESSION_SECRET environment variable is required in production'`:**
+- Set `SESSION_SECRET` in your `.env` file (generate with `openssl rand -hex 32`)
+- Restart the container: `docker restart sqlquerylab-api`
