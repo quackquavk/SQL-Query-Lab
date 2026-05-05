@@ -1,0 +1,43 @@
+# Version control
+.git
+.gitignore
+
+# Agent tooling
+.gsd
+.gsd-id
+.gsd.lock
+.mcp.json
+
+# Build artifacts
+node_modules
+backend/node_modules
+**/node_modules
+
+# Frontend assets (frontend runs on Vercel, backend is the Docker image)
+scripts/
+styles/
+app/
+
+# Root-level files not needed in Docker build
+*.html
+.env
+.env.*
+!.env.example
+DEPLOY.md
+DEPLOY.env.example
+CLAUDE.md
+README.md
+playwright.config.js
+sitemap.xml
+robots.txt
+ads.txt
+privacy.html
+terms.html
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (don't exclude the Dockerfile itself)
+.dockerignore
+docker-compose.yml
