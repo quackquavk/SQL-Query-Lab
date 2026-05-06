@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/learn-sql-browser", "destination": "/app/learn-sql-browser" },
-    { "source": "/learn-sql-browser/", "destination": "/app/learn-sql-browser/" }
+    { "source": "/learn-sql-browser", "destination": "/learn-sql-browser/" },
+    { "source": "/learn-sql-browser/", "destination": "/learn-sql-browser/" }
   ]
 }

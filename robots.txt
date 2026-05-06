@@ -26,5 +26,5 @@ Allow: /
 
 Sitemap: https://learn-sql-practice.vercel.app/sitemap.xml
 
-# New page discovery
+# Crawl delay + restrict /app/ (JS-heavy app, no SEO value from crawling)
 Disallow: /app/
