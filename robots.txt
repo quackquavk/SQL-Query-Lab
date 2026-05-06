@@ -25,3 +25,6 @@ User-agent: *
 Allow: /
 
 Sitemap: https://learn-sql-practice.vercel.app/sitemap.xml
+
+# New page discovery
+Disallow: /app/
