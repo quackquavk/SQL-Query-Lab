@@ -15,6 +15,7 @@ let _input = null;
 let _sendBtn = null;
 let _messagesEl = null;
 let _connectionId = null;
+let _executionColumns = null; // [{name, type}] from last execute_start
 
 // ── WebSocket URL construction (mirrors apiClient.js createQueryStreamer) ────
 function buildWsUrl(path) {
@@ -103,6 +104,49 @@ function scrollToBottom() {
   if (_messagesEl) {
     _messagesEl.scrollTop = _messagesEl.scrollHeight;
   }
+}
+
+/**
+ * Appends a batch of rows to a results table. Creates the table on the first batch.
+ * @param {HTMLElement} container
+ * @param {Array<{name:string,type:string}>} columns
+ * @param {Array<Object>} rows
+ * @param {number} offset
+ * @param {number} total
+ */
+function renderRowsTable(container, columns, rows, offset, total) {
+  if (!container || !columns.length || !rows.length) return;
+  const table = container.querySelector('table') || createResultsTable(container, columns, total);
+  const tbody = table.querySelector('tbody');
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    for (const col of columns) {
+      const td = document.createElement('td');
+      const val = row[col.name];
+      td.textContent = val === null || val === undefined ? 'NULL' : String(val);
+      td.title = td.textContent; // tooltip for long values
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+}
+
+function createResultsTable(container, columns, totalRows) {
+  const table = document.createElement('table');
+  table.className = 'agent-results-table';
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  for (const col of columns) {
+    const th = document.createElement('th');
+    th.textContent = col.name;
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  table.appendChild(tbody);
+  container.appendChild(table);
+  return table;
 }
 
 // ── Typing indicator ─────────────────────────────────────────────────────────
@@ -236,10 +280,50 @@ function handleMessage(msg) {
       }
       break;
     }
-    default:
-      console.log('[agent] Unknown message type:', msg.type, msg);
-  }
-}
+    case 'execute_start': {
+      _executionColumns = null;
+      console.log('[agent] execute_start', msg.connectionId);
+      break;
+    }
+    case 'columns': {
+      _executionColumns = msg.columns || [];
+      console.log('[agent] columns received:', _executionColumns.length);
+      break;
+    }
+    case 'rows': {
+      // Append execution results as a table below the last agent message
+      if (!_executionColumns || _executionColumns.length === 0) break;
+      removeTyping();
+      let resultsEl = _messagesEl.querySelector('.agent-results:last-of-type');
+      if (!resultsEl) {
+        resultsEl = document.createElement('div');
+        resultsEl.className = 'agent-results';
+        const lastAgent = _messagesEl.querySelector('.agent-message.agent:last-child');
+        if (lastAgent) lastAgent.after(resultsEl);
+        else _messagesEl.appendChild(resultsEl);
+      }
+      renderRowsTable(resultsEl, _executionColumns, msg.rows, msg.offset, msg.total);
+      scrollToBottom();
+      break;
+    }
+    case 'done': {
+      // Finalize — clean up data-raw attribute
+      const last = _messagesEl.querySelector('.agent-message.agent:last-child .agent-bubble');
+      if (last) last.removeAttribute('data-raw');
+      removeTyping();
+      if (msg.rowsAffected !== undefined || msg.totalRows !== undefined) {
+        const rowsCount = msg.totalRows !== undefined ? msg.totalRows : (msg.rowsAffected || 0);
+        const timeMs = msg.executionTime || 0;
+        const div = document.createElement('div');
+        div.className = 'agent-message system';
+        div.innerHTML = `<div class="agent-bubble agent-results-summary">✓ ${rowsCount} row${rowsCount !== 1 ? 's' : ''}${timeMs ? ` in ${timeMs}ms` : ''}</div>`;
+        _messagesEl.appendChild(div);
+        scrollToBottom();
+      }
+      _executionColumns = null;
+      console.log('[agent] Response complete');
+      break;
+    }
 
 // ── Send message ──────────────────────────────────────────────────────────────
 export function sendMessage(text) {

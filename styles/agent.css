@@ -306,3 +306,57 @@
 .agent-messages::-webkit-scrollbar-thumb:hover {
   background: var(--border-bright);
 }
+
+/* Execution results table — rendered below agent bubbles */
+.agent-results {
+  align-self: flex-start;
+  width: 100%;
+  margin-top: 4px;
+  overflow-x: auto;
+}
+
+.agent-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.agent-results-table th {
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-weight: 600;
+  text-align: left;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+
+.agent-results-table td {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-results-table tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.agent-results-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Results summary footer message */
+.agent-results-summary {
+  display: inline-block;
+  margin-top: 2px;
+  color: var(--success) !important;
+  font-size: 11.5px !important;
+  font-style: normal !important;
+}
