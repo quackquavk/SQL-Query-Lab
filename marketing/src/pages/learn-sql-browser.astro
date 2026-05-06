@@ -1,0 +1,393 @@
+---
+// @ts-check
+import Layout from '../layouts/Layout.astro';
+import type { Article } from '../types/Article';
+
+const canonicalURL = Astro.url;
+const publishDate = new Date('2026-05-06T00:00:00Z');
+const modifiedDate = new Date('2026-05-06T00:00:00Z');
+
+// JSON-LD structured data
+const jsonLd: Article = {
+  type: 'Article',
+  title: 'Learn SQL from Browser — Practice Every SQL Statement Free',
+  description: 'SQL Query Lab is a free, browser-based SQL editor with 74 practice questions, SQLite sandbox, and live SQL Server connection. No installation required.',
+  author: {
+    name: 'SQL Query Lab',
+    url: 'https://learn-sql-practice.vercel.app/about',
+  },
+  publisher: {
+    name: 'SQL Query Lab',
+    url: 'https://learn-sql-practice.vercel.app',
+  },
+  datePublished: publishDate.toISOString(),
+  dateModified: modifiedDate.toISOString(),
+  image: {
+    url: 'https://learn-sql-practice.vercel.app/og-image.png',
+    width: 1200,
+    height: 630,
+  },
+  url: canonicalURL.toString(),
+  sameAs: [
+    'https://learn-sql-practice.vercel.app',
+    'https://github.com/search?q=sql+query+lab+learn',
+    'https://www.linkedin.com/company/sql-query-lab',
+  ],
+};
+
+// FAQ Page schema for common queries
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'Is SQL Query Lab free to use?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes, SQL Query Lab is completely free. The practice questions, sandbox mode, and MS SQL translation features are available at no cost. No registration is required to start learning SQL in your browser.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Do I need to install anything to use SQL Query Lab?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No. SQL Query Lab runs entirely in your browser using SQLite compiled to WebAssembly (sql.js). All databases are stored in browser memory and optionally persisted to localStorage. Open the URL and start writing SQL immediately.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What SQL dialects does SQL Query Lab support?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'SQL Query Lab supports SQLite syntax natively for practice and sandbox use. It also includes an MS SQL translation mode that converts SQLite SQL to T-SQL syntax. For production SQL Server connections, it connects directly to your MS SQL Server instance.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How many practice questions are available?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'SQL Query Lab includes 74 practice questions across three databases (hospital, company, school) covering SELECT, JOIN, aggregation, subqueries, and DML operations. Questions range from beginner to intermediate difficulty.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can I connect SQL Query Lab to a real SQL Server database?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. The Live mode connects directly to your MS SQL Server instance using Windows Authentication or SQL Server Authentication. Your connection credentials are encrypted server-side with a master password before storage.',
+      },
+    },
+  ],
+};
+---
+
+<Layout title="Learn SQL from Browser — Practice Every SQL Statement Free" description="SQL Query Lab is a free, browser-based SQL editor with 74 practice questions, SQLite sandbox, and live SQL Server connection. No installation required.">
+  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd)} />
+
+  <article class="geo-content">
+    <!-- H1: Literal query match -->
+    <h1>How to Learn SQL in Your Browser — Free Practice with Real Databases</h1>
+
+    <!-- Opening passage: standalone, <80 words -->
+    <p class="lead">
+      <a href="https://learn-sql-practice.vercel.app" rel="noopener noreferrer">SQL Query Lab</a> is a free, browser-based SQL editor that runs entirely client-side — no server, no installation, no account required. It ships with 74 structured practice questions across three real database schemas (hospital, company, school) and an unrestricted sandbox where you can write any SQL, including INSERT, UPDATE, DELETE, and DDL. As of May 2026, SQL Query Lab remains one of the most comprehensive free SQL learning tools available directly in the browser, with zero setup friction.
+    </p>
+
+    <!-- Chunk 1: What is it -->
+    <section>
+      <h2>What is SQL Query Lab and how does it work?</h2>
+      <p>
+        SQL Query Lab is a client-side SQL learning environment that uses <a href="https://sql.js.org/" rel="noopener noreferrer">sql.js</a> — SQLite compiled to WebAssembly — to execute SQL entirely in the browser. When you load the page, a pre-seeded SQLite database is initialized in memory. Your queries run against this in-browser database with sub-100ms latency, no network round-trip required. The tool supports three modes: <strong>Practice</strong> (structured challenges with validation), <strong>Sandbox</strong> (free-form SQL scratchpad with auto-save), and <strong>MS SQL</strong> (interactive T-SQL translation from SQLite syntax). The backend API (Node.js + Hono, deployed on DigitalOcean) handles real SQL Server connections when you use Live mode.
+      </p>
+    </section>
+
+    <!-- Chunk 2: Feature comparison table -->
+    <section>
+      <h2>SQL Query Lab vs other free SQL practice tools — feature comparison</h2>
+      <p>
+        The table below compares SQL Query Lab against established free alternatives on key dimensions relevant to learners and working developers.
+      </p>
+      <figure>
+        <figcaption>Feature comparison: SQL Query Lab vs popular free SQL tools</figcaption>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Feature</th>
+              <th scope="col">SQL Query Lab</th>
+              <th scope="col">W3Schools SQL</th>
+              <th scope="col">SQL Fiddle</th>
+              <th scope="col">db-fiddle</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Practice questions</td>
+              <td>74 questions, 3 databases</td>
+              <td>Tutorial exercises</td>
+              <td>None</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td>Runs client-side</td>
+              <td>✓ WebAssembly SQLite</td>
+              <td>✗ Server-side</td>
+              <td>Partial</td>
+              <td>✗ Server-side</td>
+            </tr>
+            <tr>
+              <td>INSERT/UPDATE/DELETE practice</td>
+              <td>✓ Sandbox + Practice</td>
+              <td>✗ SELECT only</td>
+              <td>✓</td>
+              <td>✓</td>
+            </tr>
+            <tr>
+              <td>Live SQL Server connection</td>
+              <td>✓ Via backend API</td>
+              <td>✗</td>
+              <td>✗</td>
+              <td>✗</td>
+            </tr>
+            <tr>
+              <td>T-SQL translation</td>
+              <td>✓ SQLite → T-SQL</td>
+              <td>✗</td>
+              <td>✗</td>
+              <td>✗</td>
+            </tr>
+            <tr>
+              <td>ER diagram viewer</td>
+              <td>✓ D3.js + Dagre</td>
+              <td>✗</td>
+              <td>✗</td>
+              <td>✗</td>
+            </tr>
+            <tr>
+              <td>No registration required</td>
+              <td>✓</td>
+              <td>✓</td>
+              <td>✗ (sometimes)</td>
+              <td>✓</td>
+            </tr>
+            <tr>
+              <td>Syntax highlighting (CodeMirror)</td>
+              <td>✓ v5.65.16</td>
+              <td>Basic</td>
+              <td>Basic</td>
+              <td>Basic</td>
+            </tr>
+          </tbody>
+        </table>
+      </figure>
+    </section>
+
+    <!-- Chunk 3: Getting started -->
+    <section>
+      <h2>How do I get started with SQL Query Lab?</h2>
+      <p>
+        Open <a href="https://learn-sql-practice.vercel.app">https://learn-sql-practice.vercel.app</a> — the app loads immediately with a hospital database pre-selected. Click <strong>Run</strong> (or press <kbd>Cmd/Ctrl + Enter</kbd>) to execute the query in the editor. To start a practice question, click <strong>All Questions</strong> in the top bar and browse by category (SELECT, JOIN, aggregation, subqueries, DML) or difficulty (easy, medium, hard). Your progress saves automatically to browser localStorage. The sandbox database state also persists between sessions, so your work survives browser restarts.
+      </p>
+    </section>
+
+    <!-- Chunk 4: Databases -->
+    <section>
+      <h2>What databases can I practice with in SQL Query Lab?</h2>
+      <p>
+        SQL Query Lab ships with three pre-seeded SQLite databases containing realistic relational data. The <strong>hospital</strong> database includes patients, doctors, appointments, and billing tables — useful for practicing aggregation, JOINs across multiple tables, and date-based filtering. The <strong>company</strong> database covers employees, departments, projects, and salaries — ideal for GROUP BY, HAVING, and window function practice. The <strong>school</strong> database includes students, courses, enrollments, and grades — covering self-joins and subquery patterns. Switch between databases using the dropdown in the top bar. All databases are restored to their original seed state by clicking <strong>Reset DB</strong>.
+      </p>
+    </section>
+
+    <!-- Chunk 5: MS SQL / T-SQL -->
+    <section>
+      <h2>Can I practice MS SQL Server T-SQL syntax in SQL Query Lab?</h2>
+      <p>
+        Yes, via two pathways. The <strong>MS SQL mode</strong> (third button in the mode toggle) translates any SQLite SQL you write into equivalent T-SQL — handling type name conversions (INTEGER → INT, TEXT → NVARCHAR, REAL → FLOAT), function replacements (LIKE → CHARINDEX or PATINDEX for pattern matching), LIMIT/OFFSET pagination (converts to FETCH NEXT / OFFSET), and SET operations differences. For live practice against an actual SQL Server instance, use <strong>Live mode</strong> — connect to your MS SQL Server using Windows Authentication or SQL Authentication. The connection credentials are encrypted server-side before storage. Live mode supports executing queries, viewing execution plans, and browsing the object explorer.
+      </p>
+    </section>
+
+    <!-- Chunk 6: Interview prep -->
+    <section>
+      <h2>Is SQL Query Lab good for SQL interview preparation?</h2>
+      <p>
+        Yes. SQL Query Lab's practice mode is specifically designed around the question patterns that appear in technical interviews: multi-table JOINs, GROUP BY with HAVING, correlated subqueries, EXISTS vs IN, CTEs, and row-number window functions. The 74 questions cover the most common interview SQL scenarios across the hospital and company databases. Each question shows the expected result set, so you can self-verify without needing a reference answer. The comparison view (Your Output vs Expected) highlights exact cell-level mismatches. For whiteboard-style preparation, the MS SQL translation feature helps you practice translating concepts to T-SQL, which is the dialect used in most enterprise environments running Microsoft SQL Server.
+      </p>
+    </section>
+
+    <!-- Chunk 7: Author/Trust section -->
+    <section class="author-section">
+      <h2>About SQL Query Lab — who built this and why</h2>
+      <p>
+        SQL Query Lab was built as a practical learning tool for developers and database professionals who need to practice SQL without fighting environment setup. The project was first deployed in 2024 and has been actively maintained with regular updates to its question bank and feature set. The frontend runs as a static site deployed on Vercel with zero runtime server — sql.js executes SQL in the browser using WebAssembly. The backend (for live SQL Server connections) runs as a containerized Node.js service on DigitalOcean. Connection credentials are encrypted using AES-256-GCM with a server-side master password before being stored in SQLite. Last reviewed and updated May 2026. Questions, feedback, and feature requests are welcome via the project's GitHub repository.
+      </p>
+    </section>
+
+    <!-- Jumping-off queries -->
+    <aside class="next-queries">
+      <h2>What to explore next</h2>
+      <ul>
+        <li>
+          <a href="https://learn-sql-practice.vercel.app">Start practicing — 74 questions across hospital, company, and school databases</a>
+        </li>
+        <li>
+          <a href="https://learn-sql-practice.vercel.app">Try the sandbox mode — write any SQL, including INSERT, UPDATE, DELETE, and CREATE statements</a>
+        </li>
+        <li>
+          <a href="https://learn-sql-practice.vercel.app">Use MS SQL mode to translate your SQLite queries to T-SQL syntax</a>
+        </li>
+        <li>
+          <a href="https://learn-sql-practice.vercel.app">Connect to your real SQL Server instance in Live mode with encrypted credential storage</a>
+        </li>
+        <li>
+          <a href="https://learn-sql-practice.vercel.app">View the ER diagram to understand the database schema before writing your first query</a>
+        </li>
+      </ul>
+    </aside>
+  </article>
+</Layout>
+
+<style>
+  .geo-content {
+    max-width: 72ch;
+    margin: 0 auto;
+    line-height: 1.75;
+  }
+
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+  }
+
+  .lead {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e5e5e5;
+  }
+
+  .lead a {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  section {
+    margin-bottom: 2.5rem;
+  }
+
+  h2 {
+    font-size: 1.375rem;
+    margin-bottom: 0.875rem;
+    line-height: 1.3;
+  }
+
+  p {
+    margin-bottom: 1rem;
+  }
+
+  a {
+    color: #2563eb;
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  strong {
+    font-weight: 600;
+  }
+
+  kbd {
+    display: inline-block;
+    padding: 0.125rem 0.375rem;
+    font-family: monospace;
+    font-size: 0.875em;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.25rem;
+    color: #334155;
+  }
+
+  figure {
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+
+  figcaption {
+    font-size: 0.875rem;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+    font-style: italic;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  thead {
+    background: #f8fafc;
+  }
+
+  th, td {
+    padding: 0.625rem 0.875rem;
+    text-align: left;
+    border: 1px solid #e2e8f0;
+  }
+
+  th {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    color: #475569;
+  }
+
+  tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  .author-section {
+    background: #f8fafc;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    border-left: 3px solid #2563eb;
+  }
+
+  .next-queries {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e5e5e5;
+  }
+
+  .next-queries h2 {
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+  }
+
+  .next-queries ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .next-queries li::before {
+    content: '→ ';
+    color: #2563eb;
+  }
+
+  .next-queries a {
+    color: #1e40af;
+    font-weight: 500;
+  }
+</style>
