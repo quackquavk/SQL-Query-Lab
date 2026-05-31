@@ -1,0 +1,837 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const publishDate = '2026-05-10';
+const modifiedDate = '2026-05-25';
+
+const faqItems = [
+  {
+    question: 'What is the difference between INNER JOIN and LEFT JOIN?',
+    answer: 'INNER JOIN returns only rows that have matching values in both tables. LEFT JOIN returns all rows from the left table and matching rows from the right table, with NULLs for non-matching right-side rows.',
+  },
+  {
+    question: 'When should I use RIGHT JOIN vs LEFT JOIN?',
+    answer: 'Prefer LEFT JOIN in most cases — it is more intuitive (all of the left table) and easier to chain. Use RIGHT JOIN only when you genuinely need all rows from the right table and the left table is a lookup. RIGHT JOINs often indicate a query that should be rewritten.',
+  },
+  {
+    question: 'What is a CROSS JOIN?',
+    answer: 'CROSS JOIN returns the Cartesian product of two tables — every row from the first table paired with every row from the second table. With m rows and n rows, you get m × n rows. Use with caution on large tables.',
+  },
+  {
+    question: 'What is a self-join and when is it useful?',
+    answer: 'A self-join joins a table to itself. It is useful for hierarchical data (employees and their managers), comparing rows within the same table (employees in the same department), or finding related pairs (products in the same category).',
+  },
+  {
+    question: 'How do multiple JOINs work in a single query?',
+    answer: 'JOINs are evaluated left-to-right by default, but you can control order with parentheses. Each JOIN creates an intermediate result that is then joined with the next table. Understanding this matters when some JOINs are LEFT and others are INNER.',
+  },
+];
+
+const codeExamples = {
+  innerJoin: `<code>-- Get all employees who have a department assigned
+SELECT
+  e.name AS employee_name,
+  d.name AS department_name
+FROM employees e
+INNER JOIN departments d ON e.dept_id = d.id;</code>`,
+
+  leftJoin: `<code>-- Get all employees, including those without a department
+SELECT
+  e.name AS employee_name,
+  d.name AS department_name
+FROM employees e
+LEFT JOIN departments d ON e.dept_id = d.id;
+
+-- Employees with no department (NULL check)
+SELECT e.name
+FROM employees e
+LEFT JOIN departments d ON e.dept_id = d.id
+WHERE d.id IS NULL;</code>`,
+
+  rightJoin: `<code>-- Same as: employees LEFT JOIN departments (but from the other direction)
+-- RIGHT JOIN: all departments, including ones with no employees
+SELECT
+  d.name AS department_name,
+  e.name AS employee_name
+FROM employees e
+RIGHT JOIN departments d ON e.dept_id = d.id
+WHERE e.id IS NULL;  -- Departments with no employees</code>`,
+
+  fullOuter: `<code>-- All employees AND all departments — nothing excluded
+SELECT
+  e.name AS employee_name,
+  d.name AS department_name
+FROM employees e
+FULL OUTER JOIN departments d ON e.dept_id = d.id;
+
+-- Find unmatched rows from both tables
+SELECT
+  COALESCE(e.name, '(no employee)') AS employee_name,
+  COALESCE(d.name, '(no department)') AS department_name
+FROM employees e
+FULL OUTER JOIN departments d ON e.dept_id = d.id
+WHERE e.id IS NULL OR d.id IS NULL;</code>`,
+
+  crossJoin: `<code>-- Generate all combinations (e.g., seating charts, test matrices)
+SELECT
+  e.name AS employee,
+  s.shift_name AS shift
+FROM employees e
+CROSS JOIN shifts s;
+
+-- Warning: this produces 100 × 50 = 5,000 rows!</code>`,
+
+  selfJoin: `<code>-- Find each employee and their manager's name
+SELECT
+  e.name AS employee,
+  m.name AS manager
+FROM employees e
+LEFT JOIN employees m ON e.manager_id = m.id;
+
+-- Find employees in the same department as a specific person
+SELECT e1.name AS employee1, e2.name AS employee2
+FROM employees e1
+JOIN employees e2 ON e1.dept_id = e2.dept_id
+WHERE e1.id < e2.id  -- Avoid duplicate pairs (A-B and B-A)</code>`,
+};
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+---
+
+<Layout
+  title="SQL JOINs Explained — Visual Guide with Examples | SQL Query Lab"
+  description="Finally understand INNER, LEFT, RIGHT, FULL OUTER, and CROSS JOINs with clear diagrams, side-by-side comparisons, and practical examples using real database tables."
+  canonical="/blog/sql-joins-explained"
+  author={{
+    name: 'Pukar Khanal',
+    jobTitle: 'SQL Developer & Technical Writer',
+    url: 'https://learn-sql-practice.vercel.app/authors/pukar-khanal',
+    sameAs: ['https://www.linkedin.com/in/pukarkhanal/'],
+  }}
+  datePublished={publishDate}
+  dateModified={modifiedDate}
+>
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqItems.map((item) => ({
+      "@type": "Question",
+      "name": item.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.answer,
+      },
+    })),
+  })} />
+
+  <article class="article">
+    <header class="article-header">
+      <div class="article-meta-top">
+        <span class="article-category">Fundamentals</span>
+        <span class="meta-dot" aria-hidden="true">·</span>
+        <time datetime={publishDate}>{formatDate(publishDate)}</time>
+        <span class="meta-dot" aria-hidden="true">·</span>
+        <span>Updated {formatDate(modifiedDate)}</span>
+      </div>
+      <h1 class="article-title">SQL JOINs Explained</h1>
+      <p class="article-description">
+        A visual guide to every JOIN type in SQL — from INNER to FULL OUTER to CROSS.
+        Each type is explained with a diagram, when to use it, and a working example
+        you can run immediately in SQL Query Lab.
+      </p>
+      <div class="article-byline">
+        <div class="author-avatar" aria-hidden="true"><span>PK</span></div>
+        <div>
+          <a href="/authors/pukar-khanal" class="author-name">Pukar Khanal</a>
+          <span class="author-role">SQL Developer &amp; Technical Writer</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="article-body">
+      <p class="intro">
+        JOINs are how relational databases connect data across tables. They are also the most
+        commonly misunderstood part of SQL. This guide cuts through the confusion with
+        clear diagrams, side-by-side comparisons, and practical examples.
+      </p>
+
+      <section class="join-section" id="inner-join">
+        <h2>INNER JOIN — Matching Rows Only</h2>
+        <div class="join-visual">
+          <div class="venn-inner">
+            <div class="v-left">
+              <div class="v-circle inner-circle"></div>
+              <div class="v-label left-label">Employees</div>
+            </div>
+            <div class="v-overlap">
+              <div class="overlap-label">INNER JOIN</div>
+            </div>
+            <div class="v-right">
+              <div class="v-circle inner-circle right"></div>
+              <div class="v-label right-label">Departments</div>
+            </div>
+          </div>
+        </div>
+        <p>
+          <strong>INNER JOIN</strong> returns only rows that have matching values in <em>both</em> tables.
+          Any row without a match in the other table is excluded from the result.
+        </p>
+        <pre class="code-block" set:html={codeExamples.innerJoin} />
+        <div class="use-case">
+          <strong>Use when:</strong> You only want records that exist in both tables — employees
+          with departments, orders with customers, etc.
+        </div>
+      </section>
+
+      <section class="join-section" id="left-join">
+        <h2>LEFT JOIN — All Left, Match Right</h2>
+        <div class="join-visual">
+          <div class="venn-left">
+            <div class="v-left">
+              <div class="v-circle full-circle"></div>
+              <div class="v-label left-label">Employees<br /><small>(all rows)</small></div>
+            </div>
+            <div class="v-overlap">
+              <div class="overlap-label left-overlap">Matched</div>
+            </div>
+            <div class="v-right">
+              <div class="v-circle partial-circle"></div>
+              <div class="v-label right-label">Departments<br /><small>(matched)</small></div>
+            </div>
+          </div>
+        </div>
+        <p>
+          <strong>LEFT JOIN</strong> (also called LEFT OUTER JOIN) returns <em>all rows</em> from the
+          left table, with matching rows from the right table. Where there is no match,
+          the right-side columns return NULL.
+        </p>
+        <pre class="code-block" set:html={codeExamples.leftJoin} />
+        <div class="use-case">
+          <strong>Use when:</strong> You need a complete list from one table with optional data
+          from another — all orders (including unassigned ones), all products (even without categories).
+        </div>
+      </section>
+
+      <section class="join-section" id="right-join">
+        <h2>RIGHT JOIN — All Right, Match Left</h2>
+        <div class="join-visual">
+          <div class="venn-right">
+            <div class="v-left">
+              <div class="v-circle partial-circle left-partial"></div>
+              <div class="v-label left-label">Employees<br /><small>(matched)</small></div>
+            </div>
+            <div class="v-overlap">
+              <div class="overlap-label right-overlap">Matched</div>
+            </div>
+            <div class="v-right">
+              <div class="v-circle full-circle right-full"></div>
+              <div class="v-label right-label">Departments<br /><small>(all rows)</small></div>
+            </div>
+          </div>
+        </div>
+        <p>
+          <strong>RIGHT JOIN</strong> returns all rows from the right table with matching rows
+          from the left table. Non-matching left rows get NULLs.
+          RIGHT JOIN is uncommon in practice — rewrite as LEFT JOIN instead.
+        </p>
+        <pre class="code-block" set:html={codeExamples.rightJoin} />
+        <div class="use-case warning">
+          <strong>Best practice:</strong> Avoid RIGHT JOIN. It is harder to read and reason about.
+          Flip the tables and use LEFT JOIN instead.
+        </div>
+      </section>
+
+      <section class="join-section" id="full-outer">
+        <h2>FULL OUTER JOIN — Everything from Both</h2>
+        <div class="join-visual">
+          <div class="venn-full">
+            <div class="v-left">
+              <div class="v-circle full-circle full-outer"></div>
+              <div class="v-label left-label">Employees</div>
+            </div>
+            <div class="v-overlap full-overlap">
+              <div class="overlap-label full-label">ALL</div>
+            </div>
+            <div class="v-right">
+              <div class="v-circle full-circle full-outer right"></div>
+              <div class="v-label right-label">Departments</div>
+            </div>
+          </div>
+        </div>
+        <p>
+          <strong>FULL OUTER JOIN</strong> returns all rows from both tables. Where there is no
+          match, the non-matching side gets NULLs. Think of it as LEFT JOIN + RIGHT JOIN combined.
+        </p>
+        <pre class="code-block" set:html={codeExamples.fullOuter} />
+        <div class="use-case">
+          <strong>Use when:</strong> You need a complete picture combining two tables with
+          no pre-filtering — audit reports, reconciliation queries, data quality checks.
+        </div>
+      </section>
+
+      <section class="join-section" id="cross-join">
+        <h2>CROSS JOIN — Every Combination</h2>
+        <div class="join-visual cross-visual">
+          <div class="cross-table">
+            <div class="cross-row header">
+              <div class="cross-cell">A</div>
+              <div class="cross-cell">B</div>
+              <div class="cross-cell result-header">A×B</div>
+            </div>
+            <div class="cross-row">
+              <div class="cross-cell">1</div>
+              <div class="cross-cell">X</div>
+              <div class="cross-cell result">1, X</div>
+            </div>
+            <div class="cross-row">
+              <div class="cross-cell">1</div>
+              <div class="cross-cell">Y</div>
+              <div class="cross-cell result">1, Y</div>
+            </div>
+            <div class="cross-row">
+              <div class="cross-cell">2</div>
+              <div class="cross-cell">X</div>
+              <div class="cross-cell result">2, X</div>
+            </div>
+            <div class="cross-row">
+              <div class="cross-cell">2</div>
+              <div class="cross-cell">Y</div>
+              <div class="cross-cell result">2, Y</div>
+            </div>
+          </div>
+        </div>
+        <p>
+          <strong>CROSS JOIN</strong> produces the Cartesian product of two tables — every row
+          from the first paired with every row from the second. With 100 rows and 50 rows,
+          you get 5,000 rows. No <code>ON</code> clause needed.
+        </p>
+        <pre class="code-block" set:html={codeExamples.crossJoin} />
+        <div class="use-case warning">
+          <strong>Warning:</strong> CROSS JOIN on large tables produces enormous result sets.
+          Always verify your table sizes before running.
+        </div>
+      </section>
+
+      <section class="join-section" id="self-join">
+        <h2>SELF JOIN — Table to Itself</h2>
+        <p>
+          A <strong>self-join</strong> joins a table to itself. Useful for hierarchical data
+          like org charts (employees and their managers), or comparing rows within the same table.
+        </p>
+        <pre class="code-block" set:html={codeExamples.selfJoin} />
+        <div class="use-case">
+          <strong>Use when:</strong> Hierarchies (manager-employee), comparing rows within one table,
+          finding related pairs.
+        </div>
+      </section>
+
+      <section class="comparison-section" id="comparison">
+        <h2>JOIN Types — Side by Side</h2>
+        <div class="comparison-table-wrapper">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th>JOIN Type</th>
+                <th>Matches in Both</th>
+                <th>All from Left</th>
+                <th>All from Right</th>
+                <th>Cartesian</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>INNER</strong></td>
+                <td class="check">&#x2713;</td>
+                <td class="cross">&#x2717;</td>
+                <td class="cross">&#x2717;</td>
+                <td class="cross">&#x2717;</td>
+              </tr>
+              <tr>
+                <td><strong>LEFT</strong></td>
+                <td class="check">&#x2713;</td>
+                <td class="check">&#x2713;</td>
+                <td class="cross">&#x2717;</td>
+                <td class="cross">&#x2717;</td>
+              </tr>
+              <tr>
+                <td><strong>RIGHT</strong></td>
+                <td class="check">&#x2713;</td>
+                <td class="cross">&#x2717;</td>
+                <td class="check">&#x2713;</td>
+                <td class="cross">&#x2717;</td>
+              </tr>
+              <tr>
+                <td><strong>FULL OUTER</strong></td>
+                <td class="check">&#x2713;</td>
+                <td class="check">&#x2713;</td>
+                <td class="check">&#x2713;</td>
+                <td class="cross">&#x2717;</td>
+              </tr>
+              <tr>
+                <td><strong>CROSS</strong></td>
+                <td class="cross">&#x2717;</td>
+                <td class="cross">&#x2717;</td>
+                <td class="cross">&#x2717;</td>
+                <td class="check">&#x2713;</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="faq" class="faq-section">
+        <h2>Frequently Asked Questions</h2>
+        <dl class="faq-list">
+          {faqItems.map((item) => (
+            <>
+              <dt class="faq-question">{item.question}</dt>
+              <dd class="faq-answer">{item.answer}</dd>
+            </>
+          ))}
+        </dl>
+      </section>
+
+      <aside class="practice-cta">
+        <h2>Practice JOINs in your browser</h2>
+        <p>
+          Run all the examples above in SQL Query Lab with real database schemas.
+          Practice with INNER, LEFT, RIGHT, FULL OUTER, CROSS, and self-joins — no setup required.
+        </p>
+        <a href="https://learn-sql-practice.vercel.app/" class="cta-btn">
+          Start practicing JOINs
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
+        </a>
+      </aside>
+    </div>
+  </article>
+</Layout>
+
+<style>
+  .article { max-width: 68ch; }
+  :global(main) { max-width: 80ch !important; }
+
+  .article-header {
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .article-meta-top {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .article-category {
+    display: inline-block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: var(--color-primary);
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.2rem;
+  }
+
+  .meta-dot { opacity: 0.4; }
+
+  .article-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+  }
+
+  .article-description {
+    font-size: 1.0625rem;
+    color: var(--color-text-muted);
+    margin: 0 0 1.5rem;
+    line-height: 1.65;
+  }
+
+  .article-byline {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .author-avatar {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--color-primary) 0%, #7c3aed 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .author-avatar span {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: white;
+  }
+
+  .author-name {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--color-text);
+    text-decoration: none;
+  }
+
+  .author-name:hover { color: var(--color-primary); }
+
+  .author-role {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  .article-body { line-height: 1.75; }
+
+  .intro {
+    font-size: 1.0625rem;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .join-section { margin-bottom: 3rem; }
+
+  .join-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 1rem;
+  }
+
+  .join-section > p {
+    margin-bottom: 1rem;
+    color: var(--color-text);
+  }
+
+  /* Venn diagram visuals */
+  .join-visual {
+    display: flex;
+    justify-content: center;
+    margin: 1.5rem 0;
+  }
+
+  .venn-inner,
+  .venn-left,
+  .venn-right,
+  .venn-full {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0.25rem;
+    width: 300px;
+  }
+
+  .v-left,
+  .v-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .v-right { align-items: center; }
+
+  .v-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+  }
+
+  .v-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text);
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .v-label small {
+    font-size: 0.6875rem;
+    font-weight: 400;
+    color: var(--color-text-muted);
+    display: block;
+  }
+
+  .v-overlap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+  }
+
+  /* INNER JOIN circles */
+  .inner-circle {
+    background: rgba(37, 99, 235, 0.15);
+    border: 2px solid rgba(37, 99, 235, 0.5);
+  }
+
+  .inner-circle.right {
+    margin-left: auto;
+  }
+
+  /* LEFT JOIN circles */
+  .full-circle {
+    background: rgba(37, 99, 235, 0.2);
+    border: 2px solid var(--color-primary);
+  }
+
+  .partial-circle {
+    background: rgba(37, 99, 235, 0.07);
+    border: 2px dashed rgba(37, 99, 235, 0.3);
+    width: 80px;
+    height: 80px;
+  }
+
+  .left-partial {
+    margin-left: auto;
+  }
+
+  .right-full {
+    margin-left: auto;
+  }
+
+  .full-outer {
+    background: rgba(37, 99, 235, 0.2);
+    border: 2px solid var(--color-primary);
+    width: 90px;
+    height: 90px;
+  }
+
+  .full-overlap {
+    width: 90px;
+  }
+
+  /* Overlap labels */
+  .overlap-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--color-primary);
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 1rem;
+    white-space: nowrap;
+  }
+
+  .left-overlap { background: var(--color-primary); }
+  .right-overlap { background: var(--color-primary); }
+  .full-label { background: #7c3aed; font-size: 0.75rem; }
+
+  /* CROSS JOIN table */
+  .cross-visual { justify-content: flex-start; align-items: center; }
+
+  .cross-table {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-border);
+    border-radius: 0.375rem;
+    overflow: hidden;
+    font-size: 0.8125rem;
+    font-family: var(--font-mono);
+  }
+
+  .cross-row {
+    display: flex;
+  }
+
+  .cross-cell {
+    width: 52px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .cross-cell:last-child { border-right: none; }
+
+  .cross-row:last-child .cross-cell { border-bottom: none; }
+
+  .cross-row.header .cross-cell {
+    background: var(--color-surface);
+    font-weight: 600;
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+
+  .cross-cell.result {
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+
+  .result-header {
+    color: var(--color-text-muted);
+  }
+
+  /* Use case callouts */
+  .use-case {
+    background: rgba(37, 99, 235, 0.07);
+    border-left: 3px solid var(--color-primary);
+    padding: 0.75rem 1rem;
+    border-radius: 0 0.25rem 0.25rem 0;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    margin-top: 0.75rem;
+  }
+
+  .use-case.warning {
+    background: rgba(245, 158, 11, 0.08);
+    border-left-color: #f59e0b;
+  }
+
+  .code-block {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 1rem 1.125rem;
+    border-radius: 0.375rem;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    margin: 0;
+    white-space: pre;
+  }
+
+  /* Comparison table */
+  .comparison-section { margin-bottom: 2.5rem; }
+
+  .comparison-table-wrapper {
+    overflow-x: auto;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+  }
+
+  .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  .comparison-table th {
+    background: var(--color-surface);
+    padding: 0.75rem 1rem;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    border-bottom: 2px solid var(--color-border);
+  }
+
+  .comparison-table th:first-child { text-align: left; }
+  .comparison-table td { padding: 0.625rem 1rem; text-align: center; border-bottom: 1px solid var(--color-border); }
+  .comparison-table td:first-child { text-align: left; font-weight: 600; }
+  .comparison-table tr:last-child td { border-bottom: none; }
+  .check { color: #16a34a; font-weight: 700; }
+  .cross { color: #dc2626; opacity: 0.6; }
+
+  /* FAQ */
+  .faq-section {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .faq-section h2 {
+    border: none;
+    padding: 0;
+    margin-bottom: 1.25rem;
+    font-size: 1.25rem;
+  }
+
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .faq-question {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--color-text);
+    margin-bottom: 0.25rem;
+  }
+
+  .faq-answer {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* CTA */
+  .practice-cta {
+    background: linear-gradient(135deg, var(--color-primary) 0%, #7c3aed 100%);
+    border-radius: 0.625rem;
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .practice-cta h2 {
+    color: white;
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin: 0;
+    border: none;
+    padding: 0;
+  }
+
+  .practice-cta p {
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    max-width: 52ch;
+  }
+
+  .cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    background: white;
+    color: var(--color-primary);
+    font-weight: 700;
+    font-size: 0.9375rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    transition: transform 0.15s;
+  }
+
+  .cta-btn:hover { transform: translateY(-1px); }
+
+  @media (max-width: 640px) {
+    .article-title { font-size: 1.75rem; }
+  }
+</style>

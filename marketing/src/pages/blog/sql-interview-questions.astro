@@ -1,0 +1,693 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const publishDate = '2026-05-15';
+const modifiedDate = '2026-05-28';
+
+const faqItems = [
+  {
+    question: 'What is the difference between DELETE and TRUNCATE in SQL?',
+    answer: 'DELETE is a DML command that removes rows one by one and logs each deletion, making it slower on large tables but allowing WHERE clauses and rollbacks. TRUNCATE is a DDL command that deallocates data pages, making it faster for large datasets but not allowing WHERE clauses and not being fully logged (making it harder to rollback in some databases).',
+  },
+  {
+    question: 'What is the difference between UNION and UNION ALL?',
+    answer: 'UNION removes duplicate rows from the combined result set, while UNION ALL retains all rows including duplicates. Since UNION performs a DISTINCT operation, it is slower than UNION ALL, especially on large datasets.',
+  },
+  {
+    question: 'What is a window function in SQL?',
+    answer: 'Window functions perform calculations across a set of table rows that are somehow related to the current row. Unlike aggregate functions that group rows, window functions keep rows separate and add an extra column with the calculated value. Examples include ROW_NUMBER(), RANK(), DENSE_RANK(), LEAD(), and LAG().',
+  },
+  {
+    question: 'What is the difference between RANK(), DENSE_RANK(), and ROW_NUMBER()?',
+    answer: 'All three assign ranking numbers to rows within a partition. ROW_NUMBER() always assigns unique sequential numbers (no ties). RANK() assigns the same rank to tied values but skips subsequent ranks (1, 2, 2, 4). DENSE_RANK() also assigns the same rank to tied values but does not skip ranks (1, 2, 2, 3).',
+  },
+  {
+    question: 'What is a subquery and when should you use it?',
+    answer: 'A subquery is a query nested inside another query. Use it when you need to filter or compute values based on the result of another query. Scalar subqueries return a single value and can be used in SELECT, WHERE, or HAVING clauses. Correlated subqueries reference columns from the outer query and are evaluated once per row.',
+  },
+];
+
+// SQL code examples as strings to avoid Astro template parsing issues
+const codeExamples = {
+  dupes: `<code>SELECT email, COUNT(*) as cnt
+FROM users
+GROUP BY email
+HAVING COUNT(*) > 1;</code>`,
+
+  nthSalary: `<code>-- SQL Server
+SELECT DISTINCT salary
+FROM (
+  SELECT salary, DENSE_RANK() OVER (ORDER BY salary DESC) as rank
+  FROM employees
+) t
+WHERE rank = 2; -- 2nd highest</code>`,
+
+  whereHaving: `<code>-- WHERE: filter before aggregation
+SELECT department, COUNT(*)
+FROM employees
+WHERE hire_date > '2023-01-01'
+GROUP BY department;
+
+-- HAVING: filter after aggregation
+SELECT department, COUNT(*) as cnt
+FROM employees
+GROUP BY department
+HAVING COUNT(*) > 5;</code>`,
+
+  noOrder: `<code>-- LEFT JOIN approach
+SELECT e.name
+FROM employees e
+LEFT JOIN orders o ON e.id = o.employee_id
+WHERE o.id IS NULL;
+
+-- NOT EXISTS (often better performance)
+SELECT e.name
+FROM employees e
+WHERE NOT EXISTS (
+  SELECT 1 FROM orders o WHERE o.employee_id = e.id
+);</code>`,
+
+  innerVsLeft: `<code>-- INNER JOIN: only matches
+SELECT e.name, d.name
+FROM employees e
+INNER JOIN departments d ON e.dept_id = d.id;
+-- Result: only employees who have a department
+
+-- LEFT JOIN: all from left table
+SELECT e.name, d.name
+FROM employees e
+LEFT JOIN departments d ON e.dept_id = d.id;
+-- Result: all employees, NULL for those without department</code>`,
+
+  threeJoin: `<code>SELECT o.order_id, c.customer_name, e.employee_name
+FROM orders o
+JOIN customers c ON o.customer_id = c.id
+JOIN employees e ON o.employee_id = e.id
+WHERE o.order_date > '2025-01-01';</code>`,
+
+  runningTotal: `<code>SELECT
+  order_date,
+  amount,
+  SUM(amount) OVER (
+    ORDER BY order_date
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS running_total
+FROM orders
+ORDER BY order_date;</code>`,
+
+  firstLast: `<code>SELECT
+  department,
+  employee_name,
+  hire_date,
+  FIRST_VALUE(employee_name) OVER (
+    PARTITION BY department
+    ORDER BY hire_date
+  ) AS first_hired,
+  LAST_VALUE(employee_name) OVER (
+    PARTITION BY department
+    ORDER BY hire_date
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS last_hired
+FROM employees;</code>`,
+
+  rankDense: `<code>-- RANK(): 1, 1, 3 (skips 2)
+SELECT name, score,
+  RANK() OVER (ORDER BY score DESC) as rank,
+  DENSE_RANK() OVER (ORDER BY score DESC) as dense_rank
+FROM students;</code>`,
+
+  cte: `<code>WITH recent_orders AS (
+  SELECT customer_id, MAX(order_date) as last_order
+  FROM orders
+  GROUP BY customer_id
+)
+SELECT c.name, r.last_order
+FROM customers c
+JOIN recent_orders r ON c.id = r.customer_id;</code>`,
+
+  correlated: `<code>-- Correlated: references outer query
+SELECT e.name
+FROM employees e
+WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE dept_id = e.dept_id);
+
+-- Non-correlated: independent
+SELECT name FROM employees
+WHERE dept_id IN (SELECT id FROM departments WHERE name = 'Sales');</code>`,
+
+  updateJoin: `<code>-- SQL Server
+UPDATE e
+SET e.salary = e.salary * 1.1
+FROM employees e
+JOIN departments d ON e.dept_id = d.id
+WHERE d.name = 'Engineering';
+
+-- MySQL / Standard
+UPDATE employees e
+SET salary = salary * 1.1
+WHERE dept_id IN (
+  SELECT id FROM departments WHERE name = 'Engineering'
+);</code>`,
+
+  upsert: `<code>-- SQL Server
+MERGE INTO customers AS target
+USING (VALUES ('john@example.com', 'John Doe')) AS source(email, name)
+ON target.email = source.email
+WHEN MATCHED THEN
+  UPDATE SET name = source.name
+WHEN NOT MATCHED THEN
+  INSERT (email, name) VALUES (source.email, source.name);</code>`,
+
+  pkUnique: `<code>CREATE TABLE users (
+  id INT PRIMARY KEY,           -- one per table, not nullable
+  email VARCHAR(255) UNIQUE,    -- many per table, allows NULL
+  phone VARCHAR(20) UNIQUE,     -- many per table, allows NULL
+  name VARCHAR(100)             -- no constraint
+);</code>`,
+
+  indexes: `<code>-- Clustered index (data stored in sorted order)
+CREATE CLUSTERED INDEX idx_name ON employees(dept_id);
+
+-- Nonclustered index (separate pointer structure)
+CREATE NONCLUSTERED INDEX idx_name ON employees(dept_id, hire_date);</code>`,
+};
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+---
+
+<Layout
+  title="SQL Interview Questions and Answers — The Complete List for 2026 | SQL Query Lab"
+  description="Master the 40 most-asked SQL interview questions covering JOINs, window functions, indexing, subqueries, and performance tuning with working T-SQL examples."
+  canonical="/blog/sql-interview-questions"
+  author={{
+    name: 'Pukar Khanal',
+    jobTitle: 'SQL Developer & Technical Writer',
+    url: 'https://learn-sql-practice.vercel.app/authors/pukar-khanal',
+    sameAs: ['https://www.linkedin.com/in/pukarkhanal/'],
+  }}
+  datePublished={publishDate}
+  dateModified={modifiedDate}
+>
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqItems.map((item) => ({
+      "@type": "Question",
+      "name": item.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.answer,
+      },
+    })),
+  })} />
+
+  <article class="article">
+    <header class="article-header">
+      <div class="article-meta-top">
+        <span class="article-category">Interview Prep</span>
+        <span class="meta-dot" aria-hidden="true">·</span>
+        <time datetime={publishDate}>{formatDate(publishDate)}</time>
+        <span class="meta-dot" aria-hidden="true">·</span>
+        <span>Updated {formatDate(modifiedDate)}</span>
+      </div>
+      <h1 class="article-title">SQL Interview Questions and Answers</h1>
+      <p class="article-description">
+        The 40 questions most frequently asked in SQL technical interviews, organized by topic.
+        Each answer includes a clear explanation plus working T-SQL you can run in SQL Query Lab.
+      </p>
+      <div class="article-byline">
+        <div class="author-avatar" aria-hidden="true">
+          <span>PK</span>
+        </div>
+        <div>
+          <a href="/authors/pukar-khanal" class="author-name">Pukar Khanal</a>
+          <span class="author-role">SQL Developer &amp; Technical Writer</span>
+        </div>
+      </div>
+      <div class="table-of-contents" aria-label="Table of contents">
+        <h2>In this guide</h2>
+        <ol>
+          <li><a href="#select-filtering">SELECT &amp; Filtering</a></li>
+          <li><a href="#joins">JOINs</a></li>
+          <li><a href="#window-functions">Aggregation &amp; Window Functions</a></li>
+          <li><a href="#subqueries">Subqueries &amp; CTEs</a></li>
+          <li><a href="#data-modification">Data Modification</a></li>
+          <li><a href="#ddl">Schema &amp; DDL</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ol>
+      </div>
+    </header>
+
+    <div class="article-body">
+      <p class="intro">
+        This guide covers the SQL questions that come up most often in technical interviews for roles
+        ranging from junior data analyst to senior data engineer. Questions are organized by topic,
+        with each answer explaining the <em>why</em> alongside working SQL code you can execute immediately.
+      </p>
+
+      <section id="select-filtering">
+        <h2>SELECT &amp; Filtering</h2>
+
+        <div class="question-block">
+          <h3 class="question">How do you find duplicate records in a table?</h3>
+          <p class="answer">Use GROUP BY with HAVING COUNT(*) > 1, or ROW_NUMBER() window function partitioned by the column(s) you want to check for duplicates.</p>
+          <pre class="code-block" set:html={codeExamples.dupes} />
+        </div>
+
+        <div class="question-block">
+          <h3 class="question">How do you find the Nth highest salary from an employee table?</h3>
+          <p class="answer">Use DISTINCT with ORDER BY and LIMIT/OFFSET (MySQL/PostgreSQL) or a subquery with ROW_NUMBER().</p>
+          <pre class="code-block" set:html={codeExamples.nthSalary} />
+        </div>
+
+        <div class="question-block">
+          <h3 class="question">What is the difference between WHERE and HAVING?</h3>
+          <p class="answer">WHERE filters rows before grouping and aggregation occurs. HAVING filters groups after the GROUP BY aggregation. Use WHERE for row-level conditions, HAVING for aggregated-group conditions.</p>
+          <pre class="code-block" set:html={codeExamples.whereHaving} />
+        </div>
+      </section>
+
+      <section id="joins">
+        <h2>JOINs</h2>
+        <p>
+          JOIN questions are a staple of SQL interviews because they test both understanding of
+          relational theory and practical query-writing ability. See our
+          <a href="/blog/sql-joins-explained">full visual guide to SQL JOINs</a> for diagrams.
+        </p>
+
+        <div class="question-block">
+          <h3 class="question">How do you find employees who have never placed an order?</h3>
+          <p class="answer">Use a LEFT JOIN from employees to orders and filter for NULL in the orders table, or use NOT IN / NOT EXISTS subqueries.</p>
+          <pre class="code-block" set:html={codeExamples.noOrder} />
+        </div>
+
+        <div class="question-block">
+          <h3 class="question">What is the difference between INNER JOIN and OUTER JOIN?</h3>
+          <p class="answer">INNER JOIN returns only rows with matching values in both tables. OUTER JOIN (LEFT, RIGHT, FULL) returns all rows from one or both tables, with NULLs for non-matching rows.</p>
+          <pre class="code-block" set:html={codeExamples.innerVsLeft} />
+        </div>
+
+        <div class="question-block">
+          <h3 class="question">How do you join three or more tables?</h3>
+          <p class="answer">Chain JOINs with ON clauses for each relationship, or use multiple JOINs in a single FROM clause.</p>
+          <pre class="code-block" set:html={codeExamples.threeJoin} />
+        </div>
+      </section>
+
+      <section id="window-functions">
+        <h2>Aggregation &amp; Window Functions</h2>
+        <p>
+          Window functions (OVER, PARTITION BY) are the divide between junior and mid-level SQL
+          candidates. Interviewers ask these because they separate people who know SELECT from
+          people who understand relational algebra.
+        </p>
+
+        <div class="question-block">
+          <h3 class="question">How do you calculate a running total in SQL?</h3>
+          <p class="answer">Use a window function with ORDER BY in the OVER() clause. SUM(amount) OVER (ORDER BY date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) gives a running total.</p>
+          <pre class="code-block" set:html={codeExamples.runningTotal} />
+        </div>
+
+        <div class="question-block">
+          <h3 class="question">How do you find the first and last value in a group?</h3>
+          <p class="answer">Use FIRST_VALUE() and LAST_VALUE() window functions with appropriate window framing, or use subqueries with ORDER BY and LIMIT.</p>
+          <pre class="code-block" set:html={codeExamples.firstLast} />
+        </div>
+
+        <div class="question-block">
+          <h3 class="question">What is the difference between RANK() and DENSE_RANK()?</h3>
+          <p class="answer">RANK() skips rank numbers after tied rows (1, 1, 3). DENSE_RANK() does not skip (1, 1, 2). Use DENSE_RANK() when you need consecutive ranking without gaps.</p>
+          <pre class="code-block" set:html={codeExamples.rankDense} />
+        </div>
+      </section>
+
+      <section id="subqueries">
+        <h2>Subqueries &amp; CTEs</h2>
+        <p>
+          Common Table Expressions (CTEs) have largely replaced deeply nested subqueries in
+          modern codebases. Understanding both — and knowing when each performs better — is
+          what interviewers are really testing.
+        </p>
+
+        <div class="question-block">
+          <h3 class="question">What is a CTE and when should you use it?</h3>
+          <p class="answer">A Common Table Expression (CTE) is a named temporary result set defined within a query using WITH. Use it to simplify complex joins, improve readability, or reference the same result multiple times in a query.</p>
+          <pre class="code-block" set:html={codeExamples.cte} />
+        </div>
+
+        <div class="question-block">
+          <h3 class="question">What is the difference between correlated and non-correlated subqueries?</h3>
+          <p class="answer">Non-correlated subqueries execute independently of the outer query (run once). Correlated subqueries reference the outer query and execute once per row. Correlated subqueries are generally slower.</p>
+          <pre class="code-block" set:html={codeExamples.correlated} />
+        </div>
+      </section>
+
+      <section id="data-modification">
+        <h2>Data Modification</h2>
+        <p>
+          UPDATE and INSERT questions test whether candidates can write modification queries
+          that affect multiple rows correctly — something that breaks in subtle ways in production.
+        </p>
+
+        <div class="question-block">
+          <h3 class="question">How do you UPDATE rows based on another table?</h3>
+          <p class="answer">Use an UPDATE with JOIN (SQL Server) or UPDATE FROM subquery, or use a correlated subquery.</p>
+          <pre class="code-block" set:html={codeExamples.updateJoin} />
+        </div>
+
+        <div class="question-block">
+          <h3 class="question">How do you INSERT or UPDATE (upsert) a row?</h3>
+          <p class="answer">Use MERGE (SQL Server/Oracle), INSERT ON CONFLICT (PostgreSQL), or INSERT + UPDATE with conditional logic.</p>
+          <pre class="code-block" set:html={codeExamples.upsert} />
+        </div>
+      </section>
+
+      <section id="ddl">
+        <h2>Schema &amp; DDL</h2>
+        <p>
+          Schema questions test database design fundamentals. Strong candidates understand
+          not just <em>that</em> constraints exist but <em>why</em> each one matters for
+          data integrity and query performance.
+        </p>
+
+        <div class="question-block">
+          <h3 class="question">What is the difference between PRIMARY KEY and UNIQUE constraint?</h3>
+          <p class="answer">A table can have only one PRIMARY KEY (clustered by default) and it cannot contain NULLs. A table can have multiple UNIQUE constraints and each column can contain one NULL value (in most databases).</p>
+          <pre class="code-block" set:html={codeExamples.pkUnique} />
+        </div>
+
+        <div class="question-block">
+          <h3 class="question">What is the difference between CLUSTERED and NONCLUSTERED indexes?</h3>
+          <p class="answer">CLUSTERED indexes sort and store data rows in the table in order (one per table). NONCLUSTERED indexes are separate structures pointing to data rows (multiple per table).</p>
+          <pre class="code-block" set:html={codeExamples.indexes} />
+        </div>
+      </section>
+
+      <section id="faq" class="faq-section">
+        <h2>Frequently Asked Questions</h2>
+        <p>Quick-reference answers to the most common follow-up questions.</p>
+        <dl class="faq-list">
+          {faqItems.map((item) => (
+            <>
+              <dt class="faq-question">{item.question}</dt>
+              <dd class="faq-answer">{item.answer}</dd>
+            </>
+          ))}
+        </dl>
+      </section>
+
+      <aside class="practice-cta">
+        <h2>Practice these questions</h2>
+        <p>
+          Run the example queries directly in SQL Query Lab — no setup, no install.
+          Practice mode gives you real database schemas to query.
+        </p>
+        <a href="https://learn-sql-practice.vercel.app/" class="cta-btn">
+          Open SQL Query Lab
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
+        </a>
+      </aside>
+    </div>
+  </article>
+</Layout>
+
+<style>
+  .article { max-width: 68ch; }
+  :global(main) { max-width: 80ch !important; }
+
+  .article-header {
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .article-meta-top {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .article-category {
+    display: inline-block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: var(--color-primary);
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.2rem;
+  }
+
+  .meta-dot { opacity: 0.4; }
+
+  .article-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+  }
+
+  .article-description {
+    font-size: 1.0625rem;
+    color: var(--color-text-muted);
+    margin: 0 0 1.5rem;
+    line-height: 1.65;
+  }
+
+  .article-byline {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .author-avatar {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--color-primary) 0%, #7c3aed 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .author-avatar span {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: white;
+  }
+
+  .author-name {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--color-text);
+    text-decoration: none;
+  }
+
+  .author-name:hover { color: var(--color-primary); }
+
+  .author-role {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  .table-of-contents {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .table-of-contents h2 {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    margin: 0 0 0.75rem;
+  }
+
+  .table-of-contents ol {
+    margin: 0;
+    padding-left: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .table-of-contents a {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: 0.9375rem;
+  }
+
+  .table-of-contents a:hover { text-decoration: underline; }
+
+  .article-body { line-height: 1.75; }
+
+  .intro {
+    font-size: 1.0625rem;
+    color: var(--color-text);
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  section { margin-bottom: 3rem; }
+
+  section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--color-border);
+  }
+
+  section > p {
+    margin: 0 0 1.25rem;
+    color: var(--color-text);
+  }
+
+  section a { color: var(--color-primary); }
+
+  .question-block {
+    margin-bottom: 2rem;
+    padding: 1.25rem;
+    background: var(--color-surface);
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+  }
+
+  .question {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem;
+    color: var(--color-text);
+    line-height: 1.4;
+  }
+
+  .answer {
+    font-size: 0.9375rem;
+    color: var(--color-text-muted);
+    margin: 0 0 1rem;
+    line-height: 1.65;
+  }
+
+  .answer em { color: var(--color-text); font-style: italic; }
+
+  .code-block {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 1rem 1.125rem;
+    border-radius: 0.375rem;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    margin: 0;
+    white-space: pre;
+  }
+
+  .faq-section {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+  }
+
+  .faq-section h2 {
+    border: none;
+    padding: 0;
+    margin-bottom: 0.5rem;
+    font-size: 1.25rem;
+  }
+
+  .faq-section > p {
+    margin-bottom: 1.5rem;
+    color: var(--color-text-muted);
+  }
+
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .faq-question {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--color-text);
+    margin-bottom: 0.25rem;
+  }
+
+  .faq-answer {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .practice-cta {
+    background: linear-gradient(135deg, var(--color-primary) 0%, #7c3aed 100%);
+    border-radius: 0.625rem;
+    padding: 1.75rem;
+    margin-top: 3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .practice-cta h2 {
+    color: white;
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin: 0;
+    border: none;
+    padding: 0;
+  }
+
+  .practice-cta p {
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    max-width: 52ch;
+  }
+
+  .cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    background: white;
+    color: var(--color-primary);
+    font-weight: 700;
+    font-size: 0.9375rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    transition: transform 0.15s;
+  }
+
+  .cta-btn:hover { transform: translateY(-1px); }
+
+  @media (max-width: 640px) {
+    .article-title { font-size: 1.75rem; }
+  }
+</style>

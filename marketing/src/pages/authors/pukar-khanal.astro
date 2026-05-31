@@ -1,0 +1,267 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const publishDate = new Date('2026-05-30T00:00:00Z').toISOString();
+const modifiedDate = new Date('2026-05-30T00:00:00Z').toISOString();
+
+const personSchema = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "@id": "https://learn-sql-practice.vercel.app/#person",
+  name: "Pukar Khanal",
+  jobTitle: "SQL Developer & Technical Writer",
+  url: "https://learn-sql-practice.vercel.app/authors/pukar-khanal",
+  description: "Pukar Khanal is a SQL developer and technical writer specializing in database education, SQL interview preparation, and browser-based developer tools.",
+  sameAs: [
+    "https://www.linkedin.com/in/pukarkhanal/",
+    "https://github.com/pukarkhanal"
+  ],
+  knowsAbout: [
+    "SQL",
+    "Database Design",
+    "T-SQL",
+    "SQLite",
+    "MS SQL Server",
+    "SQL Interview Preparation",
+    "Browser-based Development Tools"
+  ],
+  alumniOf: {
+    "@type": "EducationalOrganization",
+    name: "Computer Science / Engineering"
+  },
+  worksFor: {
+    "@type": "Organization",
+    name: "SQL Query Lab",
+    url: "https://learn-sql-practice.vercel.app"
+  }
+});
+---
+
+<Layout
+  title="Pukar Khanal — Author at SQL Query Lab"
+  description="Pukar Khanal is a SQL developer and technical writer specializing in database education, SQL interview preparation, and browser-based developer tools."
+  canonical="/authors/pukar-khanal"
+>
+  <script type="application/ld+json" set:html={personSchema} />
+
+  <div class="author-profile">
+    <div class="author-avatar" aria-hidden="true">
+      <span class="initials">PK</span>
+    </div>
+
+    <h1>Pukar Khanal</h1>
+    <p class="author-title">SQL Developer & Technical Writer</p>
+
+    <div class="author-bio">
+      <p>
+        Pukar Khanal is a SQL developer and technical writer specializing in database education, SQL interview preparation, and browser-based developer tools. With hands-on experience in MS SQL Server, SQLite, and T-SQL, he writes practical, code-first guides that help developers and data professionals level up their SQL skills without fighting environment setup.
+      </p>
+      <p>
+        At SQL Query Lab, Pukar focuses on closing the gap between SQL theory and real-world application — particularly for developers preparing for technical interviews or transitioning into data-focused roles. His writing emphasizes executable examples, realistic database schemas, and patterns that actually appear in production systems and interview questions.
+      </p>
+    </div>
+
+    <div class="author-links">
+      <a href="https://www.linkedin.com/in/pukarkhanal/" rel="noopener noreferrer" target="_blank" class="social-link linkedin">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+        </svg>
+        LinkedIn Profile
+      </a>
+      <a href="https://learn-sql-practice.vercel.app" class="social-link site">
+        View SQL Query Lab
+      </a>
+    </div>
+
+    <div class="author-topics">
+      <h2>Areas of Expertise</h2>
+      <ul class="topic-tags">
+        <li>SQL</li>
+        <li>MS SQL Server</li>
+        <li>T-SQL</li>
+        <li>SQLite</li>
+        <li>Database Design</li>
+        <li>SQL Interview Prep</li>
+        <li>Browser-based Dev Tools</li>
+      </ul>
+    </div>
+
+    <div class="author-articles">
+      <h2>Articles by Pukar Khanal</h2>
+      <ul class="article-list">
+        <li>
+          <a href="/learn-sql-browser">
+            <strong>How to Learn SQL in Your Browser — Free Practice with Real Databases</strong>
+            <span class="article-date">May 2026</span>
+          </a>
+        </li>
+        <li>
+          <a href="/blog/sql-interview-questions">
+            <strong>SQL Interview Questions and Answers — The Complete List for 2026</strong>
+            <span class="article-date">May 2026</span>
+          </a>
+        </li>
+        <li>
+          <a href="/blog/sql-joins-explained">
+            <strong>SQL JOINs Explained — Visual Guide with Examples</strong>
+            <span class="article-date">May 2026</span>
+          </a>
+        </li>
+        <li>
+          <a href="/blog/sql-best-practices">
+            <strong>SQL Best Practices — Writing Clean, Fast, Maintainable Queries</strong>
+            <span class="article-date">May 2026</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .author-profile {
+    max-width: 65ch;
+    margin: 0 auto;
+  }
+
+  .author-avatar {
+    width: 96px;
+    height: 96px;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .initials {
+    font-size: 2rem;
+    font-weight: 700;
+    color: white;
+    letter-spacing: -0.02em;
+  }
+
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 0.25rem;
+    line-height: 1.2;
+  }
+
+  .author-title {
+    color: var(--color-text-muted);
+    font-size: 1.0625rem;
+    margin-top: 0;
+    margin-bottom: 2rem;
+  }
+
+  .author-bio {
+    margin-bottom: 2rem;
+  }
+
+  .author-bio p {
+    margin-bottom: 1rem;
+    line-height: 1.7;
+  }
+
+  .author-links {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 2.5rem;
+  }
+
+  .social-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+
+  .social-link.linkedin {
+    background: #0077b5;
+    color: white;
+  }
+
+  .social-link.linkedin:hover {
+    background: #006097;
+    text-decoration: none;
+  }
+
+  .social-link.site {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .social-link.site:hover {
+    background: var(--color-primary-dark);
+    text-decoration: none;
+  }
+
+  .author-topics h2,
+  .author-articles h2 {
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .topic-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+    padding: 0;
+    margin-bottom: 2.5rem;
+  }
+
+  .topic-tags li {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+  }
+
+  .article-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .article-list a {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .article-list a:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+    text-decoration: none;
+  }
+
+  .article-list strong {
+    color: var(--color-text);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .article-date {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+</style>

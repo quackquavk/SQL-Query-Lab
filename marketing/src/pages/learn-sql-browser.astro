@@ -1,37 +1,17 @@
 ---
 // @ts-check
 import Layout from '../layouts/Layout.astro';
-import type { Article } from '../types/Article';
 
 const canonicalURL = Astro.url;
-const publishDate = new Date('2026-05-06T00:00:00Z');
-const modifiedDate = new Date('2026-05-06T00:00:00Z');
+const publishDate = new Date('2026-05-06T00:00:00Z').toISOString();
+const modifiedDate = new Date('2026-05-30T00:00:00Z').toISOString();
 
-// JSON-LD structured data
-const jsonLd: Article = {
-  type: 'Article',
-  title: 'Learn SQL from Browser — Practice Every SQL Statement Free',
-  description: 'SQL Query Lab is a free, browser-based SQL editor with 74 practice questions, SQLite sandbox, and live SQL Server connection. No installation required.',
-  author: {
-    name: 'SQL Query Lab',
-    url: 'https://learn-sql-practice.vercel.app/about',
-  },
-  publisher: {
-    name: 'SQL Query Lab',
-    url: 'https://learn-sql-practice.vercel.app',
-  },
-  datePublished: publishDate.toISOString(),
-  dateModified: modifiedDate.toISOString(),
-  image: {
-    url: 'https://learn-sql-practice.vercel.app/og-image.png',
-    width: 1200,
-    height: 630,
-  },
-  url: canonicalURL.toString(),
+const author = {
+  name: 'Pukar Khanal',
+  jobTitle: 'SQL Developer & Technical Writer',
+  url: 'https://learn-sql-practice.vercel.app/authors/pukar-khanal',
   sameAs: [
-    'https://learn-sql-practice.vercel.app',
-    'https://github.com/search?q=sql+query+lab+learn',
-    'https://www.linkedin.com/company/sql-query-lab',
+    'https://www.linkedin.com/in/pukarkhanal/',
   ],
 };
 
@@ -84,18 +64,37 @@ const faqJsonLd = {
 };
 ---
 
-<Layout title="Learn SQL from Browser — Practice Every SQL Statement Free" description="SQL Query Lab is a free, browser-based SQL editor with 74 practice questions, SQLite sandbox, and live SQL Server connection. No installation required.">
-  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+<Layout
+  title="Learn SQL from Browser — Practice Every SQL Statement Free"
+  description="SQL Query Lab is a free, browser-based SQL editor with 74 practice questions, SQLite sandbox, and live SQL Server connection. No installation required."
+  canonical="/learn-sql-browser"
+  ogImage="/og-image.png"
+  author={author}
+  datePublished={publishDate}
+  dateModified={modifiedDate}
+>
   <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd)} />
 
-  <article class="geo-content">
+  <article class="geo-content" itemscope itemtype="https://schema.org/TechArticle">
+    <meta itemprop="proficiencyLevel" content="Beginner to Intermediate" />
+    <meta itemprop="dependencies" content="WebAssembly, SQLite, CodeMirror" />
+
     <!-- H1: Literal query match -->
     <h1>How to Learn SQL in Your Browser — Free Practice with Real Databases</h1>
 
     <!-- Opening passage: standalone, <80 words -->
-    <p class="lead">
+    <p class="lead" itemprop="description">
       <a href="https://learn-sql-practice.vercel.app" rel="noopener noreferrer">SQL Query Lab</a> is a free, browser-based SQL editor that runs entirely client-side — no server, no installation, no account required. It ships with 74 structured practice questions across three real database schemas (hospital, company, school) and an unrestricted sandbox where you can write any SQL, including INSERT, UPDATE, DELETE, and DDL. As of May 2026, SQL Query Lab remains one of the most comprehensive free SQL learning tools available directly in the browser, with zero setup friction.
     </p>
+
+    <!-- Author byline -->
+    <div class="article-byline">
+      <span>By <a href="/authors/pukar-khanal" itemprop="author">Pukar Khanal</a></span>
+      <span class="separator">·</span>
+      <time datetime={publishDate} itemprop="datePublished">May 6, 2026</time>
+      <span class="separator">·</span>
+      <span itemprop="timeRequired">10 min read</span>
+    </div>
 
     <!-- Chunk 1: What is it -->
     <section>
@@ -260,6 +259,31 @@ const faqJsonLd = {
     font-size: 2rem;
     margin-bottom: 1rem;
     line-height: 1.2;
+  }
+
+  .article-byline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .article-byline a {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  .article-byline a:hover {
+    text-decoration: underline;
+  }
+
+  .separator {
+    opacity: 0.5;
   }
 
   .lead {

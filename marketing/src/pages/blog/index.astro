@@ -1,0 +1,627 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+// Define blog posts — single source of truth for the listing
+const posts = [
+  {
+    slug: 'sql-interview-questions',
+    title: 'SQL Interview Questions and Answers — The Complete List for 2026',
+    description: 'Master the 40 most-asked SQL interview questions covering joins, window functions, indexing, subqueries, and performance tuning. Each answer includes working T-SQL examples you can run in SQL Query Lab.',
+    category: 'Interview Prep',
+    datePublished: '2026-05-15',
+    dateModified: '2026-05-28',
+    readTime: '18 min read',
+    featured: true,
+  },
+  {
+    slug: 'sql-joins-explained',
+    title: 'SQL JOINs Explained — Visual Guide with Examples',
+    description: 'Finally understand INNER, LEFT, RIGHT, FULL OUTER, and CROSS JOINs with clear diagrams, side-by-side comparisons, and practical examples using real database tables you can query in the browser.',
+    category: 'Fundamentals',
+    datePublished: '2026-05-10',
+    dateModified: '2026-05-25',
+    readTime: '12 min read',
+    featured: false,
+  },
+  {
+    slug: 'sql-best-practices',
+    title: 'SQL Best Practices — Writing Clean, Fast, Maintainable Queries',
+    description: 'From formatting and naming conventions to indexing strategy and query optimization — a practical guide to writing SQL that your team can read, maintain, and that performs in production.',
+    category: 'Best Practices',
+    datePublished: '2026-05-05',
+    dateModified: '2026-05-20',
+    readTime: '14 min read',
+    featured: false,
+  },
+];
+
+const featuredPost = posts.find((p) => p.featured);
+const regularPosts = posts.filter((p) => !p.featured);
+
+// Group by category for filter display
+const categories = [...new Set(posts.map((p) => p.category))];
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+---
+
+<Layout
+  title="SQL Blog — Guides, Tutorials & Interview Prep | SQL Query Lab"
+  description="In-depth SQL guides, tutorials, and interview preparation articles written by practicing database developers. Learn JOINs, window functions, query optimization, and more."
+  canonical="/blog"
+>
+  <script type="application/ld+json">
+    {JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      "@id": "https://learn-sql-practice.vercel.app/blog",
+      name: "SQL Query Lab Blog",
+      description: "In-depth SQL guides, tutorials, and interview preparation articles for developers and database professionals.",
+      url: "https://learn-sql-practice.vercel.app/blog",
+      publisher: {
+        "@id": "https://learn-sql-practice.vercel.app/#organization",
+      },
+      author: {
+        "@type": "Person",
+        name: "Pukar Khanal",
+        url: "https://learn-sql-practice.vercel.app/authors/pukar-khanal",
+      },
+    })}
+  </script>
+
+  <div class="blog-container">
+    <header class="blog-header">
+      <div class="blog-header-content">
+        <p class="blog-eyebrow">SQL Query Lab Blog</p>
+        <h1 class="blog-title">Learn SQL the right way</h1>
+        <p class="blog-subtitle">
+          Practical guides, interview prep, and deep dives written by database practitioners.
+          No fluff — every article includes executable examples you can run in your browser.
+        </p>
+      </div>
+      <div class="blog-stats" aria-label="Blog statistics">
+        <div class="stat">
+          <span class="stat-number">{posts.length}</span>
+          <span class="stat-label">Articles</span>
+        </div>
+        <div class="stat">
+          <span class="stat-number">3</span>
+          <span class="stat-label">Categories</span>
+        </div>
+        <div class="stat">
+          <span class="stat-number">44</span>
+          <span class="stat-label">Min total read</span>
+        </div>
+      </div>
+    </header>
+
+    {featuredPost && (
+      <section class="featured-section" aria-label="Featured article">
+        <a href={`/blog/${featuredPost.slug}`} class="featured-card">
+          <div class="featured-badge">Featured</div>
+          <div class="featured-content">
+            <span class="article-category">{featuredPost.category}</span>
+            <h2 class="featured-title">{featuredPost.title}</h2>
+            <p class="featured-description">{featuredPost.description}</p>
+            <div class="featured-meta">
+              <time datetime={featuredPost.datePublished}>
+                {formatDate(featuredPost.datePublished)}
+              </time>
+              <span class="meta-dot" aria-hidden="true">·</span>
+              <span>{featuredPost.readTime}</span>
+            </div>
+          </div>
+          <div class="featured-arrow" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
+          </div>
+        </a>
+      </section>
+    )}
+
+    <section class="categories-bar" aria-label="Filter by category">
+      <span class="categories-label">Browse by topic:</span>
+      <div class="category-tags" role="list">
+        {categories.map((cat) => (
+          <span class="category-tag" role="listitem">{cat}</span>
+        ))}
+      </div>
+    </section>
+
+    <section class="articles-section" aria-label="All articles">
+      <ul class="article-list" role="list">
+        {regularPosts.map((post) => (
+          <li class="article-card" role="listitem">
+            <a href={`/blog/${post.slug}`} class="article-link">
+              <div class="article-main">
+                <span class="article-category">{post.category}</span>
+                <h2 class="article-title">{post.title}</h2>
+                <p class="article-description">{post.description}</p>
+                <div class="article-meta">
+                  <time datetime={post.datePublished}>
+                    {formatDate(post.datePublished)}
+                  </time>
+                  <span class="meta-dot" aria-hidden="true">·</span>
+                  <span>{post.readTime}</span>
+                  <span class="meta-dot" aria-hidden="true">·</span>
+                  <span class="meta-updated">
+                    Updated {formatDate(post.dateModified)}
+                  </span>
+                </div>
+              </div>
+              <div class="article-arrow" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </div>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <aside class="cta-section" aria-label="Call to action">
+      <div class="cta-content">
+        <div class="cta-icon" aria-hidden="true">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+        </div>
+        <h2 class="cta-title">Practice what you learn</h2>
+        <p class="cta-description">
+          Every article links to practice questions in SQL Query Lab.
+          Read the guide, then immediately run the queries in your browser — no setup required.
+        </p>
+        <a href="https://learn-sql-practice.vercel.app/" class="cta-button">
+          Open SQL Query Lab
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
+        </a>
+      </div>
+    </aside>
+
+    <nav class="blog-nav" aria-label="Blog pagination">
+      <span class="nav-page-indicator">Page 1 of 1</span>
+    </nav>
+  </div>
+</Layout>
+
+<style>
+  /* Blog container — overrides Layout's main constraints for wider content */
+  .blog-container {
+    max-width: 72ch;
+    margin: 0 auto;
+  }
+
+  /* Override Layout's max-width on main for this page */
+  :global(main) {
+    max-width: 80ch !important;
+  }
+
+  /* Blog header */
+  .blog-header {
+    margin-bottom: 3rem;
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .blog-header-content {
+    flex: 1;
+    min-width: 28ch;
+  }
+
+  .blog-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-primary);
+    margin: 0 0 0.75rem;
+  }
+
+  .blog-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0 0 0.75rem;
+    letter-spacing: -0.02em;
+  }
+
+  .blog-subtitle {
+    font-size: 1rem;
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.65;
+    max-width: 50ch;
+  }
+
+  .blog-stats {
+    display: flex;
+    gap: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+  }
+
+  .stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+
+  /* Featured section */
+  .featured-section {
+    margin-bottom: 2.5rem;
+  }
+
+  .featured-card {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.75rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  }
+
+  .featured-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--color-primary) 0%, #7c3aed 100%);
+  }
+
+  .featured-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 4px 24px rgba(37, 99, 235, 0.12);
+    transform: translateY(-1px);
+  }
+
+  .featured-badge {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: linear-gradient(135deg, var(--color-primary) 0%, #7c3aed 100%);
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+  }
+
+  .featured-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .featured-title {
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 0.375rem 0 0.75rem;
+    color: var(--color-text);
+  }
+
+  .featured-description {
+    font-size: 0.9375rem;
+    color: var(--color-text-muted);
+    margin: 0 0 1rem;
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .featured-meta {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .featured-arrow {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    transition: color 0.2s, transform 0.2s;
+  }
+
+  .featured-card:hover .featured-arrow {
+    color: var(--color-primary);
+    transform: translateX(3px);
+  }
+
+  /* Categories bar */
+  .categories-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .categories-label {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+
+  .category-tags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .category-tag {
+    display: inline-flex;
+    padding: 0.25rem 0.75rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+
+  .category-tag:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    cursor: default;
+  }
+
+  /* Articles section */
+  .articles-section {
+    margin-bottom: 3rem;
+  }
+
+  .article-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+
+  .article-card {
+    border-radius: 0.625rem;
+    transition: transform 0.15s;
+  }
+
+  .article-link {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.25rem 1.375rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.625rem;
+    text-decoration: none;
+    background: var(--color-bg);
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  }
+
+  .article-link:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 2px 12px rgba(37, 99, 235, 0.08);
+    background: var(--color-surface);
+  }
+
+  .article-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .article-category {
+    display: inline-block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-primary);
+    margin-bottom: 0.375rem;
+  }
+
+  .article-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.35;
+    margin: 0 0 0.5rem;
+    color: var(--color-text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .article-description {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    margin: 0 0 0.75rem;
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .article-meta {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-dot {
+    opacity: 0.5;
+  }
+
+  .meta-updated {
+    opacity: 0.7;
+  }
+
+  .article-arrow {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.15s, transform 0.15s, color 0.15s;
+  }
+
+  .article-link:hover .article-arrow {
+    opacity: 1;
+    transform: translateX(0);
+    color: var(--color-primary);
+  }
+
+  /* CTA section */
+  .cta-section {
+    margin-bottom: 3rem;
+    padding: 2rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .cta-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .cta-icon {
+    width: 52px;
+    height: 52px;
+    background: linear-gradient(135deg, var(--color-primary) 0%, #7c3aed 100%);
+    border-radius: 0.625rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    margin-bottom: 0.25rem;
+  }
+
+  .cta-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--color-text);
+  }
+
+  .cta-description {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.6;
+    max-width: 52ch;
+  }
+
+  .cta-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    padding: 0.625rem 1.125rem;
+    background: var(--color-primary);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    transition: background 0.15s, transform 0.15s;
+  }
+
+  .cta-button:hover {
+    background: var(--color-primary-dark);
+    transform: translateY(-1px);
+  }
+
+  /* Blog nav */
+  .blog-nav {
+    display: flex;
+    justify-content: center;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .nav-page-indicator {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .blog-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .blog-stats {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .blog-title {
+      font-size: 1.75rem;
+    }
+
+    .featured-card {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .featured-arrow {
+      display: none;
+    }
+
+    .cta-section {
+      padding: 1.5rem;
+    }
+  }
+</style>
