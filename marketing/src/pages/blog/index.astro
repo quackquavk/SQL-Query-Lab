@@ -4,6 +4,56 @@ import Layout from '../../layouts/Layout.astro';
 // Define blog posts — single source of truth for the listing
 const posts = [
   {
+    slug: 'sql-window-functions',
+    title: 'SQL Window Functions — The Complete Guide',
+    description: 'Master SQL window functions: ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, running totals, moving averages, NTILE, and FIRST/LAST_VALUE. Every example is runnable in your browser.',
+    category: 'Advanced SQL',
+    datePublished: '2026-05-20',
+    dateModified: '2026-06-02',
+    readTime: '15 min read',
+    featured: false,
+  },
+  {
+    slug: 'ctes-subqueries-explained',
+    title: 'CTEs and Subqueries Explained — From Basic to Recursive',
+    description: 'Understand SQL CTEs, subqueries, correlated subqueries, and recursive CTEs with practical examples. Learn when to use each pattern and how they compare to views and temp tables.',
+    category: 'Advanced SQL',
+    datePublished: '2026-05-22',
+    dateModified: '2026-06-02',
+    readTime: '14 min read',
+    featured: false,
+  },
+  {
+    slug: 'sql-indexing-performance',
+    title: 'SQL Indexing and Query Performance — A Practical Guide',
+    description: 'Learn how SQL indexes work, what makes a query sargable, when to use composite vs covering indexes, and how to read execution plans. Every example is runnable in your browser.',
+    category: 'Performance',
+    datePublished: '2026-05-25',
+    dateModified: '2026-06-02',
+    readTime: '13 min read',
+    featured: false,
+  },
+  {
+    slug: 'database-normalization',
+    title: 'Database Normalization — 1NF Through BCNF Explained',
+    description: 'Understand database normalization from first principles: 1NF, 2NF, 3NF, and BCNF with real-world examples, trade-offs, and guidance on when to denormalize intentionally.',
+    category: 'Database Design',
+    datePublished: '2026-05-18',
+    dateModified: '2026-06-02',
+    readTime: '12 min read',
+    featured: false,
+  },
+  {
+    slug: 'null-handling-sql',
+    title: 'NULL Handling in SQL — IS NULL, COALESCE, NULLIF, and Three-Valued Logic',
+    description: 'Master NULL handling in SQL: IS NULL, COALESCE, IFNULL, NULLIF, string concatenation with NULLs, three-valued logic, and aggregate functions with NULLs. Every example is runnable in your browser.',
+    category: 'Fundamentals',
+    datePublished: '2026-05-28',
+    dateModified: '2026-06-02',
+    readTime: '11 min read',
+    featured: false,
+  },
+  {
     slug: 'sql-interview-questions',
     title: 'SQL Interview Questions and Answers — The Complete List for 2026',
     description: 'Master the 40 most-asked SQL interview questions covering joins, window functions, indexing, subqueries, and performance tuning. Each answer includes working T-SQL examples you can run in SQL Query Lab.',
@@ -90,11 +140,11 @@ function formatDate(dateStr: string) {
           <span class="stat-label">Articles</span>
         </div>
         <div class="stat">
-          <span class="stat-number">3</span>
+          <span class="stat-number">{categories.length}</span>
           <span class="stat-label">Categories</span>
         </div>
         <div class="stat">
-          <span class="stat-number">44</span>
+          <span class="stat-number">{posts.reduce((sum, p) => sum + parseInt(p.readTime), 0)}</span>
           <span class="stat-label">Min total read</span>
         </div>
       </div>

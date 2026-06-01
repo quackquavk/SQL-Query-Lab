@@ -19,7 +19,7 @@ const faqItems = [
   },
   {
     question: 'What is a self-join and when is it useful?',
-    answer: 'A self-join joins a table to itself. It is useful for hierarchical data (employees and their managers), comparing rows within the same table (employees in the same department), or finding related pairs (products in the same category).',
+    answer: 'A self-join joins a table to itself. It is useful for hierarchical data (employees and their managers), comparing rows within the same table (employees in the same department), or finding related pairs (products in the same category). For many of these patterns, <a href="/blog/sql-window-functions">window functions like LAG and LEAD</a> offer a simpler, more performant alternative.',
   },
   {
     question: 'How do multiple JOINs work in a single query?',

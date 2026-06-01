@@ -15,7 +15,7 @@ const faqItems = [
   },
   {
     question: 'When should I add an index?',
-    answer: 'Add an index when: (1) the column is frequently used in WHERE, JOIN, or ORDER BY clauses, (2) the table is large and the query returns a small percentage of rows, and (3) the column has high cardinality (many distinct values). Do not over-index — each index slows down INSERT/UPDATE/DELETE operations.',
+    answer: 'Add an index when: (1) the column is frequently used in WHERE, JOIN, or ORDER BY clauses, (2) the table is large and the query returns a small percentage of rows, and (3) the column has high cardinality (many distinct values). Do not over-index — each index slows down INSERT/UPDATE/DELETE operations. <a href="/blog/sql-indexing-performance">See the full indexing guide</a> for composite indexes, covering indexes, and execution plan analysis.',
   },
   {
     question: 'What is the most important query optimization technique?',

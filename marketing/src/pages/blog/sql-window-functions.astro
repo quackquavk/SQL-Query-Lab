@@ -1,0 +1,548 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const publishDate = '2026-05-20';
+const modifiedDate = '2026-06-02';
+
+const faqItems = [
+  {
+    question: 'What is the difference between RANK(), DENSE_RANK(), and ROW_NUMBER()?',
+    answer: 'ROW_NUMBER() assigns unique sequential numbers to rows regardless of ties (1, 2, 3, 4). RANK() assigns the same rank to tied values but skips subsequent ranks (1, 2, 2, 4). DENSE_RANK() also assigns the same rank to tied values but does not skip ranks (1, 2, 2, 3).',
+  },
+  {
+    question: 'How does PARTITION BY differ from GROUP BY?',
+    answer: 'GROUP BY collapses rows into one result row per group and cannot coexist with non-aggregated columns. PARTITION BY in window functions keeps all rows intact and adds an aggregated column alongside each row, allowing you to see both individual rows and group-level calculations at the same time.',
+  },
+  {
+    question: 'What is the difference between ROWS and RANGE in window frames?',
+    answer: 'ROWS limits the frame to a fixed number of rows before and after the current row. RANGE groups rows with the same value as the current row, so the frame size can vary depending on how many rows share the same value. Use ROWS for precise row-counting and RANGE when you want all peers of the current row included.',
+  },
+  {
+    question: 'Can window functions be used in WHERE clauses?',
+    answer: 'No. Window functions are evaluated after WHERE, GROUP BY, and HAVING — which means you cannot reference a window function result directly in a WHERE clause. To filter on window function results, wrap the query in a subquery or CTE and filter in the outer query.',
+  },
+  {
+    question: 'What is the advantage of LAG() and LEAD() over self-joins?',
+    answer: 'LAG() and LEAD() access adjacent rows without scanning the table twice or joining to itself, making them significantly faster on large datasets. A self-join for the same purpose would require two table scans and explicit ORDER BY logic, whereas window functions compute the offset in a single pass.',
+  },
+];
+
+const codeExamples = {
+  runningTotal: `<code>-- Running total of order amounts per customer
+SELECT
+  order_id,
+  customer_id,
+  order_date,
+  amount,
+  SUM(amount) OVER (
+    PARTITION BY customer_id
+    ORDER BY order_date
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS running_total
+FROM orders
+ORDER BY customer_id, order_date;</code>`,
+
+  rowRank: `<code>-- ROW_NUMBER: always unique (1, 2, 3, 4)
+SELECT
+  employee_name,
+  department,
+  salary,
+  ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) AS row_num
+FROM employees;
+
+-- RANK: same rank for ties, skips next (1, 2, 2, 4)
+SELECT
+  employee_name,
+  department,
+  salary,
+  RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS rank
+FROM employees;
+
+-- DENSE_RANK: same rank for ties, no gaps (1, 2, 2, 3)
+SELECT
+  employee_name,
+  department,
+  salary,
+  DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS dense_rank
+FROM employees;</code>`,
+
+  lagLead: `<code>-- Previous order amount (LAG)
+SELECT
+  order_id,
+  order_date,
+  amount,
+  LAG(amount, 1) OVER (ORDER BY order_date) AS prev_amount,
+  amount - LAG(amount, 1) OVER (ORDER BY order_date) AS amount_change
+FROM orders;
+
+-- Next quarter revenue (LEAD)
+SELECT
+  quarter,
+  revenue,
+  LEAD(revenue, 1) OVER (ORDER BY quarter) AS next_quarter_revenue
+FROM quarterly_sales;
+
+-- Compare to same period last year
+SELECT
+  month,
+  revenue,
+  LAG(revenue, 12) OVER (ORDER BY month) AS same_month_last_year
+FROM monthly_sales;</code>`,
+
+  movingAvg: `<code>-- 7-day moving average of daily sales
+SELECT
+  sale_date,
+  daily_amount,
+  AVG(daily_amount) OVER (
+    ORDER BY sale_date
+    ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+  ) AS moving_avg_7d
+FROM daily_sales
+ORDER BY sale_date;
+
+-- 3-month rolling average by product
+SELECT
+  month,
+  product_name,
+  revenue,
+  AVG(revenue) OVER (
+    PARTITION BY product_name
+    ORDER BY month
+    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+  ) AS rolling_3month_avg
+FROM monthly_product_sales;</code>`,
+
+  ntile: `<code>-- Divide employees into 4 salary quartiles
+SELECT
+  employee_name,
+  salary,
+  NTILE(4) OVER (ORDER BY salary DESC) AS salary_quartile
+FROM employees;
+
+-- Distribute orders into 3 priority tiers
+SELECT
+  order_id,
+  amount,
+  NTILE(3) OVER (ORDER BY amount DESC) AS priority_tier,
+  CASE NTILE(3) OVER (ORDER BY amount DESC)
+    WHEN 1 THEN 'High Priority'
+    WHEN 2 THEN 'Medium Priority'
+    WHEN 3 THEN 'Low Priority'
+  END AS tier_label
+FROM orders;</code>`,
+
+  firstLast: `<code>-- Get first and last order per customer
+SELECT DISTINCT
+  customer_id,
+  FIRST_VALUE(order_id) OVER (
+    PARTITION BY customer_id
+    ORDER BY order_date
+  ) AS first_order,
+  LAST_VALUE(order_id) OVER (
+    PARTITION BY customer_id
+    ORDER BY order_date
+    RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS last_order
+FROM orders;
+
+-- First order date and amount for each customer
+SELECT DISTINCT
+  customer_id,
+  FIRST_VALUE(order_date) OVER (
+    PARTITION BY customer_id ORDER BY order_date
+  ) AS first_order_date,
+  FIRST_VALUE(amount) OVER (
+    PARTITION BY customer_id ORDER BY order_date
+  ) AS first_order_amount
+FROM orders;</code>`,
+
+  cumulativePct: `<code>-- Cumulative percentage of total sales
+SELECT
+  product_name,
+  revenue,
+  SUM(revenue) OVER () AS total_revenue,
+  ROUND(
+    100.0 * revenue / SUM(revenue) OVER (),
+    1
+  ) AS pct_of_total,
+  ROUND(
+    SUM(revenue) OVER (ORDER BY revenue DESC) * 100.0 / SUM(revenue) OVER (),
+    1
+  ) AS cum_pct
+FROM product_revenue
+ORDER BY revenue DESC;</code>`,
+};
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+---
+
+<Layout
+  title="SQL Window Functions — Complete Guide with Examples | SQL Query Lab"
+  description="Master SQL window functions: ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, running totals, moving averages, NTILE, and FIRST/LAST_VALUE. Every example is runnable in your browser."
+  canonical="/blog/sql-window-functions"
+  author={{
+    name: 'Pukar Khanal',
+    jobTitle: 'SQL Developer & Technical Writer',
+    url: 'https://learn-sql-practice.vercel.app/authors/pukar-khanal',
+    sameAs: ['https://www.linkedin.com/in/pukarkhanal/'],
+  }}
+  datePublished={publishDate}
+  dateModified={modifiedDate}
+>
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqItems.map((item) => ({
+      "@type": "Question",
+      "name": item.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.answer,
+      },
+    })),
+  })} />
+
+  <article class="article">
+    <header class="article-header">
+      <div class="article-meta-top">
+        <span class="article-category">Advanced SQL</span>
+        <span class="meta-dot" aria-hidden="true">·</span>
+        <time datetime={publishDate}>{formatDate(publishDate)}</time>
+        <span class="meta-dot" aria-hidden="true">·</span>
+        <span>Updated {formatDate(modifiedDate)}</span>
+      </div>
+      <h1 class="article-title">SQL Window Functions — The Complete Guide</h1>
+      <p class="article-description">
+        Window functions are the most powerful feature in modern SQL — they let you compute
+        running totals, rankings, and period-over-period comparisons without collapsing rows.
+        This guide covers every window function you need, with examples you can run right in your browser.
+      </p>
+      <div class="article-byline">
+        <div class="author-avatar" aria-hidden="true"><span>PK</span></div>
+        <div>
+          <a href="/authors/pukar-khanal" class="author-name">Pukar Khanal</a>
+          <span class="author-role">SQL Developer &amp; Technical Writer</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="article-body">
+      <p class="intro">
+        If you have ever written a query with <code>GROUP BY</code> and then wished you could
+        keep individual rows visible while also seeing aggregate totals, window functions are
+        the answer. Unlike aggregates, window functions do not collapse rows — they compute
+        a result alongside each row, giving you the best of both worlds.
+        You can also use them inside <a href="/blog/ctes-subqueries-explained">CTEs</a>
+        to build up multi-step analytics queries cleanly.
+      </p>
+
+      <p>
+        Performance matters for large result sets — if your tables lack proper
+        <a href="/blog/sql-indexing-performance">indexes</a>, window functions can be
+        surprisingly slow because they scan and re-scan ordered data.
+      </p>
+
+      <section id="syntax">
+        <h2>How Window Functions Work — The OVER() Clause</h2>
+        <p>
+          Every window function uses the <code>OVER()</code> clause to define its "window" —
+          the set of rows it looks at. The <code>OVER()</code> clause has three components:
+        </p>
+        <ul>
+          <li><strong>PARTITION BY</strong> — groups rows into windows (like GROUP BY, but per function)</li>
+          <li><strong>ORDER BY</strong> — orders rows within each window</li>
+          <li><strong>Window frame</strong> — narrows which rows relative to the current row are included</li>
+        </ul>
+        <pre class="code-block" set:html={codeExamples.runningTotal} />
+        <div class="use-case">
+          <strong>Key insight:</strong> The <code>SUM()</code> here does not collapse rows —
+          every original row remains in the result, with a running total column added.
+        </div>
+      </section>
+
+      <section id="ranking">
+        <h2>Ranking Functions — ROW_NUMBER, RANK, DENSE_RANK</h2>
+        <p>
+          Ranking functions assign a number to each row within a partition. They differ in how
+          they handle ties. This distinction matters enormously when you need a stable sort order
+          for pagination or deduplication.
+        </p>
+        <pre class="code-block" set:html={codeExamples.rowRank} />
+        <div class="use-case">
+          <strong>ROW_NUMBER</strong> is best for deduplication — use it with a subquery to
+          grab row 1 per group. <strong>RANK</strong> and <strong>DENSE_RANK</strong> are
+          better for leaderboards where ties are meaningful.
+        </div>
+      </section>
+
+      <section id="lag-lead">
+        <h2>Lag and Lead — Accessing Adjacent Rows</h2>
+        <p>
+          <code>LAG()</code> and <code>LEAD()</code> pull values from the previous or next row
+          in a window, without needing a self-join. They are indispensable for calculating
+          period-over-period changes, comparing consecutive records, and building
+          time-series comparisons.
+        </p>
+        <pre class="code-block" set:html={codeExamples.lagLead} />
+        <div class="use-case">
+          <strong>Common pattern:</strong> <code>amount - LAG(amount) OVER (ORDER BY date)</code>
+          computes period-over-period change in a single, readable expression. Compare this to
+          a self-join that would need two subqueries or a derived table.
+        </div>
+      </section>
+
+      <section id="moving-average">
+        <h2>Moving Averages and Window Frames</h2>
+        <p>
+          Window frames let you control exactly which rows around the current row are included
+          in the calculation. The frame keywords — <code>PRECEDING</code>, <code>CURRENT ROW</code>,
+          and <code>FOLLOWING</code> — give you precise control over the window size.
+        </p>
+        <pre class="code-block" set:html={codeExamples.movingAvg} />
+        <div class="use-case">
+          <strong>Tip:</strong> <code>ROWS BETWEEN 6 PRECEDING AND CURRENT ROW</code> creates a
+          7-day (or 7-row) moving window. Change the number to adjust the window size.
+          Use <code>RANGE</code> instead of <code>ROWS</code> to group by value rather than row count.
+        </div>
+      </section>
+
+      <section id="ntile">
+        <h2>NTILE — Dividing Rows into Buckets</h2>
+        <p>
+          <code>NTILE(n)</code> distributes rows into <code>n</code> approximately equal groups
+          and assigns each row its bucket number. It is the SQL equivalent of quartile or
+          percentile breakdowns.
+        </p>
+        <pre class="code-block" set:html={codeExamples.ntile} />
+        <div class="use-case">
+          <strong>Use NTILE</strong> when you need to bucket data for scoring, tiered reporting,
+          or distributing items across groups. Combined with a <code>CASE</code> expression,
+          it creates clean tier labels without hardcoding thresholds.
+        </div>
+      </section>
+
+      <section id="first-last">
+        <h2>FIRST_VALUE and LAST_VALUE</h2>
+        <p>
+          <code>FIRST_VALUE()</code> and <code>LAST_VALUE()</code> return the first or last
+          value in an ordered window. By default, <code>LAST_VALUE()</code> only sees rows up
+          through the current one — use <code>RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING</code>
+          to fix this.
+        </p>
+        <pre class="code-block" set:html={codeExamples.firstLast} />
+        <div class="use-case warning">
+          <strong>Gotcha:</strong> Without an explicit window frame, <code>LAST_VALUE()</code>
+          returns the current row, not the last row of the partition. Always specify the full
+          frame when you need the true last value.
+        </div>
+      </section>
+
+      <section id="pct-total">
+        <h2>Percentage of Total and Cumulative Percent</h2>
+        <p>
+          Window functions make it straightforward to compute what share of the total each row
+          represents, and where that row falls cumulatively. This is useful for Pareto analysis,
+          revenue composition reports, and top-N queries.
+        </p>
+        <pre class="code-block" set:html={codeExamples.cumulativePct} />
+        <div class="use-case">
+          <strong>Note:</strong> <code>SUM(revenue) OVER ()</code> with an empty <code>OVER()</code>
+          sums the entire column — no <code>PARTITION BY</code> means the window is the whole table.
+          The inner <code>SUM</code> computes per-group totals when <code>PARTITION BY</code> is added.
+        </div>
+      </section>
+
+      <section id="faq" class="faq-section">
+        <h2>Frequently Asked Questions</h2>
+        <dl class="faq-list">
+          {faqItems.map((item) => (
+            <>
+              <dt class="faq-question">{item.question}</dt>
+              <dd class="faq-answer">{item.answer}</dd>
+            </>
+          ))}
+        </dl>
+      </section>
+
+      <aside class="practice-cta">
+        <h2>Practice window functions in your browser</h2>
+        <p>
+          Run all the examples above against real database tables in SQL Query Lab.
+          Practice ROW_NUMBER, RANK, LAG, LEAD, running totals, and moving averages —
+          no setup, no installs, no sample data to load.
+        </p>
+        <a href="https://learn-sql-practice.vercel.app/" class="cta-btn">
+          Start practicing window functions
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
+        </a>
+      </aside>
+    </div>
+  </article>
+</Layout>
+
+<style>
+  .article { max-width: 68ch; }
+
+  .article-body section {
+    margin-bottom: 3rem;
+  }
+
+  .article-body section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 1rem;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+  }
+
+  .article-body section p {
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--color-text);
+    margin: 0 0 1rem;
+  }
+
+  .article-body ul {
+    margin: 0 0 1rem 1.5rem;
+    line-height: 1.75;
+  }
+
+  .article-body ul li {
+    margin-bottom: 0.375rem;
+  }
+
+  .code-block {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4a;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    overflow-x: auto;
+    margin: 0 0 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.65;
+    color: #e2e8f0;
+  }
+
+  .code-block code {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  .use-case {
+    padding: 0.875rem 1rem;
+    border-left: 3px solid var(--color-primary);
+    background: var(--color-surface);
+    border-radius: 0 0.375rem 0.375rem 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text);
+    margin-bottom: 1.25rem;
+  }
+
+  .use-case.warning {
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+  }
+
+  :global(.dark) .use-case.warning {
+    background: #292524;
+    border-left-color: #f59e0b;
+    color: #fef3c7;
+  }
+
+  .use-case strong {
+    font-weight: 600;
+  }
+
+  .use-case code {
+    font-size: 0.875em;
+    background: var(--color-surface);
+    padding: 0.1em 0.3em;
+    border-radius: 0.25rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .faq-section {
+    margin-bottom: 3rem;
+  }
+
+  .faq-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 1.5rem;
+    letter-spacing: -0.01em;
+  }
+
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .faq-question {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-top: 1.25rem;
+    color: var(--color-text);
+    line-height: 1.5;
+  }
+
+  .faq-answer {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--color-text-muted);
+    margin: 0.375rem 0 0;
+    padding-left: 0;
+  }
+
+  .practice-cta {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-bottom: 3rem;
+    color: #e2e8f0;
+  }
+
+  .practice-cta h2 {
+    font-size: 1.375rem;
+    font-weight: 700;
+    margin: 0 0 0.75rem;
+    color: white;
+  }
+
+  .practice-cta p {
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: #94a3b8;
+    margin: 0 0 1.25rem;
+  }
+
+  .cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    background: var(--color-primary);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    transition: background 0.15s, transform 0.15s;
+  }
+
+  .cta-btn:hover {
+    background: var(--color-primary-dark);
+    transform: translateY(-1px);
+  }
+</style>

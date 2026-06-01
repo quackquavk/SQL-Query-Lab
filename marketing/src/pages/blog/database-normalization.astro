@@ -1,0 +1,519 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const publishDate = '2026-05-18';
+const modifiedDate = '2026-06-02';
+
+const faqItems = [
+  {
+    question: 'What is the difference between 3NF and BCNF?',
+    answer: '3NF (Third Normal Form) requires that every non-key attribute depend on the primary key and not on any non-key attribute transitively. BCNF (Boyce-Codd Normal Form) is stricter: every determinant must be a candidate key. BCNF can fail 3NF when there is overlapping candidate keys or a composite key where one column determines another.',
+  },
+  {
+    question: 'Is denormalization always bad?',
+    answer: 'No. Denormalization — adding redundant data to improve read performance — is a deliberate trade-off. Read-heavy systems (reporting databases, data warehouses, read replicas) often benefit from controlled denormalization. The key is to denormalize deliberately and document it, not accidentally through poor design.',
+  },
+  {
+    question: 'When should I stop normalizing?',
+    answer: 'Stop normalizing when the cost of joining outweighs the cost of storing the data. For highly transactional systems (banking, inventory), full normalization is worth the join cost. For analytical systems where queries run over millions of rows and performance matters more than update simplicity, moderate denormalization is common.',
+  },
+  {
+    question: 'What is a surrogate key vs a natural key?',
+    answer: 'A natural key is a column or combination of columns that has intrinsic meaning in the real world (e.g., SSN, ISBN, country code). A surrogate key is a system-generated identifier (an auto-increment integer or UUID) with no business meaning. Surrogate keys are preferred in most OLTP systems because they never change, are small, and avoid contention.',
+  },
+  {
+    question: 'Can a table be in 3NF but not in 2NF?',
+    answer: 'No. By definition, each normal form requires all previous normal forms to be satisfied. A table must be in 1NF, then 2NF, then 3NF in order. If a table is in 3NF, it is necessarily in 1NF and 2NF.',
+  },
+];
+
+const codeExamples = {
+  unnormalized: `<code>-- UNNORMALIZED: repeating groups and redundant data
+-- Every order row repeats customer info
+CREATE TABLE orders_bad (
+  order_id   INT PRIMARY KEY,
+  order_date DATE,
+  customer_name    VARCHAR(100),   -- repeated on every order
+  customer_email   VARCHAR(255),  -- repeated on every order
+  customer_city    VARCHAR(50),    -- repeated on every order
+  product_name     VARCHAR(100),   -- one row per product (repeating group)
+  product_category VARCHAR(50),    -- repeated per product
+  quantity   INT,
+  unit_price DECIMAL(10,2)
+);
+
+-- Problems:
+-- 1. Insert anomaly: can't insert a customer without an order
+-- 2. Update anomaly: changing a customer's email requires updating every row
+-- 3. Delete anomaly: deleting an order deletes the last reference to that customer
+-- 4. Storage waste: same customer data stored dozens of times</code>`,
+
+  firstNF: `<code>-- 1NF: eliminate repeating groups, one value per cell
+CREATE TABLE orders_1nf (
+  order_id   INT PRIMARY KEY,
+  order_date DATE,
+  customer_name    VARCHAR(100),
+  customer_email   VARCHAR(255),
+  customer_city    VARCHAR(50),
+  product_name     VARCHAR(100),
+  product_category VARCHAR(50),
+  quantity   INT,
+  unit_price DECIMAL(10,2)
+);
+
+-- Problem remains: customer data is still repeated on every order row.
+-- We need 2NF: remove partial dependencies on composite keys.</code>`,
+
+  secondNF: `<code>-- 2NF: remove partial dependencies on composite keys
+-- (moved to separate table)
+
+CREATE TABLE orders_2nf (
+  order_id   INT PRIMARY KEY,
+  order_date DATE,
+  customer_id INT,        -- FK to customers table
+  product_id  INT,        -- FK to products table
+  quantity    INT,
+  unit_price  DECIMAL(10,2)
+);
+
+CREATE TABLE customers_2nf (
+  customer_id INT PRIMARY KEY,
+  customer_name  VARCHAR(100),
+  customer_email VARCHAR(255),
+  customer_city  VARCHAR(50)
+);
+
+CREATE TABLE products_2nf (
+  product_id      INT PRIMARY KEY,
+  product_name    VARCHAR(100),
+  product_category VARCHAR(50)
+);
+
+-- Now each table has a single primary key. Customer and product data
+-- are stored once, not repeated per order row.</code>`,
+
+  thirdNF: `<code>-- 3NF: remove transitive dependencies
+-- city_id depends on customer_id, but city_name depends on city_id (transitive)
+CREATE TABLE customers_2nf (
+  customer_id INT PRIMARY KEY,
+  customer_name  VARCHAR(100),
+  customer_email VARCHAR(255),
+  city_id     INT
+);
+
+-- city_name is transitively dependent on customer_id (via city_id)
+-- Fix: extract city into its own table
+
+CREATE TABLE customers_3nf (
+  customer_id   INT PRIMARY KEY,
+  customer_name VARCHAR(100),
+  customer_email VARCHAR(255),
+  city_id   INT REFERENCES cities(city_id)
+);
+
+CREATE TABLE cities (
+  city_id   INT PRIMARY KEY,
+  city_name VARCHAR(50),
+  country   VARCHAR(50)
+);
+
+-- Now city_name depends only on city_id, not on customer_id.
+-- Adding a new city without a customer is now possible.</code>`,
+
+  bcnf: `<code>-- BCNF: every determinant must be a candidate key
+-- This table violates BCNF:
+CREATE TABLE enrollments_broken (
+  student_id  INT,
+  course_id   INT,
+  professor   VARCHAR(100),   -- depends on course_id, not on student_id
+  grade       VARCHAR(2),
+  PRIMARY KEY (student_id, course_id)
+);
+
+-- BCNF violation: professor is determined by course_id, but course_id alone
+-- is not a candidate key (the PK is the composite student_id + course_id).
+-- Fix: split into two tables
+
+CREATE TABLE enrollments (
+  student_id  INT,
+  course_id   INT,
+  grade       VARCHAR(2),
+  PRIMARY KEY (student_id, course_id)
+);
+
+CREATE TABLE courses (
+  course_id   INT PRIMARY KEY,
+  professor   VARCHAR(100)
+);
+
+-- Now each determinant is a candidate key.
+-- Course determines professor (one professor per course).
+-- Student + course determines enrollment + grade.</code>`,
+
+  denormTradeoff: `<code>-- Denormalized: store customer_name directly on orders for fast reads
+CREATE TABLE orders_denorm (
+  order_id      INT PRIMARY KEY,
+  order_date    DATE,
+  customer_id   INT REFERENCES customers(customer_id),
+  customer_name VARCHAR(100),    -- redundant, but avoids JOIN on read
+  product_id    INT,
+  quantity      INT
+);
+
+-- This eliminates a JOIN when listing orders with customer names,
+-- at the cost of keeping two copies of customer_name in sync on every update.
+-- Use when:
+--   - reads far outnumber writes
+--   - the JOIN cost is measurable in query plans
+--   - you have a known, controlled update path (triggers, ORM, application logic)</code>`,
+};
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+---
+
+<Layout
+  title="Database Normalization — 1NF Through BCNF Explained | SQL Query Lab"
+  description="Understand database normalization from first principles: 1NF, 2NF, 3NF, and BCNF with real-world examples, trade-offs, and guidance on when to denormalize intentionally."
+  canonical="/blog/database-normalization"
+  author={{
+    name: 'Pukar Khanal',
+    jobTitle: 'SQL Developer & Technical Writer',
+    url: 'https://learn-sql-practice.vercel.app/authors/pukar-khanal',
+    sameAs: ['https://www.linkedin.com/in/pukarkhanal/'],
+  }}
+  datePublished={publishDate}
+  dateModified={modifiedDate}
+>
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqItems.map((item) => ({
+      "@type": "Question",
+      "name": item.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.answer,
+      },
+    })),
+  })} />
+
+  <article class="article">
+    <header class="article-header">
+      <div class="article-meta-top">
+        <span class="article-category">Database Design</span>
+        <span class="meta-dot" aria-hidden="true">·</span>
+        <time datetime={publishDate}>{formatDate(publishDate)}</time>
+        <span class="meta-dot" aria-hidden="true">·</span>
+        <span>Updated {formatDate(modifiedDate)}</span>
+      </div>
+      <h1 class="article-title">Database Normalization — From 1NF to BCNF</h1>
+      <p class="article-description">
+        Normalization is the discipline of organizing table structures to eliminate
+        redundancy and prevent anomalies. This guide walks through each normal form
+        with concrete examples, explains the trade-offs, and covers when intentional
+        denormalization is the right call.
+      </p>
+      <div class="article-byline">
+        <div class="author-avatar" aria-hidden="true"><span>PK</span></div>
+        <div>
+          <a href="/authors/pukar-khanal" class="author-name">Pukar Khanal</a>
+          <span class="author-role">SQL Developer &amp; Technical Writer</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="article-body">
+      <p class="intro">
+        A poorly normalized database is not just aesthetically wrong — it causes real
+        operational problems: the same customer name stored 200 times means 200 places
+        to update when it changes. A well-<a href="/blog/sql-indexing-performance">indexed, normalized schema</a>
+        keeps queries fast without these update anomalies. Losing the last order for a customer can mean
+        losing the customer record entirely. Normalization solves these anomalies
+        at the structural level, making the database resilient to inconsistent states.
+      </p>
+
+      <section id="why-normalize">
+        <h2>Why Normalize? The Three Anomalies</h2>
+        <p>
+          An <strong>update anomaly</strong> occurs when updating one fact requires
+          updating multiple rows. An <strong>insert anomaly</strong> prevents you from
+          adding certain data without adding other unrelated data. A
+          <strong>delete anomaly</strong> causes unintended data loss when removing a row.
+          These are not edge cases — they are direct consequences of storing the same
+          fact in multiple places.
+        </p>
+        <pre class="code-block" set:html={codeExamples.unnormalized} />
+        <div class="use-case">
+          <strong>Normalization eliminates these anomalies</strong> by ensuring each
+          fact is stored in exactly one place. The cost is more tables and more JOINs.
+          The benefit is data integrity that the application layer cannot accidentally break.
+        </div>
+      </section>
+
+      <section id="first-normal">
+        <h2>First Normal Form — One Value Per Cell</h2>
+        <p>
+          A table is in <strong>1NF</strong> when every column contains atomic (indivisible)
+          values, and each row is uniquely identifiable. Repeating groups — multiple values
+          in a single column, or columns named <code>item1</code>, <code>item2</code> — violate 1NF.
+        </p>
+        <pre class="code-block" set:html={codeExamples.firstNF} />
+        <div class="use-case">
+          <strong>Atomic values:</strong> A phone number should be stored as one value,
+          not as a comma-separated string. A date and time should generally be separate
+          columns only if you need to query them independently — otherwise a single
+          <code>DATETIME</code> column is atomic and simpler.
+        </div>
+      </section>
+
+      <section id="second-normal">
+        <h2>Second Normal Form — No Partial Dependencies</h2>
+        <p>
+          <strong>2NF</strong> applies only to tables with composite (multi-column) primary
+          keys. It requires that every non-key column depend on the <em>entire</em> primary
+          key, not just part of it. If a column depends only on <code>customer_id</code> but
+          the PK is <code>(order_id, customer_id)</code>, that is a partial dependency.
+        </p>
+        <pre class="code-block" set:html={codeExamples.secondNF} />
+        <div class="use-case">
+          <strong>2NF is automatically satisfied</strong> for tables with a single-column
+          primary key. The moment you add a composite key, you need to check whether any
+          columns depend on only part of it.
+        </div>
+      </section>
+
+      <section id="third-normal">
+        <h2>Third Normal Form — No Transitive Dependencies</h2>
+        <p>
+          <strong>3NF</strong> requires that every non-key column depend on the primary key
+          and nothing else. A <em>transitive dependency</em> occurs when a column depends
+          on another non-key column, which in turn depends on the primary key. Extracting
+          lookup values into their own tables eliminates these.
+        </p>
+        <pre class="code-block" set:html={codeExamples.thirdNF} />
+        <div class="use-case">
+          <strong>City example:</strong> If <code>customer_city</code> is stored directly
+          on the customers table and city names can repeat, you cannot add a new city
+          without adding a customer. Extracting cities into their own table resolves
+          this insert anomaly.
+        </div>
+      </section>
+
+      <section id="bcnf">
+        <h2>BCNF — The Stricter Form</h2>
+        <p>
+          <strong>BCNF (Boyce-Codd Normal Form)</strong> handles a specific edge case that
+          3NF misses: when a table has overlapping candidate keys and one of them determines
+          a column that the other candidate key does not. BCNF requires that every
+          determinant be a candidate key.
+        </p>
+        <pre class="code-block" set:html={codeExamples.bcnf} />
+        <div class="use-case warning">
+          <strong>When BCNF differs from 3NF:</strong> Most tables have a single primary
+          key and satisfy both 3NF and BCNF automatically. BCNF violations arise mainly
+          in tables with multiple overlapping candidate keys — typically intersection
+          tables or tables tracking many-to-many relationships with additional attributes.
+        </div>
+      </section>
+
+      <section id="denormalization">
+        <h2>When to Denormalize</h2>
+        <p>
+          Denormalization is the deliberate introduction of redundancy to improve
+          read performance. It is a trade-off, not a failure of design — but it must be
+          intentional and documented. A denormalized schema is easier to get wrong,
+          and the anomalies it avoids reappear if updates are not handled carefully.
+        </p>
+        <pre class="code-block" set:html={codeExamples.denormTradeoff} />
+        <div class="use-case">
+          <strong>Good reasons to denormalize:</strong> Star schemas in data warehouses,
+          read-optimized reporting tables, cached computed values (totals, counts),
+          pre-joined tables for complex analytical queries. Bad reasons: laziness,
+          avoiding a JOIN you find inconvenient, or not understanding the schema yet.
+        </div>
+      </section>
+
+      <section id="faq" class="faq-section">
+        <h2>Frequently Asked Questions</h2>
+        <dl class="faq-list">
+          {faqItems.map((item) => (
+            <>
+              <dt class="faq-question">{item.question}</dt>
+              <dd class="faq-answer">{item.answer}</dd>
+            </>
+          ))}
+        </dl>
+      </section>
+
+      <aside class="practice-cta">
+        <h2>Practice database design in your browser</h2>
+        <p>
+          Practice writing CREATE TABLE statements, normalizing from unnormalized
+          schemas, and identifying anomalies in SQL Query Lab. Run queries against
+          well-structured schemas to understand how joins connect normalized data.
+        </p>
+        <a href="https://learn-sql-practice.vercel.app/" class="cta-btn">
+          Start practicing database design
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
+        </a>
+      </aside>
+    </div>
+  </article>
+</Layout>
+
+<style>
+  .article { max-width: 68ch; }
+
+  .article-body section {
+    margin-bottom: 3rem;
+  }
+
+  .article-body section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 1rem;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+  }
+
+  .article-body section p {
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--color-text);
+    margin: 0 0 1rem;
+  }
+
+  .code-block {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4a;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    overflow-x: auto;
+    margin: 0 0 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.65;
+    color: #e2e8f0;
+  }
+
+  .code-block code {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  .use-case {
+    padding: 0.875rem 1rem;
+    border-left: 3px solid var(--color-primary);
+    background: var(--color-surface);
+    border-radius: 0 0.375rem 0.375rem 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text);
+    margin-bottom: 1.25rem;
+  }
+
+  .use-case.warning {
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+  }
+
+  :global(.dark) .use-case.warning {
+    background: #292524;
+    border-left-color: #f59e0b;
+    color: #fef3c7;
+  }
+
+  .use-case strong {
+    font-weight: 600;
+  }
+
+  .use-case code {
+    font-size: 0.875em;
+    background: var(--color-surface);
+    padding: 0.1em 0.3em;
+    border-radius: 0.25rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .faq-section {
+    margin-bottom: 3rem;
+  }
+
+  .faq-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 1.5rem;
+    letter-spacing: -0.01em;
+  }
+
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .faq-question {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-top: 1.25rem;
+    color: var(--color-text);
+    line-height: 1.5;
+  }
+
+  .faq-answer {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--color-text-muted);
+    margin: 0.375rem 0 0;
+  }
+
+  .practice-cta {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-bottom: 3rem;
+    color: #e2e8f0;
+  }
+
+  .practice-cta h2 {
+    font-size: 1.375rem;
+    font-weight: 700;
+    margin: 0 0 0.75rem;
+    color: white;
+  }
+
+  .practice-cta p {
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: #94a3b8;
+    margin: 0 0 1.25rem;
+  }
+
+  .cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    background: var(--color-primary);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    transition: background 0.15s, transform 0.15s;
+  }
+
+  .cta-btn:hover {
+    background: var(--color-primary-dark);
+    transform: translateY(-1px);
+  }
+</style>

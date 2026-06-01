@@ -23,7 +23,7 @@ const faqItems = [
   },
   {
     question: 'What is a subquery and when should you use it?',
-    answer: 'A subquery is a query nested inside another query. Use it when you need to filter or compute values based on the result of another query. Scalar subqueries return a single value and can be used in SELECT, WHERE, or HAVING clauses. Correlated subqueries reference columns from the outer query and are evaluated once per row.',
+    answer: 'A subquery is a query nested inside another query. Use it when you need to filter or compute values based on the result of another query. <a href="/blog/ctes-subqueries-explained">CTEs</a> are often a cleaner alternative for multi-step queries. Correlated subqueries reference columns from the outer query and are evaluated once per row.',
   },
 ];
 
@@ -688,6 +688,10 @@ function formatDate(dateStr: string) {
   .cta-btn:hover { transform: translateY(-1px); }
 
   @media (max-width: 640px) {
+    .article-title { font-size: 1.75rem; }
+  }
+</style>
+
     .article-title { font-size: 1.75rem; }
   }
 </style>

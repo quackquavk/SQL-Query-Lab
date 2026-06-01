@@ -1,0 +1,530 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const publishDate = '2026-05-25';
+const modifiedDate = '2026-06-02';
+
+const faqItems = [
+  {
+    question: 'Do more indexes always improve query performance?',
+    answer: 'No. Each index adds overhead: it consumes storage space, slows down INSERT, UPDATE, and DELETE operations (which must update all affected indexes), and can confuse the query optimizer into choosing a suboptimal plan. Add indexes deliberately, based on actual query patterns and measured slow queries.',
+  },
+  {
+    question: 'What is a covering index?',
+    answer: 'A covering index includes all columns needed by a query, so the query can be satisfied entirely from the index without touching the table data (a "index-only scan"). For example, if a query selects columns A and B and filters on column C, an index on (C, A, B) covers it completely.',
+  },
+  {
+    question: 'When should I use a composite index vs multiple single-column indexes?',
+    answer: 'Use a composite index when queries filter on multiple columns together — the index order matters, and it should match the WHERE clause order left-to-right. Use single-column indexes when different queries filter on different columns independently. Composite indexes are more selective but less flexible.',
+  },
+  {
+    question: 'What is index fragmentation and when should I care about it?',
+    answer: 'Index fragmentation occurs when the physical order of index pages no longer matches the logical order — caused by page splits during inserts and updates. Moderate to high fragmentation degrades read performance because more I/O is needed to read the same amount of data. Rebuild or reorganize indexes when fragmentation exceeds 30%.',
+  },
+  {
+    question: 'How do I know if an index is being used?',
+    answer: 'Check the query execution plan — look for "Index Scan" or "Index Seek" operators. An "Index Seek" is generally good; an "Index Scan" on a large table is usually a warning sign. The SQL Server Query Store, pg_stat_user_indexes (PostgreSQL), and EXPLAIN plans (MySQL/PostgreSQL) all show index usage statistics.',
+  },
+];
+
+const codeExamples = {
+  createIndex: `<code>-- Single-column index
+CREATE INDEX idx_employees_department
+ON employees(department_id);
+
+-- Composite index: order matters — most selective first is a starting point,
+-- but put equality conditions before range conditions when possible
+CREATE INDEX idx_orders_customer_date
+ON orders(customer_id, order_date DESC);
+
+-- Covering index: includes all columns needed by the query
+CREATE INDEX idx_products_category_inventory
+ON products(category_id)
+INCLUDE (product_name, units_in_stock, unit_price);
+
+-- Partial index (PostgreSQL, SQL Server 2022+): index only active rows
+CREATE INDEX idx_orders_pending
+ON orders(order_date)
+WHERE status = 'pending';</code>`,
+
+  badPattern1: `<code>-- Column inside a function: index cannot be used
+SELECT *
+FROM orders
+WHERE YEAR(order_date) = 2026;
+
+-- Rewrite with a range scan — index CAN be used
+SELECT *
+FROM orders
+WHERE order_date >= '2026-01-01'
+  AND order_date < '2027-01-01';
+
+-- SARGable pattern: string starts with a literal (uses index)
+SELECT *
+FROM customers
+WHERE email LIKE 'john@%';
+
+-- Not SARGable: starts with a wildcard (full table scan)
+SELECT *
+FROM customers
+WHERE email LIKE '%@gmail.com';
+
+-- Rewrite with a function-based expression: still not SARGable
+SELECT *
+FROM employees
+WHERE UPPER(last_name) = 'SMITH';
+
+-- Solution: add a functional index (if supported) or restructure
+CREATE INDEX idx_emp_upper_name ON employees((UPPER(last_name)));
+SELECT *
+FROM employees
+WHERE UPPER(last_name) = 'SMITH';</code>`,
+
+  queryPlans: `<code>-- SQL Server: view actual execution plan
+SET STATISTICS IO ON;
+-- Run your query
+SELECT *
+FROM orders o
+JOIN customers c ON o.customer_id = c.id
+WHERE o.order_date > '2025-01-01'
+  AND c.region = 'West';
+
+-- PostgreSQL: use EXPLAIN
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT *
+FROM orders o
+JOIN customers c ON o.customer_id = c.id
+WHERE o.order_date > '2025-01-01';
+
+-- MySQL: use EXPLAIN
+EXPLAIN SELECT *
+FROM orders o
+JOIN customers c ON o.customer_id = c.id
+WHERE o.order_date > '2025-01-01';</code>`,
+
+  indexVsScan: `<code>-- Without index: full table scan (reads every row)
+SELECT *
+FROM orders
+WHERE customer_id = 1234;
+
+-- After CREATE INDEX idx_orders_customer ON orders(customer_id):
+-- Index Seek: jumps directly to the relevant rows (logarithmic time)
+
+-- OR vs AND: understand the access path
+-- WHERE col1 = 'A' AND col2 = 'B'
+-- Best: composite index on (col1, col2) — seek on both
+
+-- WHERE col1 = 'A' OR col2 = 'B'
+-- No single composite index helps; consider separate indexes or UNION
+
+-- OR can force a scan when individual predicates would each use an index
+-- Test both forms:
+SELECT * FROM orders WHERE customer_id = 1234 OR status = 'cancelled';
+-- vs
+SELECT * FROM orders WHERE customer_id = 1234
+UNION ALL
+SELECT * FROM orders WHERE status = 'cancelled' AND customer_id <> 1234;</code>`,
+
+  fillFactor: `<code>-- SQL Server: index with fill factor to reduce page splits
+CREATE INDEX idx_orders_date
+ON orders(order_date)
+WITH (FILLFACTOR = 80);  -- 20% free space on each page
+
+-- Rebuild with different fill factor when fragmentation is high
+ALTER INDEX idx_orders_date ON orders REBUILD WITH (FILLFACTOR = 90);
+
+-- PostgreSQL: monitor index usage
+SELECT
+  indexrelname,
+  idx_scan,
+  idx_tup_read,
+  idx_tup_fetch
+FROM pg_stat_user_indexes
+WHERE schemaname = 'public'
+ORDER BY idx_scan ASC;
+
+-- Identify unused indexes (for removal)
+SELECT
+  schemaname || '.' || relname AS table_name,
+  indexrelname AS index_name,
+  idx_scan
+FROM pg_stat_user_indexes
+WHERE idx_scan = 0
+  AND indexrelname NOT LIKE '%pkey'
+ORDER BY pg_relation_size(indexrelid) DESC;</code>`,
+
+  partition: `<code>-- Table partitioning: logical organization that improves index efficiency
+-- Range partition by date (SQL Server syntax)
+CREATE PARTITION FUNCTION OrderDatePF (datetime)
+AS RANGE RIGHT FOR VALUES ('2024-01-01', '2025-01-01', '2026-01-01');
+
+CREATE PARTITION SCHEME OrderDatePS
+AS PARTITION OrderDatePF ALL TO ([PRIMARY]);
+
+CREATE TABLE orders_partitioned (
+  order_id INT,
+  customer_id INT,
+  order_date DATETIME,
+  amount DECIMAL(10,2)
+) ON OrderDatePS(order_date);
+
+-- Benefit: queries on recent data read fewer partitions and fewer index pages,
+-- since old partitions can be archived or compressed independently</code>`,
+};
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+---
+
+<Layout
+  title="SQL Indexing and Query Performance — A Practical Guide | SQL Query Lab"
+  description="Learn how SQL indexes work, what makes a query sargable, when to use composite vs covering indexes, and how to read execution plans. Every example is runnable in your browser."
+  canonical="/blog/sql-indexing-performance"
+  author={{
+    name: 'Pukar Khanal',
+    jobTitle: 'SQL Developer & Technical Writer',
+    url: 'https://learn-sql-practice.vercel.app/authors/pukar-khanal',
+    sameAs: ['https://www.linkedin.com/in/pukarkhanal/'],
+  }}
+  datePublished={publishDate}
+  dateModified={modifiedDate}
+>
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqItems.map((item) => ({
+      "@type": "Question",
+      "name": item.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.answer,
+      },
+    })),
+  })} />
+
+  <article class="article">
+    <header class="article-header">
+      <div class="article-meta-top">
+        <span class="article-category">Performance</span>
+        <span class="meta-dot" aria-hidden="true">·</span>
+        <time datetime={publishDate}>{formatDate(publishDate)}</time>
+        <span class="meta-dot" aria-hidden="true">·</span>
+        <span>Updated {formatDate(modifiedDate)}</span>
+      </div>
+      <h1 class="article-title">SQL Indexing and Query Performance</h1>
+      <p class="article-description">
+        A bad query plan can negate years of hardware upgrades. This guide covers how indexes
+        work internally, what makes queries sargable, when to add vs remove indexes,
+        and how to read execution plans to find the real bottlenecks.
+      </p>
+      <div class="article-byline">
+        <div class="author-avatar" aria-hidden="true"><span>PK</span></div>
+        <div>
+          <a href="/authors/pukar-khanal" class="author-name">Pukar Khanal</a>
+          <span class="author-role">SQL Developer &amp; Technical Writer</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="article-body">
+      <p class="intro">
+        The fastest way to make a slow query faster is often an index. But indexes are not
+        free — they consume memory, slow down writes, and a poorly chosen index can mislead
+        the optimizer into a worse plan than a table scan. Good <a href="/blog/database-normalization">database normalization</a>
+        reduces the number of indexes needed by reducing redundancy, while a
+        <a href="/blog/database-normalization">denormalized schema</a> can eliminate
+        the need for some joins at the cost of write overhead.
+        free — they consume memory, slow down writes, and a poorly chosen index can mislead
+        the optimizer into a worse plan than a table scan. This guide gives you the mental
+        model and the practical tools to make indexing decisions confidently.
+      </p>
+
+      <section id="btrees">
+        <h2>How Indexes Work — B-Trees</h2>
+        <p>
+          Most SQL indexes are B-Tree (balanced tree) structures. They store key values in
+          sorted order across a tree that stays roughly balanced regardless of insert order,
+          giving O(log n) lookup time. When you search for a value, the engine traverses
+          from the root down to the leaf pages — typically 3-4 levels for millions of rows.
+        </p>
+        <p>
+          Understanding B-Trees explains why <strong>range scans</strong> (<code>WHERE date BETWEEN ...</code>)
+          can use an index efficiently (just scan the sorted leaf pages) while
+          <strong>sorting</strong> on a non-indexed column requires a full sort operation.
+        </p>
+      </section>
+
+      <section id="create-index">
+        <h2>Creating Indexes — Beyond the Basics</h2>
+        <p>
+          A basic single-column index is just the starting point. Composite indexes,
+          covering indexes, and partial indexes give you much more leverage when used correctly.
+        </p>
+        <pre class="code-block" set:html={codeExamples.createIndex} />
+        <div class="use-case">
+          <strong>Covering indexes</strong> are the highest-performance option for read-heavy
+          queries: the engine reads only the index pages, never touches the table data.
+          The cost is storage and write overhead. Measure the query frequency vs write
+          frequency before adding them indiscriminately.
+        </div>
+      </section>
+
+      <section id="sargable">
+        <h2>Sargability — Writing Index-Friendly WHERE Clauses</h2>
+        <p>
+          A predicate is <strong>sargable</strong> (Search ARGument ABLE) if the query optimizer
+          can use an index to evaluate it. The most common performance mistakes come from
+          writing predicates that look reasonable but are not sargable.
+        </p>
+        <pre class="code-block" set:html={codeExamples.badPattern1} />
+        <div class="use-case warning">
+          <strong>Rule:</strong> Never wrap an indexed column in a function in a WHERE clause.
+          If you need <code>UPPER(name)</code> searches, add a functional index instead.
+          Similarly, avoid leading wildcards (<code>LIKE '%term%'</code>) on regular indexes —
+          use full-text search for that instead.
+        </div>
+      </section>
+
+      <section id="execution-plans">
+        <h2>Reading Execution Plans</h2>
+        <p>
+          The execution plan shows exactly how the database engine executes your query —
+          which indexes it uses, how tables are joined, and where data is filtered.
+          Before adding or removing an index, always look at the plan first.
+        </p>
+        <pre class="code-block" set:html={codeExamples.queryPlans} />
+        <div class="use-case">
+          <strong>What to look for:</strong> "Index Seek" is good (using the index efficiently).
+          "Index Scan" on a large table is a warning. "Table Scan" means no index was used —
+          check if you have a missing index suggestion. "Nested Loop," "Hash Match," and
+          "Merge Join" are join algorithms — none is universally better; it depends on data size.
+        </div>
+      </section>
+
+      <section id="or-vs-and">
+        <h2>AND vs OR — Index Impact</h2>
+        <p>
+          <code>AND</code> is a filter that reduces rows — the more AND conditions, the fewer
+          rows the engine needs to process. <code>OR</code> is more complex: in many databases,
+          a query with multiple OR conditions cannot use a single index efficiently and falls
+          back to a scan. Separate indexes + <code>UNION ALL</code> often outperforms a single
+          OR predicate.
+        </p>
+        <pre class="code-block" set:html={codeExamples.indexVsScan} />
+      </section>
+
+      <section id="maintenance">
+        <h2>Index Maintenance — Monitoring and Cleanup</h2>
+        <p>
+          Indexes accumulate fragmentation from page splits during inserts and updates.
+          They can also become unused over time as query patterns change. Regular
+          maintenance — monitoring usage statistics and rebuilding fragmented indexes —
+          keeps performance stable on large tables.
+        </p>
+        <pre class="code-block" set:html={codeExamples.fillFactor} />
+        <div class="use-case">
+          <strong>Guideline:</strong> Remove indexes with zero scans if they were not
+          intentionally created for future use. Use the index statistics views
+          (<code>pg_stat_user_indexes</code>, <code>sys.dm_db_index_usage_stats</code> in SQL Server)
+          to find them. An unused index still slows down every INSERT, UPDATE, and DELETE.
+        </div>
+      </section>
+
+      <section id="partitioning">
+        <h2>Partitioning — When Indexes Are Not Enough</h2>
+        <p>
+          On very large tables (tens of millions of rows), even a well-tuned index can be
+          too broad. Table partitioning divides the table into smaller physical units,
+          so queries that target a specific partition can skip all other partitions entirely.
+        </p>
+        <pre class="code-block" set:html={codeExamples.partition} />
+        <div class="use-case">
+          <strong>Partition when:</strong> tables exceed ~50GB, or queries almost always
+          filter on a date/time column, or you need to archive old data without deleting rows.
+          Partitioning adds complexity — start with good indexing first and only partition
+          when indexes are no longer sufficient.
+        </div>
+      </section>
+
+      <section id="faq" class="faq-section">
+        <h2>Frequently Asked Questions</h2>
+        <dl class="faq-list">
+          {faqItems.map((item) => (
+            <>
+              <dt class="faq-question">{item.question}</dt>
+              <dd class="faq-answer">{item.answer}</dd>
+            </>
+          ))}
+        </dl>
+      </section>
+
+      <aside class="practice-cta">
+        <h2>Practice indexing and query optimization in your browser</h2>
+        <p>
+          Run the example queries and examine execution plans in SQL Query Lab.
+          Practice writing sargable queries, creating composite and covering indexes,
+          and analyzing query performance — no database setup required.
+        </p>
+        <a href="https://learn-sql-practice.vercel.app/" class="cta-btn">
+          Start practicing query optimization
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
+        </a>
+      </aside>
+    </div>
+  </article>
+</Layout>
+
+<style>
+  .article { max-width: 68ch; }
+
+  .article-body section {
+    margin-bottom: 3rem;
+  }
+
+  .article-body section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 1rem;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+  }
+
+  .article-body section p {
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--color-text);
+    margin: 0 0 1rem;
+  }
+
+  .code-block {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4a;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    overflow-x: auto;
+    margin: 0 0 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.65;
+    color: #e2e8f0;
+  }
+
+  .code-block code {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  .use-case {
+    padding: 0.875rem 1rem;
+    border-left: 3px solid var(--color-primary);
+    background: var(--color-surface);
+    border-radius: 0 0.375rem 0.375rem 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text);
+    margin-bottom: 1.25rem;
+  }
+
+  .use-case.warning {
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+  }
+
+  :global(.dark) .use-case.warning {
+    background: #292524;
+    border-left-color: #f59e0b;
+    color: #fef3c7;
+  }
+
+  .use-case strong {
+    font-weight: 600;
+  }
+
+  .use-case code {
+    font-size: 0.875em;
+    background: var(--color-surface);
+    padding: 0.1em 0.3em;
+    border-radius: 0.25rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .faq-section {
+    margin-bottom: 3rem;
+  }
+
+  .faq-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 1.5rem;
+    letter-spacing: -0.01em;
+  }
+
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .faq-question {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-top: 1.25rem;
+    color: var(--color-text);
+    line-height: 1.5;
+  }
+
+  .faq-answer {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--color-text-muted);
+    margin: 0.375rem 0 0;
+  }
+
+  .practice-cta {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-bottom: 3rem;
+    color: #e2e8f0;
+  }
+
+  .practice-cta h2 {
+    font-size: 1.375rem;
+    font-weight: 700;
+    margin: 0 0 0.75rem;
+    color: white;
+  }
+
+  .practice-cta p {
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: #94a3b8;
+    margin: 0 0 1.25rem;
+  }
+
+  .cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    background: var(--color-primary);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    transition: background 0.15s, transform 0.15s;
+  }
+
+  .cta-btn:hover {
+    background: var(--color-primary-dark);
+    transform: translateY(-1px);
+  }
+</style>
