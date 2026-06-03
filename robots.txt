@@ -26,5 +26,8 @@ Allow: /
 
 Sitemap: https://learn-sql-practice.vercel.app/sitemap.xml
 
-# Crawl delay + restrict /app/ (JS-heavy app, no SEO value from crawling)
+# Block the JS app shell (no crawlable content) but ALLOW the GEO/content page
+# and the CSS it needs to render. Allow rules are more specific, so they win.
 Disallow: /app/
+Allow: /app/learn-sql-browser/
+Allow: /app/_astro/

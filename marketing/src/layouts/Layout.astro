@@ -41,10 +41,6 @@ const orgSchema = {
     width: 512,
     height: 512,
   },
-  sameAs: [
-    'https://github.com/search?q=sql+query+lab+learn',
-    'https://www.linkedin.com/company/sql-query-lab',
-  ],
   contactPoint: {
     '@type': 'ContactPoint',
     url: `${siteUrl}/contact`,
@@ -99,6 +95,10 @@ const articleSchema = author
       mainEntityOfPage: {
         '@type': 'WebPage',
         '@id': pageUrl,
+      },
+      speakable: {
+        '@type': 'SpeakableSpecification',
+        cssSelector: ['h1', '.lead'],
       },
     }
   : null;
@@ -183,7 +183,6 @@ const websiteSchema = {
           <a href={siteUrl}>Practice</a>
           <a href="/learn-sql-browser">Learn SQL Guide</a>
           <a href="/blog">Blog</a>
-          <a href="https://github.com/search?q=sql+query+lab" rel="noopener noreferrer" target="_blank">GitHub</a>
         </div>
       </nav>
     </header>
@@ -202,7 +201,7 @@ const websiteSchema = {
         <a href="https://www.linkedin.com/in/pukarkhanal/" rel="noopener noreferrer" target="_blank">LinkedIn</a>
       </p>
       <p class="updated">
-        Page last reviewed May 2026.
+        Page last reviewed June 2026.
       </p>
     </footer>
   </body>
