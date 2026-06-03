@@ -454,10 +454,12 @@ function formatDate(dateStr: string) {
     background: #fffbeb;
   }
 
-  :global(.dark) .use-case.warning {
-    background: #292524;
-    border-left-color: #f59e0b;
-    color: #fef3c7;
+  @media (prefers-color-scheme: dark) {
+    .use-case.warning {
+      background: #292524;
+      border-left-color: #f59e0b;
+      color: #fef3c7;
+    }
   }
 
   .use-case strong {
